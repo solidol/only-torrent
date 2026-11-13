@@ -46,7 +46,7 @@ foreach ($fileName in @('qsbridge.dll','torrent-rasterbar.dll')) {
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $packagePath 'engine-build.json')
 Write-Output "Engine package ready: $packagePath"
 if (-not $NoDeploy) {
-  $clientPath = Join-Path $workspacePath 'bin/Win64/qstorrent.exe'
+  $clientPath = [IO.Path]::GetFullPath((Join-Path $workspacePath 'bin/Win64/qstorrent.exe'))
   $runningClient = Get-Process -Name qstorrent -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $clientPath }
   if ($runningClient) { throw "Close qsTorrent before replacing engine DLLs. Package is ready at $packagePath" }
   New-Item -ItemType Directory -Force bin/Win64/licenses | Out-Null

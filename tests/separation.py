@@ -1,5 +1,6 @@
 ﻿"""Check the actual DLL boundaries, not just source/CMake declarations."""
 import ctypes as c,hashlib,json,struct
+import os
 from pathlib import Path
 from engine_common import dll
 
@@ -31,7 +32,7 @@ def pe_tables(path):
             imports.append(text(struct.unpack_from('<I',data,p+12)[0]).lower());p+=20
     return exports,imports
 
-root=Path('bin/Win64')
+root=Path(os.environ.get('QS_ENGINE_DIR', 'bin/Win64'))
 vendor_exports,vendor_imports=pe_tables(root/'torrent-rasterbar.dll')
 bridge_exports,bridge_imports=pe_tables(root/'qsbridge.dll')
 assert not any(n.startswith('qs_') for n in vendor_exports)
@@ -42,7 +43,7 @@ assert 'msvcp140.dll' in bridge_imports and 'msvcp140.dll' in vendor_imports
 assert dll.qs_version()==2
 dll.qs_libtorrent_version.restype=c.c_char_p
 version=dll.qs_libtorrent_version().decode()
-config=json.loads(Path('native/dependencies.json').read_text(encoding='utf-8-sig'))
-sdk=Path('deps/libtorrent-sdk')/config['libtorrent']['version']/'bin/torrent-rasterbar.dll'
-assert sdk.read_bytes()==(root/'torrent-rasterbar.dll').read_bytes()
+manifest=json.loads(Path('third_party/bin/Win64/runtime.json').read_text(encoding='utf-8-sig'))
+assert hashlib.sha256((root/'torrent-rasterbar.dll').read_bytes()).hexdigest()==manifest['files']['torrent-rasterbar.dll']
+assert version.startswith(manifest['versions']['libtorrent'])
 print('PASS: original upstream DLL has no qs_* exports; qsbridge dynamically imports it; shared CRT; ABI 2; runtime libtorrent',version)

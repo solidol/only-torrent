@@ -6,7 +6,7 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, System.UITypes, System.Types,
   System.Generics.Collections, Vcl.Forms, Vcl.Controls, Vcl.ComCtrls,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList,
-  Qs.Engine, Qs.Settings, System.ImageList, Vcl.ToolWin;
+  Qs.Engine, Qs.Settings, System.ImageList, Vcl.ToolWin, Qs.TaskStore;
 
 type
   TTorrentEntry = class
@@ -17,6 +17,9 @@ type
     Priorities: TArray<Integer>;
     Snapshot: TQsSnapshot;
     Blocks: TQsBlockMap;
+    Stored: TQsStoredTask;
+    Options: TQsAddOptions;
+    ResumePending: Boolean;
     destructor Destroy; override;
   end;
 
@@ -70,6 +73,7 @@ type
     MenuItemFolder: TMenuItem;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure AddClick(Sender: TObject);
     procedure StartClick(Sender: TObject);
     procedure PauseClick(Sender: TObject);
@@ -94,6 +98,14 @@ type
     FRebuilding, FNeedsRebuild: Boolean;
     FDownHistory, FUpHistory: array[0..119] of Int64;
     FSelectedBlocks: TQsBlockMap;
+    FStore: TQsTaskStore;
+    FLastResumeTick, FCloseDeadline: UInt64;
+    FClosing, FAllowClose, FFinalResume: Boolean;
+    procedure RestoreTasks;
+    procedure StartStored(Entry: TTorrentEntry);
+    procedure DrainResume;
+    procedure Checkpoint(Flush: Boolean);
+    procedure ContinueClosing;
     function EnsureEngine: Boolean;
     function SelectedEntry: TTorrentEntry;
     function Matches(Entry: TTorrentEntry; Filter: Integer): Boolean;
@@ -111,8 +123,8 @@ var FormMain: TFormMain;
 
 implementation
 
-uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
-  Vcl.Graphics, Qs.Appearance, Qs.AddTorrentForm, Qs.PreferencesForm, Qs.TransferMath, Qs.BlockMap;
+uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI, Winapi.Messages,
+  Vcl.Graphics, Qs.Appearance, Qs.AddTorrentForm, Qs.PreferencesForm, Qs.TransferMath, Qs.BlockMap, Qs.Profile, Qs.Localization, Qs.FormLocalization;
 
 {$R *.dfm}
 
@@ -178,24 +190,43 @@ procedure TFormMain.FormCreate(Sender: TObject);
 begin
   FEntries := TObjectList<TTorrentEntry>.Create(True);
   FSettings.Load;
+  LoadLanguage(FSettings.Language);
   Font.Assign(Screen.MenuFont);
   BuildImages;
   ListViewTorrents.DoubleBuffered := True;
   ListViewFiles.DoubleBuffered := True;
   PanelGeneral.DoubleBuffered := True;
-  TreeViewSidebar.Items.Add(nil, 'Усі (0)').ImageIndex := 0;
-  TreeViewSidebar.Items.Add(nil, 'Завантажуються (0)').ImageIndex := 3;
-  TreeViewSidebar.Items.Add(nil, 'Завершені (0)').ImageIndex := 2;
-  TreeViewSidebar.Items.Add(nil, 'Активні (0)').ImageIndex := 2;
-  TreeViewSidebar.Items.Add(nil, 'Неактивні (0)').ImageIndex := 3;
-  TreeViewSidebar.Items.Add(nil, 'Без мітки (0)').ImageIndex := 5;
+  TreeViewSidebar.Items.Add(nil, L('text.406aacd8061d', 'Усі (0)')).ImageIndex := 0;
+  TreeViewSidebar.Items.Add(nil, L('text.017ddf4cf8bd', 'Завантажуються (0)')).ImageIndex := 3;
+  TreeViewSidebar.Items.Add(nil, L('text.7f593b5a04b6', 'Завершені (0)')).ImageIndex := 2;
+  TreeViewSidebar.Items.Add(nil, L('text.15e812e625b5', 'Активні (0)')).ImageIndex := 2;
+  TreeViewSidebar.Items.Add(nil, L('text.2b206c78cd92', 'Неактивні (0)')).ImageIndex := 3;
+  TreeViewSidebar.Items.Add(nil, L('text.793c888f1505', 'Без мітки (0)')).ImageIndex := 5;
   TreeViewSidebar.Selected := TreeViewSidebar.Items[0];
   ApplyAppearance(Self, FSettings.SystemTheme);
-  MemoInfo.Text := 'Додайте .torrent-файл кнопкою «+» або натисніть Ctrl+O.';
-  StatusBarMain.Panels[0].Text := 'Готово';
-  StatusBarMain.Panels[1].Text := 'Вниз: 0 KiB/с';
-  StatusBarMain.Panels[2].Text := 'Вгору: 0 KiB/с';
-  Log('qsTorrent готовий до роботи.');
+  MemoInfo.Text := L('text.69edc94508cc', 'Додайте .torrent-файл кнопкою «+» або натисніть Ctrl+O.');
+  StatusBarMain.Panels[0].Text := L('text.398c7d4f7b0d', 'Готово');
+  StatusBarMain.Panels[1].Text := L('text.84042003acd8', 'Вниз: 0 KiB/с');
+  StatusBarMain.Panels[2].Text := L('text.3222b3fd5803', 'Вгору: 0 KiB/с');
+  Log(L('text.114738e16962', 'qsTorrent готовий до роботи.'));
+  TranslateForm(Self);
+  if LanguageWarning <> '' then Log(LanguageWarning);
+  try
+    FStore := TQsTaskStore.Create(ProfileFolder);
+    if not FileExists(TPath.Combine(ProfileFolder, 'settings.ini')) then FSettings.Save;
+    RestoreTasks;
+  except
+    on E: Exception do
+    begin
+      TimerRefresh.Enabled := False;
+      ToolBarMain.Enabled := False;
+      MainMenuMain.Items.Enabled := False;
+      MessageDlg(E.Message, mtError, [mbOK], 0);
+      Application.Terminate;
+      Exit;
+    end;
+  end;
+  FLastResumeTick := GetTickCount64;
   UpdateButtons;
 end;
 
@@ -206,6 +237,146 @@ begin
   ListViewTorrents.Items.Clear;
   FreeAndNil(FEngine);
   FreeAndNil(FEntries);
+  FreeAndNil(FStore);
+end;
+
+procedure TFormMain.StartStored(Entry: TTorrentEntry);
+var Original: TQsMetadata; I: Integer;
+begin
+  if not DirectoryExists(Entry.Folder) then
+    raise Exception.Create(L('message.674241440297', 'Папка завантаження недоступна: ') + Entry.Folder);
+  if not EnsureEngine then raise Exception.Create(L('message.f0bd0106fef6', 'Рушій недоступний'));
+  Original := FEngine.Inspect(Entry.FileName);
+  try
+    if Original.InfoHash <> Entry.Stored.InfoHash then raise Exception.Create(L('message.44aa788f91e3', 'Info-hash службового торрента не збігається із записом завдання'));
+    if Length(Original.Files) <> Length(Entry.Metadata.Files) then raise Exception.Create(L('message.a3cc99a0ae21', 'Кількість файлів службового торрента не відповідає запису завдання'));
+    for I := 0 to High(Original.Files) do
+      if Original.Files[I].Size <> Entry.Metadata.Files[I].Size then
+        raise Exception.Create('Stored file size mismatch');
+    Entry.Metadata.Comment := Original.Comment;
+    Entry.Metadata.Creator := Original.Creator;
+    Entry.Metadata.Publisher := Original.Publisher;
+    Entry.Metadata.PublisherURL := Original.PublisherURL;
+    Entry.Metadata.CreatedUTC := Original.CreatedUTC;
+    Entry.Metadata.WebSeeds := Original.WebSeeds;
+    Entry.Metadata.Pieces := Original.Pieces;
+    Entry.Metadata.PieceLength := Original.PieceLength;
+  finally Original.Free; end;
+  Entry.Options.Start := Entry.Stored.Running;
+  Entry.Id := FEngine.AddOptions(Entry.FileName, Entry.Folder, Entry.Priorities,
+    Entry.Options, Entry.Metadata, Entry.Stored.Resume, True);
+  Entry.Stored.Resume := nil;
+  Entry.LastError := '';
+end;
+
+procedure TFormMain.RestoreTasks;
+var Task: TQsStoredTask; Entry: TTorrentEntry;
+begin
+  for Task in FStore.Load do
+  begin
+    Entry := TTorrentEntry.Create;
+    Entry.Stored := Task; Entry.FileName := Task.TorrentFile; Entry.Folder := Task.SavePath;
+    Entry.Metadata := TQsMetadata.Create;
+    Entry.Metadata.Name := Task.Name; Entry.Metadata.InfoHash := Task.InfoHash;
+    FEntries.Add(Entry);
+    try
+      ReadTaskDetails(Task.Details, Entry.Metadata, Entry.Priorities, Entry.Options);
+      if not EnsureEngine then raise Exception.Create(L('message.f0bd0106fef6', 'Рушій недоступний'));
+      FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB, FSettings.UploadKiB, FSettings.Connections);
+      StartStored(Entry);
+    except
+      on E: Exception do
+      begin
+        Entry.Snapshot.State := 9; Entry.LastError := E.Message;
+        Log(Task.Name + ': ' + E.Message);
+      end;
+    end;
+  end;
+  FNeedsRebuild := True;
+  if FEngine <> nil then RefreshTimerTimer(nil) else UpdateRows;
+end;
+
+procedure TFormMain.DrainResume;
+var Id, Status: Integer; Bytes: TBytes; Entry: TTorrentEntry;
+begin
+  if (FEngine = nil) or (FStore = nil) then Exit;
+  while FEngine.PollResume(Id, Status, Bytes) do
+    for Entry in FEntries do
+      if Entry.Id = Id then
+      begin
+        Entry.ResumePending := False;
+        if Status = 0 then FStore.SaveResume(Entry.Stored.Id, Bytes)
+        else Log(L('message.f6ec39179b4f', 'Не вдалося зберегти fast-resume: ') + Entry.Metadata.Name);
+        Break;
+      end;
+end;
+
+procedure TFormMain.Checkpoint(Flush: Boolean);
+var Entry: TTorrentEntry;
+begin
+  if FEngine = nil then Exit;
+  for Entry in FEntries do
+    if (Entry.Id > 0) and not Entry.ResumePending then
+      try
+        FEngine.RequestResume(Entry.Id, Flush);
+        Entry.ResumePending := True;
+      except on E: Exception do Log(E.Message); end;
+end;
+
+procedure TFormMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  CanClose := FAllowClose or (FEngine = nil) or (FStore = nil) or (FEntries.Count = 0);
+  if CanClose then Exit;
+  if FClosing then Exit;
+  FClosing := True; FFinalResume := False;
+  FCloseDeadline := GetTickCount64 + 15000;
+  ToolBarMain.Enabled := False; MainMenuMain.Items.Enabled := False;
+  PopupMenuTorrent.Items.Enabled := False;
+  ContinueClosing;
+end;
+
+procedure TFormMain.ContinueClosing;
+var Entry: TTorrentEntry; Pending: Boolean; ErrorText: string;
+begin
+  DrainResume;
+  Pending := False;
+  for Entry in FEntries do Pending := Pending or Entry.ResumePending;
+  if Pending and (GetTickCount64 < FCloseDeadline) then Exit;
+  if not FFinalResume then
+  begin
+    for Entry in FEntries do
+    begin
+      Entry.ResumePending := False;
+      if Entry.Id > 0 then FEngine.Command(Entry.Id, 0);
+    end;
+    FFinalResume := True;
+    FCloseDeadline := GetTickCount64 + 15000;
+    Checkpoint(True);
+    Exit;
+  end;
+  try
+    if Pending then
+      for Entry in FEntries do
+        if Entry.ResumePending then
+        begin
+          Log(L('resume.timeout', 'Не дочекалися fast-resume: ') + Entry.Metadata.Name);
+          FStore.SaveResume(Entry.Stored.Id, nil);
+          Entry.ResumePending := False;
+        end;
+    FStore.Flush;
+    ErrorText := FStore.TakeError;
+    if ErrorText <> '' then raise Exception.Create(ErrorText);
+    FAllowClose := True;
+    PostMessage(Handle, WM_CLOSE, 0, 0);
+  except
+    on E: Exception do
+    begin
+      FClosing := False;
+      ToolBarMain.Enabled := True; MainMenuMain.Items.Enabled := True;
+      PopupMenuTorrent.Items.Enabled := True;
+      MessageDlg(E.Message, mtError, [mbOK], 0);
+    end;
+  end;
 end;
 
 procedure TFormMain.Log(const Text: string);
@@ -233,8 +404,9 @@ end;
 procedure TFormMain.AddClick(Sender: TObject);
 var FormDialog: TFormAddTorrent; Metadata: TQsMetadata; Entry: TTorrentEntry;
   Priorities: TArray<Integer>; Folder: string; Options: TQsAddOptions;
-  I, Id: Integer;
+  I, Id: Integer; ManagedFile: string;
 begin
+  if FClosing then Exit;
   if not OpenDialogTorrent.Execute then Exit;
   if not EnsureEngine then Exit;
   Metadata := nil;
@@ -266,20 +438,40 @@ begin
       end;
       Folder := ExpandFileName(Folder);
       if not System.SysUtils.ForceDirectories(Folder) then
-        raise Exception.Create('Не вдалося створити папку завантаження.');
+        raise Exception.Create(L('text.ca1203e6fb5e', 'Не вдалося створити папку завантаження.'));
       FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB,
         FSettings.UploadKiB, FSettings.Connections);
-      Id := FEngine.AddOptions(OpenDialogTorrent.FileName, Folder, Priorities, Options, Metadata);
+      ManagedFile := ImportTorrent(OpenDialogTorrent.FileName, FSettings.TorrentFolder, Metadata.InfoHash);
+      // Validate the committed copy rather than relying on the source in Downloads.
+      with FEngine.Inspect(ManagedFile) do
+      try
+        if InfoHash <> Metadata.InfoHash then raise Exception.Create(L('message.fb6538500ed0', 'Торрент змінився під час копіювання'));
+      finally Free; end;
+      Id := FEngine.AddOptions(ManagedFile, Folder, Priorities, Options, Metadata);
       Entry := TTorrentEntry.Create;
       Entry.Id := Id;
-      Entry.FileName := OpenDialogTorrent.FileName;
+      Entry.FileName := ManagedFile;
       Entry.Folder := Folder;
       Entry.Metadata := Metadata;
       Metadata := nil;
       Entry.Priorities := Priorities;
+      Entry.Options := Options;
+      Entry.Stored.InfoHash := Entry.Metadata.InfoHash;
+      Entry.Stored.Name := Entry.Metadata.Name;
+      Entry.Stored.TorrentFile := ManagedFile;
+      Entry.Stored.SavePath := Folder;
+      Entry.Stored.Running := Options.Start;
+      Entry.Stored.Position := FEntries.Count;
+      Entry.Stored.Details := TaskDetails(Entry.Metadata, Priorities, Options);
+      try
+        FStore.Save(Entry.Stored);
+      except
+        FEngine.Command(Id, 2);
+        raise;
+      end;
       FEntries.Add(Entry);
       Entry := nil;
-      Log('Додано: ' + FEntries.Last.Metadata.Name);
+      Log(L('text.4eb7a3577fcb', 'Додано: ') + FEntries.Last.Metadata.Name);
       FNeedsRebuild := True;
       RefreshTimerTimer(nil);
       for I := 0 to ListViewTorrents.Items.Count - 1 do
@@ -326,15 +518,31 @@ procedure TFormMain.SelectedCommand(Value: Integer);
 var Entry: TTorrentEntry;
 begin
   Entry := SelectedEntry;
-  if (Entry = nil) or (FEngine = nil) then Exit;
+  if (Entry = nil) or (FStore = nil) or FClosing then Exit;
   try
-    FEngine.Command(Entry.Id, Value);
     if Value = 2 then
     begin
-      Log('Прибрано зі списку, файли збережено: ' + Entry.Metadata.Name);
+      FStore.Remove(Entry.Stored.Id);
+      if Entry.Id > 0 then
+        try FEngine.Command(Entry.Id, Value);
+        except FStore.Save(Entry.Stored); raise; end;
+    end
+    else
+    begin
+      Entry.Stored.Running := Value = 1;
+      FStore.Save(Entry.Stored);
+      Entry.Options.Start := Entry.Stored.Running;
+      if Entry.Id > 0 then FEngine.Command(Entry.Id, Value)
+      else if Value = 1 then StartStored(Entry);
+    end;
+    if Value = 2 then
+    begin
+      Log(L('text.a1a82bfde2a1', 'Прибрано зі списку, файли збережено: ') + Entry.Metadata.Name);
       // Remove list pointers before destroying the owned model.
       FRebuilding := True;
       try ListViewTorrents.Items.Clear; finally FRebuilding := False; end;
+      // Keep the managed .torrent as a small orphan cache. Never delete user data.
+      // A queued resume reply only UPDATEs existing rows and cannot recreate it.
       FEntries.Remove(Entry);
       FNeedsRebuild := True;
     end;
@@ -385,9 +593,12 @@ begin
   if (FEngine <> nil) and (FEntries.Count > 0) then
     FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB,
       FSettings.UploadKiB, FSettings.Connections);
+  LoadLanguage(FSettings.Language);
+  TranslateForm(Self);
   ApplyAppearance(Self, FSettings.SystemTheme);
   ListViewTorrents.Invalidate;
-  Log('Налаштування застосовано.');
+  RefreshTimerTimer(nil);
+  Log(L('text.590da7f80c60', 'Налаштування застосовано.'));
 end;
 
 procedure TFormMain.ViewClick(Sender: TObject);
@@ -411,7 +622,7 @@ begin
   Entry := SelectedEntry;
   if Entry <> nil then
     if NativeInt(ShellExecute(Handle, 'open', PChar(Entry.Folder), nil, nil, SW_SHOWNORMAL)) <= 32 then
-      MessageDlg('Не вдалося відкрити папку.', mtError, [mbOK], 0);
+      MessageDlg(L('text.8a97e3f4441c', 'Не вдалося відкрити папку.'), mtError, [mbOK], 0);
 end;
 
 function TFormMain.Matches(Entry: TTorrentEntry; Filter: Integer): Boolean;
@@ -481,8 +692,8 @@ begin
       SetSubItem(2, StateText(Entry.Snapshot.State));
       SetSubItem(3, IntToStr(Entry.Snapshot.Seeds));
       SetSubItem(4, IntToStr(Entry.Snapshot.Peers));
-      SetSubItem(5, SizeText(Entry.Snapshot.DownloadRate) + '/с');
-      SetSubItem(6, SizeText(Entry.Snapshot.UploadRate) + '/с');
+      SetSubItem(5, SizeText(Entry.Snapshot.DownloadRate) + L('text.a9208f0400fe', '/с'));
+      SetSubItem(6, SizeText(Entry.Snapshot.UploadRate) + L('text.a9208f0400fe', '/с'));
       SetSubItem(7, SizeText(Entry.Snapshot.DoneBytes));
       if Entry.Snapshot.DownloadRate > 0 then
       begin
@@ -513,8 +724,8 @@ begin
     FSelectedBlocks := Default(TQsBlockMap);
     PaintBoxBlocks.Invalidate;
     LabelBlockLegend.Caption := '';
-    LabelProgress.Caption := 'Не вибрано торрент';
-    MemoInfo.Text := 'Виберіть торрент, щоб переглянути відомості.';
+    LabelProgress.Caption := L('text.81fbbf68b1cc', 'Не вибрано торрент');
+    MemoInfo.Text := L('text.a4e5b8a2abf1', 'Виберіть торрент, щоб переглянути відомості.');
     ListViewFiles.Items.Clear;
     ListViewTrackers.Items.Clear;
     Exit;
@@ -522,9 +733,9 @@ begin
   LabelProgress.Caption := Format('%s  ·  %.1f %%',
     [StateText(Entry.Snapshot.State), Entry.Snapshot.Progress / 10000]);
   Text := Entry.Metadata.Name + sLineBreak +
-    'Завантажено: ' + SizeText(Entry.Snapshot.DoneBytes) + ' / ' + SizeText(Entry.Snapshot.TotalBytes) +
-    '     Сіди: ' + IntToStr(Entry.Snapshot.Seeds) + '     Піри: ' + IntToStr(Entry.Snapshot.Peers) + sLineBreak +
-    'Папка: ' + Entry.Folder + sLineBreak +
+    L('text.491361bc906c', 'Завантажено: ') + SizeText(Entry.Snapshot.DoneBytes) + ' / ' + SizeText(Entry.Snapshot.TotalBytes) +
+    L('text.93f8985b2e48', '     Сіди: ') + IntToStr(Entry.Snapshot.Seeds) + L('text.e2750335eedd', '     Піри: ') + IntToStr(Entry.Snapshot.Peers) + sLineBreak +
+    L('text.5c7051dc859a', 'Папка: ') + Entry.Folder + sLineBreak +
     UTF8ToString(PAnsiChar(@Entry.Snapshot.Error[0]));
   if MemoInfo.Text <> Text then MemoInfo.Text := Text;
   if not RefreshFiles then Exit;
@@ -537,16 +748,16 @@ begin
       Item := ListViewFiles.Items.Add;
       Item.Caption := Entry.Metadata.Files[I].Path;
       Item.SubItems.Add(SizeText(Entry.Metadata.Files[I].Size));
-      if Entry.Priorities[I] = 0 then Item.SubItems.Add('Пропустити')
-      else Item.SubItems.Add('Звичайний');
+      if Entry.Priorities[I] = 0 then Item.SubItems.Add(L('text.eaa2b8afb965', 'Пропустити'))
+      else Item.SubItems.Add(L('text.cb037ba591a9', 'Звичайний'));
     end;
     ListViewTrackers.Items.Clear;
     for I := 0 to High(Entry.Metadata.Trackers) do
     begin
       Item := ListViewTrackers.Items.Add;
       Item.Caption := Entry.Metadata.Trackers[I];
-      if StartsText('https:', Item.Caption) then Item.SubItems.Add('HTTPS ще не підтримується')
-      else Item.SubItems.Add('З .torrent-файлу');
+      if StartsText('https:', Item.Caption) then Item.SubItems.Add(L('text.ab12bb1d816a', 'HTTPS ще не підтримується'))
+      else Item.SubItems.Add(L('text.450ebad57898', 'З .torrent-файлу'));
     end;
   finally
     ListViewFiles.Items.EndUpdate;
@@ -559,14 +770,23 @@ const Names: array[0..5] of string = ('Усі', 'Завантажуються', 
 var Entry: TTorrentEntry; Down, Up: Int64; I: Integer; Count: array[0..5] of Integer;
   Before: Boolean; ErrorText: string;
 begin
-  if (FEngine = nil) or (FEntries = nil) then Exit;
+  if (FStore = nil) or (FEntries = nil) then Exit;
+  DrainResume;
+  if FClosing then begin ContinueClosing; Exit; end;
+  if GetTickCount64 - FLastResumeTick >= 60000 then
+  begin
+    Checkpoint(True);
+    FLastResumeTick := GetTickCount64;
+  end;
+  ErrorText := FStore.TakeError;
+  if ErrorText <> '' then Log(ErrorText);
   Down := 0; Up := 0;
   FillChar(Count, SizeOf(Count), 0);
   for Entry in FEntries do
   begin
     Before := Matches(Entry, FFilter);
     try
-      Entry.Snapshot := FEngine.Snapshot(Entry.Id);
+      if (FEngine <> nil) and (Entry.Id > 0) then Entry.Snapshot := FEngine.Snapshot(Entry.Id);
     except
       on E: Exception do
       begin
@@ -586,14 +806,14 @@ begin
     Inc(Up, Entry.Snapshot.UploadRate);
     for I := 0 to 5 do if Matches(Entry, I) then Inc(Count[I]);
   end;
-  for I := 0 to 5 do TreeViewSidebar.Items[I].Text := Format('%s (%d)', [Names[I], Count[I]]);
+  for I := 0 to 5 do TreeViewSidebar.Items[I].Text := Format('%s (%d)', [L('category.' + IntToStr(I), Names[I]), Count[I]]);
   UpdateRows;
   UpdateBlocks;
   UpdateDetails(False);
   UpdateButtons;
-  StatusBarMain.Panels[0].Text := Format('Торрентів: %d   ·   DHT вимкнено', [FEntries.Count]);
-  StatusBarMain.Panels[1].Text := 'Вниз: ' + SizeText(Down) + '/с';
-  StatusBarMain.Panels[2].Text := 'Вгору: ' + SizeText(Up) + '/с';
+  StatusBarMain.Panels[0].Text := LF('text.2e6f13ed5386', 'Торрентів: %d   ·   DHT вимкнено', [FEntries.Count]);
+  StatusBarMain.Panels[1].Text := L('text.16561c24aaa7', 'Вниз: ') + SizeText(Down) + L('text.a9208f0400fe', '/с');
+  StatusBarMain.Panels[2].Text := L('text.2ab5db5de322', 'Вгору: ') + SizeText(Up) + L('text.a9208f0400fe', '/с');
   if Sender = TimerRefresh then
   begin
     for I := 0 to High(FDownHistory) - 1 do
@@ -638,7 +858,8 @@ begin
     begin
       Entry := TTorrentEntry(ListViewTorrents.Items[I].Data);
       try
-        NewBlocks := FEngine.Blocks(Entry.Id, Columns);
+        if Entry.Id > 0 then NewBlocks := FEngine.Blocks(Entry.Id, Columns)
+        else NewBlocks := Default(TQsBlockMap);
       except
         NewBlocks := Default(TQsBlockMap);
       end;
@@ -655,12 +876,13 @@ begin
   begin
     Columns := EnsureRange((PaintBoxBlocks.Width - 6) div 3, 1, 4096);
     try
-      NewBlocks := FEngine.Blocks(Entry.Id, Columns);
-      LabelBlockLegend.Caption := Format('Блоків: %s · розмір: %s · синій — перевірено; світлий — отримано; сірий — запитано',
+      if Entry.Id > 0 then NewBlocks := FEngine.Blocks(Entry.Id, Columns)
+      else NewBlocks := Default(TQsBlockMap);
+      LabelBlockLegend.Caption := LF('text.4bd1be887cf3', 'Блоків: %s · розмір: %s · синій — перевірено; світлий — отримано; сірий — запитано',
         [IntToStr(NewBlocks.TotalBlocks), SizeText(NewBlocks.BlockSize)]);
     except
       NewBlocks := Default(TQsBlockMap);
-      LabelBlockLegend.Caption := 'Карта блоків тимчасово недоступна';
+      LabelBlockLegend.Caption := L('text.f12da9086f0c', 'Карта блоків тимчасово недоступна');
     end;
   end
   else NewBlocks := Default(TQsBlockMap);
@@ -686,10 +908,10 @@ begin
     FillRect(R);
     Font.Assign(Self.Font);
     Font.Color := clWindowText;
-    TextOut(12, 8, 'Останні 120 с: завантаження — синя лінія, віддача — сіра');
+    TextOut(12, 8, L('text.b1a781c53ed5', 'Останні 120 с: завантаження — синя лінія, віддача — сіра'));
     Peak := 1024;
     for I := 0 to High(FDownHistory) do Peak := Max(Peak, Max(FDownHistory[I], FUpHistory[I]));
-    TextOut(12, 28, 'Шкала: ' + SizeText(Peak) + '/с');
+    TextOut(12, 28, L('text.fec59001f074', 'Шкала: ') + SizeText(Peak) + L('text.a9208f0400fe', '/с'));
     GraphHeight := Max(1, R.Height - 64);
     Pen.Color := clBtnFace;
     for I := 0 to 4 do

@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 import tempfile
 import time
+import os
 
 class Snapshot(c.Structure):
     _fields_ = [('total',c.c_int64),('done',c.c_int64)] + [(n,c.c_int32) for n in ('down','up','peers','seeds','state','progress')] + [('name',c.c_char*512),('error',c.c_char*512)]
@@ -15,7 +16,7 @@ def bencode(v):
     if isinstance(v, dict): return b'd'+b''.join(bencode(k)+bencode(v[k]) for k in sorted(v))+b'e'
     raise TypeError(v)
 
-dll=c.CDLL(str(Path('bin/Win64/qsbridge.dll').resolve()), winmode=0x8)
+dll=c.CDLL(str((Path(os.environ.get('QS_ENGINE_DIR', 'bin/Win64')) / 'qsbridge.dll').resolve()), winmode=0x8)
 class SessionOptions(c.Structure):
     _fields_=[('size',c.c_uint32)]+[(n,c.c_int32) for n in ('port','down','up','connections','flags','stop_timeout','reserved')]
 assert c.sizeof(SessionOptions)==32

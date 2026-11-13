@@ -1,4 +1,4 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{2D4CB65E-4146-4B1A-B687-8260DF0941C5}</ProjectGuid>
         <ProjectVersion>20.3</ProjectVersion>
@@ -36,6 +36,9 @@
         <DCC_Namespace>System;Winapi;Vcl;System.Win;$(DCC_Namespace)</DCC_Namespace>
         <DCC_UnitSearchPath>src\ui;src\engine;src\core;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_ExeOutput>.\bin\Win64</DCC_ExeOutput>
+        <PostBuildEvent>powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(PROJECTDIR)\tools\copy-runtime.ps1&quot; -Destination &quot;$(OUTPUTDIR).&quot;</PostBuildEvent>
+        <PostBuildEventExecuteWhen>Always</PostBuildEventExecuteWhen>
+        <PostBuildEventIgnoreExitCode>false</PostBuildEventIgnoreExitCode>
         <DCC_DcuOutput>build\dcu\$(Config)</DCC_DcuOutput>
         <DCC_UsePackage>;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Optimize>true</DCC_Optimize>
@@ -58,6 +61,11 @@
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
+        <DCCReference Include="src\core\Qs.Profile.pas"/>
+        <DCCReference Include="src\core\Qs.Sqlite.pas"/>
+        <DCCReference Include="src\core\Qs.TaskStore.pas"/>
+        <DCCReference Include="src\core\Qs.Localization.pas"/>
+        <DCCReference Include="src\ui\Qs.FormLocalization.pas"/>
         <DCCReference Include="src\core\Qs.Types.pas"/>
         <DCCReference Include="src\core\Qs.BlockMap.pas"/>
         <DCCReference Include="src\core\Qs.TaskOptions.pas"/>
@@ -96,6 +104,10 @@
     <Target Name="GenerateManifest" BeforeTargets="CoreCompile">
         <Exec Command="&quot;$(BDS)\Bin\brcc32.exe&quot; -foqstorrent.res resources\qstorrent.rc"/>
     </Target>
+    <PropertyGroup>
+        <PROJECTDIR Condition="'$(PROJECTDIR)'==''">$(MSBuildProjectDirectory)\</PROJECTDIR>
+        <OUTPUTDIR Condition="'$(OUTPUTDIR)'==''">$(MSBuildProjectDirectory)\$(DCC_ExeOutput)\</OUTPUTDIR>
+    </PropertyGroup>
     <ProjectExtensions>
         <Borland.Personality>Delphi.Personality.12</Borland.Personality>
         <Borland.ProjectType/>

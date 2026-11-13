@@ -9,6 +9,11 @@
 #include <libtorrent/alert.hpp>
 #include <libtorrent/file_storage.hpp>
 #include <libtorrent/bdecode.hpp>
+#include <libtorrent/alert_types.hpp>
+#include <libtorrent/read_resume_data.hpp>
+#include <libtorrent/write_resume_data.hpp>
+#include <deque>
+#include <set>
 #include <algorithm>
 #include <map>
 #include <memory>
@@ -29,6 +34,9 @@ struct engine {
     lt::session session;
     std::map<int, lt::torrent_handle> torrents;
     int next_id = 1;
+    struct resume_result { int id, status; std::vector<char> bytes; };
+    std::deque<resume_result> ready;
+    std::set<int> pending;
     explicit engine(lt::settings_pack const& p) : session(p) {}
 };
 thread_local std::string last_error;
@@ -42,6 +50,26 @@ static void copy(char* dst, size_t capacity, std::string const& value) {
     if (n < value.size()) while (n && (static_cast<unsigned char>(value[n]) & 0xc0) == 0x80) --n;
     std::memcpy(dst, value.data(), n);
     dst[n] = 0;
+}
+// All alert consumers use this dispatcher. Resume replies must never be discarded
+// by a status query; ownership is transferred to the caller by qs_resume_poll.
+static void dispatch(engine& e) {
+    std::vector<lt::alert*> alerts;
+    e.session.pop_alerts(&alerts);
+    for (auto* alert : alerts) {
+        auto* saved = lt::alert_cast<lt::save_resume_data_alert>(alert);
+        auto* failed = lt::alert_cast<lt::save_resume_data_failed_alert>(alert);
+        if (!saved && !failed) continue;
+        auto h = saved ? saved->handle : failed->handle;
+        for (auto const& pair : e.torrents) if (pair.second == h) {
+            engine::resume_result result{pair.first, failed ? -1 : 0, {}};
+            try { if (saved) result.bytes = lt::write_resume_data_buf(saved->params); }
+            catch (...) { result.status = -1; }
+            e.ready.push_back(std::move(result));
+            e.pending.erase(pair.first);
+            break;
+        }
+    }
 }
 QS_API int qs_version() noexcept { return 2; }
 QS_API char const* qs_libtorrent_version() noexcept { return lt::version(); }
@@ -112,9 +140,7 @@ QS_API int qs_snapshot(void* p, int id, snapshot* out) noexcept {
     try {
         if (!out) throw std::runtime_error("Missing output buffer");
         auto& e = get(p);
-        // Drain alerts so the bounded queue does not retain obsolete notifications.
-        std::vector<lt::alert*> alerts;
-        e.session.pop_alerts(&alerts);
+        dispatch(e);
         auto s = e.torrents.at(id).status();
         *out = {};
         out->total = s.total_wanted;
@@ -140,7 +166,7 @@ QS_API int qs_command(void* p, int id, int command) noexcept {
         switch (command) {
         case 0: h.pause(); break;
         case 1: h.resume(); break;
-        case 2: e.session.remove_torrent(h); e.torrents.erase(id); break;
+        case 2: e.session.remove_torrent(h); e.torrents.erase(id); e.pending.erase(id); break;
         default: throw std::runtime_error("Unknown command");
         }
         return 0;
@@ -232,16 +258,25 @@ QS_API int qs_piece_blocks(void* p, qs_partial_block* buffer, int capacity) noex
       catch (...) { last_error = "Block copy error"; return -1; }
 }
 QS_API void qs_piece_close(void* p) noexcept { delete static_cast<piece_data*>(p); }
-QS_API int qs_add_prepared(void* p, char const* file, char const* path,
+QS_API int qs_add_prepared_resume(void* p, char const* file, char const* path,
     int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
-    char const* const* paths, char const* const* trackers, int tracker_count) noexcept {
+    char const* const* paths, char const* const* trackers, int tracker_count, unsigned char const* resume, int resume_length, int* resume_used) noexcept {
     try {
         if (!file || !path || !priorities || count < 1 || tracker_count < 0 ||
             (tracker_count && !trackers)) throw std::runtime_error("Invalid prepared request ABI");
         auto& e = get(p);
+        if (resume_used) *resume_used = 0;
         lt::error_code ec; lt::add_torrent_params a;
-        a.ti = std::make_shared<lt::torrent_info>(std::string(file), ec);
+        auto info = std::make_shared<lt::torrent_info>(std::string(file), ec);
         if (ec) throw std::runtime_error(ec.message());
+        if (resume && resume_length > 0) {
+            a = lt::read_resume_data(lt::span<char const>(reinterpret_cast<char const*>(resume), resume_length), ec);
+            if (ec || a.info_hash != info->info_hash()) a = lt::add_torrent_params{};
+            else if (resume_used) *resume_used = 1;
+        }
+        a.ti = info;
+        a.file_priorities.clear(); a.renamed_files.clear(); a.trackers.clear();
+        a.tracker_tiers.clear();
         if (count != a.ti->num_files()) throw std::runtime_error("File count changed");
         for (int i = 0; i < count; ++i) {
             if (priorities[i] < 0 || priorities[i] > 7) throw std::runtime_error("Invalid priority enum");
@@ -258,6 +293,7 @@ QS_API int qs_add_prepared(void* p, char const* file, char const* path,
         a.flags |= lt::torrent_flags::override_trackers | lt::torrent_flags::duplicate_is_error;
         a.flags &= ~lt::torrent_flags::auto_managed;
         if (start) a.flags &= ~lt::torrent_flags::paused; else a.flags |= lt::torrent_flags::paused;
+        a.flags &= ~lt::torrent_flags::sequential_download;
         if (sequential) a.flags |= lt::torrent_flags::sequential_download;
         a.save_path = path; a.download_limit = download_bytes; a.upload_limit = upload_bytes;
         auto h = e.session.add_torrent(a, ec);
@@ -266,6 +302,53 @@ QS_API int qs_add_prepared(void* p, char const* file, char const* path,
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Prepared add error"; return -1; }
 }
+
+QS_API int qs_add_prepared(void* p, char const* file, char const* path,
+    int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
+    char const* const* paths, char const* const* trackers, int tracker_count) noexcept {
+    return qs_add_prepared_resume(p, file, path, priorities, count, start, sequential,
+        download_bytes, upload_bytes, paths, trackers, tracker_count, nullptr, 0, nullptr);
+}
+QS_API int qs_resume_request(void* p, int id, int flush) noexcept {
+    try {
+        auto& e = get(p); dispatch(e);
+        auto h = e.torrents.at(id);
+        if (e.pending.count(id)) return 0;
+        e.pending.insert(id);
+        try {
+            auto flags = lt::torrent_handle::save_info_dict;
+            if (flush) flags |= lt::torrent_handle::flush_disk_cache;
+            h.save_resume_data(flags);
+        } catch (...) { e.pending.erase(id); throw; }
+        return 1;
+    } catch (std::exception const& e) { last_error = e.what(); return -1; }
+      catch (...) { last_error = "Resume request error"; return -1; }
+}
+QS_API void* qs_resume_poll(void* p, int* id, int* status, int* length) noexcept {
+    try {
+        if (!id || !status || !length) throw std::runtime_error("Missing resume output");
+        *id = 0; *status = 0; *length = 0;
+        auto& e = get(p); dispatch(e);
+        if (e.ready.empty()) return nullptr;
+        auto result = std::unique_ptr<std::vector<char>>(new std::vector<char>);
+        auto& reply = e.ready.front();
+        *id = reply.id; *status = reply.status;
+        result->swap(reply.bytes); *length = static_cast<int>(result->size());
+        e.ready.pop_front(); return result.release();
+    } catch (std::exception const& e) { last_error = e.what(); if (status) *status = -2; return nullptr; }
+      catch (...) { last_error = "Resume poll error"; if (status) *status = -2; return nullptr; }
+}
+QS_API int qs_blob_copy(void* p, unsigned char* buffer, int capacity) noexcept {
+    try {
+        if (!p) throw std::runtime_error("Invalid blob");
+        auto const& bytes = *static_cast<std::vector<char>*>(p);
+        if (capacity < static_cast<int>(bytes.size()) || (!buffer && !bytes.empty())) throw std::runtime_error("Blob buffer too small");
+        if (!bytes.empty()) std::memcpy(buffer, bytes.data(), bytes.size());
+        return static_cast<int>(bytes.size());
+    } catch (std::exception const& e) { last_error = e.what(); return -1; }
+      catch (...) { last_error = "Blob copy error"; return -1; }
+}
+QS_API void qs_blob_close(void* p) noexcept { delete static_cast<std::vector<char>*>(p); }
 
 QS_API void* qs_meta_open(char const* file) noexcept {
     try {

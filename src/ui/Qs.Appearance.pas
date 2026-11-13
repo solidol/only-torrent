@@ -12,7 +12,7 @@ function StateText(Value: Integer): string;
 
 implementation
 
-uses Winapi.Windows, Winapi.UxTheme, Winapi.CommCtrl, System.SysUtils,
+uses Qs.Localization, Winapi.Windows, Winapi.UxTheme, Winapi.CommCtrl, System.SysUtils,
   System.Math, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes, Qs.BlockMap;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
@@ -100,17 +100,17 @@ end;
 function StateText(Value: Integer): string;
 begin
   case Value of
-    0: Result := 'У черзі';
-    1: Result := 'Перевірка';
-    2: Result := 'Метадані';
-    3: Result := 'Завантаження';
-    4: Result := 'Завершено';
-    5: Result := 'Роздача';
-    6: Result := 'Виділення місця';
-    7: Result := 'Перевірка стану';
-    8: Result := 'Призупинено';
-    9: Result := 'Помилка';
-  else Result := 'Очікування';
+    0: Result := L('text.eb3c78969040', 'У черзі');
+    1: Result := L('text.d5cb0c3a9162', 'Перевірка');
+    2: Result := L('text.c0bae911cb2d', 'Метадані');
+    3: Result := L('text.7558ec23b17c', 'Завантаження');
+    4: Result := L('text.016bc923f7ff', 'Завершено');
+    5: Result := L('text.f241292c115e', 'Роздача');
+    6: Result := L('text.caf0e9be4d8f', 'Виділення місця');
+    7: Result := L('text.367875e0697b', 'Перевірка стану');
+    8: Result := L('text.f43d3611bc11', 'Призупинено');
+    9: Result := L('text.57467fc4b91f', 'Помилка');
+  else Result := L('text.2bc411600ba1', 'Очікування');
   end;
 end;
 

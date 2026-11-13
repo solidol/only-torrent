@@ -1,0 +1,13 @@
+﻿{
+    "files":  {
+                  "torrent-rasterbar.dll":  "5ae5e1fd589ad613887147f389e7097f2521f2d25ce4ab58ae4e2cd1598e6850",
+                  "qsbridge.dll":  "bc6c084d74122e94f56954d9c0807579a508adced794c9c8555a2550ee7e76e1"
+              },
+    "bridgeAbi":  2,
+    "upstreamArchiveSha256":  "c09c3f13dd6462d6ef0a5d1780ed0f73b504fcfbbdb5c6cad2cfad05daea50ba",
+    "libtorrent":  "1.2.19",
+    "toolset":  "v143",
+    "runtime":  "MD",
+    "platform":  "Win64",
+    "boost":  "1.78.0"
+}

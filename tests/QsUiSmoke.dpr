@@ -1,6 +1,11 @@
 ﻿program QsUiSmoke;
 
 uses
+  Qs.Profile in '..\src\core\Qs.Profile.pas',
+  Qs.Sqlite in '..\src\core\Qs.Sqlite.pas',
+  Qs.TaskStore in '..\src\core\Qs.TaskStore.pas',
+  Qs.Localization in '..\src\core\Qs.Localization.pas',
+  Qs.FormLocalization in '..\src\ui\Qs.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
   Vcl.ComCtrls, Vcl.Imaging.pngimage, Qs.MainForm in '..\src\ui\Qs.MainForm.pas',
   Qs.Engine in '..\src\engine\Qs.Engine.pas',
@@ -61,14 +66,45 @@ end;
 var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TFormPreferences;
   Entry: TTorrentEntry; Item: TListItem; Settings: TQsSettings;
   InspectEngine: TQsEngine; TorrentMetadata: TQsMetadata;
-  I: Integer; Output: TStringList;
+  I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
 begin
   Output := TStringList.Create;
   try
     try
+      if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') then
+        SetEnvironmentVariable('QS_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
+      if (ParamStr(1) = '--restore-test') or (ParamStr(1) = '--restore-unavailable') then
+      begin
+        try
+          Require(FormMain.ListViewTorrents.Items.Count = 1, 'Application restored task count');
+          Entry := TTorrentEntry(FormMain.ListViewTorrents.Items[0].Data);
+          Require((Entry.Stored.Id > 0) and not Entry.Stored.Running, 'Application restored stable ID and desired pause');
+          if ParamStr(1) = '--restore-unavailable' then
+          begin
+            Require((Entry.Id = 0) and (Entry.LastError <> ''), 'Unavailable task retained without starting');
+            Require(not DirectoryExists(Entry.Folder) or not FileExists(Entry.FileName), 'Missing location remains missing');
+          end
+          else Require(Entry.Id > 0, 'Available task restored into engine');
+          Require((Entry.Metadata.Files[0].Path = 'custom\0.bin') and (Entry.Priorities[1] = 0), 'Application restored renamed and skipped files');
+          FormMain.ListViewTorrents.Items[0].Selected := True;
+          FormMain.PauseClick(nil);
+          CanClose := False;
+          FormMain.FormCloseQuery(nil, CanClose);
+          Deadline := GetTickCount64 + 35000;
+          repeat
+            Application.ProcessMessages;
+            Sleep(10);
+            FormMain.FormCloseQuery(nil, CanClose);
+          until CanClose or (GetTickCount64 > Deadline);
+          Require(CanClose, 'Graceful close drains final resume replies and SQLite writes');
+          Output.Add('PASS: application restart restores SQLite tasks and managed torrent; graceful close saves fast-resume');
+        finally FormMain.Free; end;
+        Output.SaveToFile('..\build\ui-restore.txt', TEncoding.UTF8);
+        Exit;
+      end;
       Entry := TTorrentEntry.Create;
       try
         Entry.Id := 1;
@@ -124,6 +160,11 @@ begin
           FormPreferences.LoadValue(Settings);
           Require(FormPreferences.Caption = 'Налаштування — qsTorrent', 'Preferences UTF-8');
           Require(FormPreferences.CheckBoxSystemTheme.Checked, 'System theme default');
+          LoadLanguage('en-US');
+          TranslateForm(FormPreferences);
+          Require(FormPreferences.ButtonCancel.Caption = 'Cancel', 'English preferences');
+          Require(StateText(3) = 'Downloading', 'English dynamic state');
+          LoadLanguage('uk-UA'); TranslateForm(FormPreferences);
           FormPreferences.TreeViewCategories.Selected := FormPreferences.TreeViewCategories.Items[3];
           Require(FormPreferences.PageControlSettings.ActivePage = FormPreferences.TabSheetBandwidth, 'Category navigation');
           FormPreferences.TreeViewCategories.Selected := FormPreferences.TreeViewCategories.Items[0];
@@ -131,6 +172,11 @@ begin
         finally FormPreferences.Free; end;
         FormAddTorrent := TFormAddTorrent.Create(nil);
         try
+          FormAddTorrent.Prepare(Entry.Metadata, Settings);
+          LoadLanguage('en-US');
+          FormAddTorrent.Prepare(Entry.Metadata, Settings);
+          Require(FormAddTorrent.ButtonDownloadNow.Caption = 'Download now', 'English add dialog');
+          LoadLanguage('uk-UA');
           FormAddTorrent.Prepare(Entry.Metadata, Settings);
           Require(FormAddTorrent.Caption = 'Створити нове завдання BitTorrent — qsTorrent', 'Add dialog UTF-8');
           Require(FormAddTorrent.ComboBoxFolder.Text = Settings.DownloadFolder, 'Save location');

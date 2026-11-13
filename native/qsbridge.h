@@ -71,4 +71,13 @@ QS_API void* qs_piece_open(void* session, int id, qs_piece_header* out) QS_NOEXC
 QS_API int qs_piece_bits(void* state, unsigned char* buffer, int capacity) QS_NOEXCEPT;
 QS_API int qs_piece_blocks(void* state, qs_partial_block* buffer, int capacity) QS_NOEXCEPT;
 QS_API void qs_piece_close(void* state) QS_NOEXCEPT;
+// Additive ABI 2 persistence extension. Caller owns byte buffers; bridge owns blobs.
+QS_API int qs_resume_request(void* session, int id, int flush) QS_NOEXCEPT;
+QS_API void* qs_resume_poll(void* session, int* id, int* status, int* length) QS_NOEXCEPT;
+QS_API int qs_blob_copy(void* blob, unsigned char* buffer, int capacity) QS_NOEXCEPT;
+QS_API void qs_blob_close(void* blob) QS_NOEXCEPT;
+QS_API int qs_add_prepared_resume(void* session, char const* file, char const* path,
+    int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
+    char const* const* paths, char const* const* trackers, int tracker_count,
+    unsigned char const* resume, int resume_length, int* resume_used) QS_NOEXCEPT;
 #endif

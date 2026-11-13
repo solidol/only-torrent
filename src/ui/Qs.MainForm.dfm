@@ -15,6 +15,7 @@
   Menu = MainMenuMain
   Position = poScreenCenter
   OnCreate = FormCreate
+  OnCloseQuery = FormCloseQuery
   OnDestroy = FormDestroy
   TextHeight = 15
   object SplitterLeft: TSplitter

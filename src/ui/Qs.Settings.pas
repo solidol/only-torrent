@@ -5,7 +5,7 @@ interface
 type
   TQsSettings = record
     SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
-    DownloadFolder: string;
+    DownloadFolder, TorrentFolder, Language: string;
     ListenPort, DownloadKiB, UploadKiB, Connections: Integer;
     procedure Load;
     procedure Save;
@@ -13,17 +13,11 @@ type
 
 implementation
 
-uses System.SysUtils, System.IOUtils, System.IniFiles, Winapi.Windows, Winapi.ShlObj;
+uses Qs.Localization, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, Qs.Profile;
 
 function SettingsFile: string;
-var Buffer: array[0..MAX_PATH] of Char;
 begin
-  if SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, Buffer) <> S_OK then
-    raise Exception.Create('Не вдалося визначити папку налаштувань');
-  Result := TPath.Combine(Buffer, 'qsTorrent');
-  if not System.SysUtils.ForceDirectories(Result) then
-    raise Exception.Create('Не вдалося створити папку налаштувань');
-  Result := TPath.Combine(Result, 'settings.ini');
+  Result := TPath.Combine(ProfileFolder, 'settings.ini');
 end;
 
 procedure TQsSettings.Load;
@@ -32,6 +26,9 @@ begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
     SystemTheme := Ini.ReadBool('Interface', 'SystemTheme', True);
+    Language := Ini.ReadString('Interface', 'Language', 'uk-UA');
+    TorrentFolder := ExpandFileName(Ini.ReadString('Storage', 'TorrentFolder',
+      TPath.Combine(ProfileFolder, 'Torrents')));
     ShowProgressBars := Ini.ReadBool('Interface', 'ProgressBars', True);
     StartImmediately := Ini.ReadBool('Adding', 'StartImmediately', True);
     ShowAddDialog := Ini.ReadBool('Adding', 'ShowDialog', True);
@@ -51,11 +48,13 @@ begin
 end;
 
 procedure TQsSettings.Save;
-var Ini: TMemIniFile;
+var Ini: TMemIniFile; Lines: TStringList;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
     Ini.WriteBool('Interface', 'SystemTheme', SystemTheme);
+    Ini.WriteString('Interface', 'Language', Language);
+    Ini.WriteString('Storage', 'TorrentFolder', TorrentFolder);
     Ini.WriteBool('Interface', 'ProgressBars', ShowProgressBars);
     Ini.WriteBool('Adding', 'StartImmediately', StartImmediately);
     Ini.WriteBool('Adding', 'ShowDialog', ShowAddDialog);
@@ -64,7 +63,11 @@ begin
     Ini.WriteInteger('Network', 'DownloadKiB', DownloadKiB);
     Ini.WriteInteger('Network', 'UploadKiB', UploadKiB);
     Ini.WriteInteger('Network', 'Connections', Connections);
-    Ini.UpdateFile;
+    Lines := TStringList.Create;
+    try
+      Ini.GetStrings(Lines);
+      AtomicWrite(SettingsFile, TEncoding.UTF8.GetBytes(Lines.Text));
+    finally Lines.Free; end;
   finally
     Ini.Free;
   end;

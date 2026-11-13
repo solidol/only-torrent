@@ -1,6 +1,11 @@
 ﻿program qstorrent;
 
 uses
+  Qs.Profile in 'src\core\Qs.Profile.pas',
+  Qs.Sqlite in 'src\core\Qs.Sqlite.pas',
+  Qs.TaskStore in 'src\core\Qs.TaskStore.pas',
+  Qs.Localization in 'src\core\Qs.Localization.pas',
+  Qs.FormLocalization in 'src\ui\Qs.FormLocalization.pas',
   Vcl.Forms,
   Qs.MainForm in 'src\ui\Qs.MainForm.pas' {FormMain},
   Qs.Engine in 'src\engine\Qs.Engine.pas',

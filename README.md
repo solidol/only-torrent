@@ -4,7 +4,7 @@
 
 ## Збирання та запуск
 
-Відкрийте qstorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/qstorrent.exe. Поруч потрібні `qsbridge.dll`, `torrent-rasterbar.dll` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
+Відкрийте qstorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/qstorrent.exe. Поруч потрібні `qsbridge.dll`, `torrent-rasterbar.dll`, `sqlite3.dll`, папка `Languages` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
 
 Для встановленої тут CE працює штатний AutoBuild через IDE:
 
@@ -12,16 +12,17 @@
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1
 ```
 
-Скрипт запускає приховану IDE з головним DPR-файлом першим аргументом. Звичайний dcc64 з командного рядка в CE недоступний; build.cmd залишено для редакцій із командним компілятором.
+Скрипт запускає приховану IDE з головним DPR-файлом першим аргументом. Звичайний dcc64 з командного рядка в CE недоступний; build.cmd залишено для редакцій із командним компілятором. Готові DLL, ліцензії та контрольні суми включені в `third_party/bin/Win64` і автоматично копіюються поруч із EXE. **Для звичайного збирання потрібна лише Delphi; джерела бібліотек, SDK, Visual Studio, CMake та мережа не потрібні.**
 
-Для DLL потрібні Visual Studio 2022 C++ Build Tools, Windows SDK та CMake 3.20+:
+Необов’язкове перезбирання DLL із джерел потребує Visual Studio 2022 C++ Build Tools, Windows SDK та CMake 3.20+:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/fetch-deps.ps1
-powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1
+python tools/fetch-sqlite.py
+powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 ```
 
-Скрипти перевіряють SHA-256 офіційних архівів libtorrent та Boost 1.78.0. Оригінальний SDK збирається окремо, коли його ще немає; повторне збирання моста не перебудовує бібліотеку чи Delphi EXE. Ліцензії копіюються до bin/Win64/licenses. Архітектура, сумісність ABI та оновлення без перезбирання інтерфейсу: [docs/ENGINE-ARCHITECTURE.md](docs/ENGINE-ARCHITECTURE.md).
+Ці команди готують окремий пакет у кеші. Його публікація в `third_party` виконується явно, після перевірки: [third_party/README.md](third_party/README.md). Звичайне збирання не запускає ці команди. Архітектура та межі ABI: [docs/ENGINE-ARCHITECTURE.md](docs/ENGINE-ARCHITECTURE.md).
 
 ## Інтерфейс
 
@@ -37,11 +38,11 @@ powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1
 
 ## Стан функцій
 
-Найближчий **високопріоритетний етап (P0)**: INI для основної конфігурації, SQLite для завдань і fast-resume, JSON для мовних файлів. Службові `.torrent` залишаються окремими файлами. План і критерії готовності: [docs/ROADMAP.md](docs/ROADMAP.md). SQLite-відновлення та JSON-локалізація поки заплановані.
+Реалізовано **P0**: INI для основної конфігурації, SQLite для списку завдань і fast-resume, JSON для української та англійської. Службові `.torrent` копіюються в окрему налаштовувану папку за info-hash. Після перезапуску відновлюються папки, вибір файлів, шляхи, параметри та бажаний стан завдань. Формат і порядок збирання: [docs/STORAGE.md](docs/STORAGE.md).
 
 Працюють .torrent, вибір файлів, перевірка частин, TCP-піри, HTTP/UDP-трекери, пауза, продовження, видалення запису зі збереженням файлів. Локальне end-to-end завантаження перевірено тестом. Нижня вкладка трекерів показує адреси з метаданих, а не стан кожного announce.
 
-Поки немає відновлення списку після виходу, fast-resume, магнетів, багатомовності, DHT, проксі чи веб-сервера. Вибір файлів у цій версії змінюється під час додавання; у нижній вкладці він лише відображається.
+Поки немає магнетів, DHT, проксі чи веб-сервера. Вибір файлів у цій версії змінюється під час додавання; у нижній вкладці він лише відображається.
 
 ## Windows 7 та залежності
 
@@ -53,7 +54,9 @@ SHA-1 обчислює libtorrent через системну Windows CryptoAPI.
 
 ```powershell
 python tests/project_structure.py
-python tests/upstream_integrity.py
+python tests/languages.py
+# Лише для необов’язково завантажених джерел залежностей:
+# python tests/upstream_integrity.py
 python tests/separation.py
 python tests/engine_smoke.py
 python tests/network_transfer.py
@@ -61,6 +64,7 @@ python tests/add_options.py
 python tests/block_map.py
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -UiTests
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -CoreTests
+python tests/persistence_restart.py
 ```
 
 Окремий bin/Win64/QsUiSmoke.exe перевіряє всі DFM-форми, оформлення, навігацію налаштувань і вибір файлів. Запускати з робочою папкою tests. Тестові знімки в build містять синтетичні дані, а не справжнє завантаження. Результати: [docs/VALIDATION.md](docs/VALIDATION.md).

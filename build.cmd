@@ -11,4 +11,6 @@ if not exist bin\Win64\qstorrent.exe (
   echo No executable produced. Community Edition may require building in the IDE.
   exit /b 2
 )
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools\copy-runtime.ps1 -Destination bin\Win64
+if errorlevel 1 exit /b 1
 exit /b 0

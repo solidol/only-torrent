@@ -50,6 +50,14 @@ type
   TQsPieceBlocks = function(State: Pointer; Buffer: Pointer; Capacity: Integer): Integer; cdecl;
   TQsPieceClose = procedure(State: Pointer); cdecl;
   TQsLibraryVersion = function: PAnsiChar; cdecl;
+  TQsResumeRequest = function(Session: Pointer; Id, Flush: Integer): Integer; cdecl;
+  TQsResumePoll = function(Session: Pointer; out Id, Status, Length: Integer): Pointer; cdecl;
+  TQsBlobCopy = function(Blob: Pointer; Buffer: PByte; Capacity: Integer): Integer; cdecl;
+  TQsBlobClose = procedure(Blob: Pointer); cdecl;
+  TQsAddPreparedResume = function(Session: Pointer; FileName, Path: PAnsiChar;
+    Priorities: PInteger; Count, Start, Sequential, DownloadBytes, UploadBytes: Integer;
+    Paths, Trackers: PPQsAnsiChar; TrackerCount: Integer; Resume: PByte;
+    ResumeLength: Integer; out ResumeUsed: Integer): Integer; cdecl;
 
 implementation
 

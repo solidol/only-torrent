@@ -11,3 +11,8 @@ __recovery/
 
 __pycache__/
 *.err
+
+# The pinned DLL bundle is part of the source distribution.
+!/third_party/bin/Win64/*.dll
+!/third_party/bin/Win64/*.json
+!/third_party/bin/Win64/licenses/

@@ -90,9 +90,9 @@ type
 
 implementation
 
-uses Winapi.Windows, System.SysUtils, System.UITypes, System.IOUtils,
+uses Qs.Localization, Winapi.Windows, System.SysUtils, System.UITypes, System.IOUtils,
   System.StrUtils, System.DateUtils, System.Math, Vcl.FileCtrl, Vcl.Dialogs,
-  Vcl.Graphics, Qs.Appearance, Qs.TaskOptions, Qs.TransferMath, Qs.Types;
+  Vcl.Graphics, Qs.Appearance, Qs.TaskOptions, Qs.TransferMath, Qs.Types, Qs.FormLocalization;
 
 {$R *.dfm}
 
@@ -109,6 +109,7 @@ end;
 procedure TFormAddTorrent.Prepare(Metadata: TQsMetadata; const Settings: TQsSettings);
 var I: Integer;
 begin
+  TranslateForm(Self);
   FUpdating := True;
   FMetadata := Metadata;
   try
@@ -127,12 +128,12 @@ begin
     LabelName.Caption := Metadata.Name;
     LabelSize.Caption := SizeText(Metadata.TotalBytes);
     LabelPublisher.Caption := Metadata.Publisher;
-    if LabelPublisher.Caption = '' then LabelPublisher.Caption := 'Не вказано';
-    LabelCreator.Caption := 'Створено програмою: ' + Metadata.Creator;
-    LabelCreated.Caption := 'Час створення: —';
-    if Metadata.CreatedUTC > 0 then LabelCreated.Caption := 'Час створення (UTC): ' +
+    if LabelPublisher.Caption = '' then LabelPublisher.Caption := L('text.de35965e9fa5', 'Не вказано');
+    LabelCreator.Caption := L('text.b9aea5092f8f', 'Створено програмою: ') + Metadata.Creator;
+    LabelCreated.Caption := L('text.b3c697442a11', 'Час створення: —');
+    if Metadata.CreatedUTC > 0 then LabelCreated.Caption := L('text.b9aed7a43674', 'Час створення (UTC): ') +
       FormatDateTime('yyyy-mm-dd hh:nn:ss', UnixToDateTime(Metadata.CreatedUTC, True));
-    LabelPublisherURL.Caption := 'URL видавця: ' + Metadata.PublisherURL;
+    LabelPublisherURL.Caption := L('text.3850676dcc92', 'URL видавця: ') + Metadata.PublisherURL;
     EditInfoHash.Text := Metadata.InfoHash;
     MemoWebSeeds.Text := Metadata.WebSeeds;
     MemoComment.Text := Metadata.Comment;
@@ -179,7 +180,7 @@ procedure TFormAddTorrent.BrowseClick(Sender: TObject);
 var Folder: string;
 begin
   Folder := ComboBoxFolder.Text;
-  if SelectDirectory('Зберегти файли торрента', '', Folder,
+  if SelectDirectory(L('text.ef23a39f0897', 'Зберегти файли торрента'), '', Folder,
     [sdNewUI, sdNewFolder], Self) then ComboBoxFolder.Text := Folder;
 end;
 
@@ -248,9 +249,9 @@ begin
   Summary := SelectionSummary(FMetadata.Files, FSelected);
   FUpdating := True;
   try
-    LabelSelection.Caption := Format('Вибрано %d із %d файлів · %s',
+    LabelSelection.Caption := LF('text.8db45174e75d', 'Вибрано %d із %d файлів · %s',
       [Summary.Count, Length(FSelected), SizeText(Summary.Bytes)]);
-    CheckBoxAll.Caption := Format('Вибрати всі (%d)', [Length(FSelected)]);
+    CheckBoxAll.Caption := LF('text.d23d7546258d', 'Вибрати всі (%d)', [Length(FSelected)]);
     SetSelectionState(CheckBoxAll, Length(FSelected), Summary.Count);
     SetSelectionState(CheckBoxVideo, Summary.Counts[0], Summary.Selected[0]);
     SetSelectionState(CheckBoxAudio, Summary.Counts[1], Summary.Selected[1]);
@@ -266,7 +267,7 @@ begin
         Item := ListViewOrder.Items.Add;
         Item.Caption := IntToStr(I + 1); Item.SubItems.Add(RelativeFile(I));
         Item.SubItems.Add(SizeText(FMetadata.Files[I].Size));
-        if FSelected[I] then Item.SubItems.Add('Звичайний') else Item.SubItems.Add('Пропустити');
+        if FSelected[I] then Item.SubItems.Add(L('text.cb037ba591a9', 'Звичайний')) else Item.SubItems.Add(L('text.eaa2b8afb965', 'Пропустити'));
       end;
     finally ListViewOrder.Items.EndUpdate; end;
   finally FUpdating := False; end;
@@ -294,9 +295,9 @@ begin
     Brush.Color := clBtnFace; FillRect(Used);
     Brush.Style := bsClear; Pen.Color := clBtnShadow; Rectangle(R);
     Font.Assign(Self.Font); Font.Color := clWindowText;
-    Text := 'Місце на диску: невідомо';
-    if FDiskTotal > 0 then Text := 'Розмір диска: ' + SizeText(FDiskTotal) +
-      '       Вільне місце: ' + SizeText(FDiskFree);
+    Text := L('text.49e75e5d70f6', 'Місце на диску: невідомо');
+    if FDiskTotal > 0 then Text := L('text.7bc5f2e06c6f', 'Розмір диска: ') + SizeText(FDiskTotal) +
+      L('text.5bfc3e6028a2', '       Вільне місце: ') + SizeText(FDiskFree);
     DrawText(Handle, PChar(Text), Length(Text), R, DT_CENTER or DT_VCENTER or DT_SINGLELINE);
     Brush.Style := bsSolid;
   end;
@@ -331,10 +332,10 @@ begin
   begin
     if not TryStrToInt(EditDownloadLimit.Text, Result.DownloadKiB) or
       (Result.DownloadKiB < 0) or (Result.DownloadKiB > 1048576) then
-      raise Exception.Create('Ліміт завантаження: 0–1048576 KiB/с.');
+      raise Exception.Create(L('text.7c7cc2154908', 'Ліміт завантаження: 0–1048576 KiB/с.'));
     if not TryStrToInt(EditUploadLimit.Text, Result.UploadKiB) or
       (Result.UploadKiB < 0) or (Result.UploadKiB > 1048576) then
-      raise Exception.Create('Ліміт віддачі: 0–1048576 KiB/с.');
+      raise Exception.Create(L('text.b1817be6a1de', 'Ліміт віддачі: 0–1048576 KiB/с.'));
   end;
 end;
 
@@ -347,7 +348,7 @@ begin
     Value := Options;
     ValidateSubfolder(Value.Subfolder);
     if not System.SysUtils.ForceDirectories(SaveFolder) then
-      raise Exception.Create('Не вдалося створити папку завантаження.');
+      raise Exception.Create(L('text.ca1203e6fb5e', 'Не вдалося створити папку завантаження.'));
     ModalResult := mrOk;
   except
     on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0);

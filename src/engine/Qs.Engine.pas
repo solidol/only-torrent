@@ -40,6 +40,11 @@ type
     FPieceClose: TQsPieceClose;
     FAddPrepared: TQsAddPrepared;
     FLibraryVersion: TQsLibraryVersion;
+    FResumeRequest: TQsResumeRequest;
+    FResumePoll: TQsResumePoll;
+    FBlobCopy: TQsBlobCopy;
+    FBlobClose: TQsBlobClose;
+    FAddPreparedResume: TQsAddPreparedResume;
     function Resolve(const Name: AnsiString): Pointer;
     procedure Check(ResultCode: Integer);
     procedure EnsureSession;
@@ -52,7 +57,10 @@ type
       const Priorities: TArray<Integer>; Start: Boolean): Integer;
     procedure Configure(Port, DownKiB, UpKiB, Connections: Integer);
     function AddOptions(const FileName, SavePath: string; const Priorities: TArray<Integer>;
-      const Options: TQsAddOptions; Metadata: TQsMetadata = nil): Integer;
+      const Options: TQsAddOptions; Metadata: TQsMetadata = nil;
+      const Resume: TBytes = nil; Restoring: Boolean = False): Integer;
+    procedure RequestResume(Id: Integer; Flush: Boolean);
+    function PollResume(out Id, Status: Integer; out Bytes: TBytes): Boolean;
     function ReadPieces(Id: Integer): TQsPieceState;
     function Blocks(Id, Columns: Integer): TQsBlockMap;
     function LibraryVersion: string;
@@ -62,13 +70,13 @@ type
 
 implementation
 
-uses System.Classes, Qs.BlockMap, Qs.TaskOptions;
+uses Qs.Localization, System.Classes, Qs.BlockMap, Qs.TaskOptions;
 
 function TQsEngine.Resolve(const Name: AnsiString): Pointer;
 begin
   Result := GetProcAddress(FLibrary, PAnsiChar(Name));
   if Result = nil then
-    raise Exception.Create('Несумісна qsbridge.dll: ' + string(Name));
+    raise Exception.Create(L('text.b47da4b9a701', 'Несумісна qsbridge.dll: ') + string(Name));
 end;
 
 constructor TQsEngine.Create;
@@ -76,20 +84,20 @@ var Version: TQsVersion;
 begin
   inherited;
   if SizeOf(TQsSnapshot) <> 1064 then
-    raise Exception.Create('Помилка вирівнювання ABI рушія');
+    raise Exception.Create(L('text.afb20fd06e67', 'Помилка вирівнювання ABI рушія'));
   if (SizeOf(TQsMetaInfoRaw) <> 1552) or (SizeOf(TQsMetaFileRaw) <> 4104) then
-    raise Exception.Create('Помилка вирівнювання метаданих');
+    raise Exception.Create(L('text.eebde55774a6', 'Помилка вирівнювання метаданих'));
   if (SizeOf(TQsSessionOptions) <> 32) or (SizeOf(TQsPieceHeader) <> 32) or
-    (SizeOf(TQsPartialBlock) <> 16) then raise Exception.Create('Помилка ABI моста');
+    (SizeOf(TQsPartialBlock) <> 16) then raise Exception.Create(L('text.c76046369240', 'Помилка ABI моста'));
   // Absolute path and altered search path: never load an engine from the CWD.
   FLibrary := LoadLibraryEx(PChar(ExtractFilePath(ParamStr(0)) + 'qsbridge.dll'),
     0, LOAD_WITH_ALTERED_SEARCH_PATH);
   if FLibrary = 0 then
-    raise Exception.Create('Не вдалося завантажити qsbridge.dll. Код Windows: ' +
-      IntToStr(GetLastError) + '. Див. README.md.');
+    raise Exception.Create(L('text.d991fa9a1c50', 'Не вдалося завантажити qsbridge.dll. Код Windows: ') +
+      IntToStr(GetLastError) + L('text.28e0baeb9110', '. Див. README.md.'));
   Version := TQsVersion(Resolve('qs_version'));
   if Version() <> QS_ABI_VERSION then
-    raise Exception.Create('Непідтримувана версія qsbridge.dll');
+    raise Exception.Create(L('text.894c87b0336b', 'Непідтримувана версія qsbridge.dll'));
   FDestroy := TQsDestroy(Resolve('qs_destroy'));
   FAdd := TQsAdd(Resolve('qs_add'));
   FSnapshot := TQsSnapshotProc(Resolve('qs_snapshot'));
@@ -110,6 +118,11 @@ begin
   FPieceClose := TQsPieceClose(Resolve('qs_piece_close'));
   FAddPrepared := TQsAddPrepared(Resolve('qs_add_prepared'));
   FLibraryVersion := TQsLibraryVersion(Resolve('qs_libtorrent_version'));
+  FResumeRequest := TQsResumeRequest(Resolve('qs_resume_request'));
+  FResumePoll := TQsResumePoll(Resolve('qs_resume_poll'));
+  FBlobCopy := TQsBlobCopy(Resolve('qs_blob_copy'));
+  FBlobClose := TQsBlobClose(Resolve('qs_blob_close'));
+  FAddPreparedResume := TQsAddPreparedResume(Resolve('qs_add_prepared_resume'));
 end;
 
 procedure TQsEngine.EnsureSession;
@@ -160,7 +173,7 @@ begin
       Result.Name := UTF8ToString(PAnsiChar(@Info.Name[0]));
       Result.Comment := UTF8ToString(PAnsiChar(@Info.Comment[0]));
       Result.TotalBytes := Info.Total;
-      if SizeOf(Extra) <> 7216 then raise Exception.Create('Помилка ABI метаданих');
+      if SizeOf(Extra) <> 7216 then raise Exception.Create(L('text.a7f88618b780', 'Помилка ABI метаданих'));
       Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
       try
         if (Stream.Size < 1) or (Stream.Size > 64 * 1024 * 1024) then
@@ -203,7 +216,7 @@ function TQsEngine.AddSelected(const FileName, SavePath: string;
   const Priorities: TArray<Integer>; Start: Boolean): Integer;
 var F, D: UTF8String;
 begin
-  if Length(Priorities) = 0 then raise Exception.Create('Не вибрано файли');
+  if Length(Priorities) = 0 then raise Exception.Create(L('text.7da9711fe8a0', 'Не вибрано файли'));
   EnsureSession;
   F := UTF8String(FileName);
   D := UTF8String(SavePath);
@@ -220,16 +233,26 @@ begin
 end;
 
 function TQsEngine.AddOptions(const FileName, SavePath: string;
-  const Priorities: TArray<Integer>; const Options: TQsAddOptions; Metadata: TQsMetadata): Integer;
-var F, D: UTF8String; Prepared: TQsPreparedTask; OwnMetadata: Boolean; I: Integer;
+  const Priorities: TArray<Integer>; const Options: TQsAddOptions; Metadata: TQsMetadata;
+  const Resume: TBytes; Restoring: Boolean): Integer;
+var F, D: UTF8String; Prepared: TQsPreparedTask; OwnMetadata: Boolean; I, ResumeUsed: Integer;
   Paths, Trackers: TArray<UTF8String>;
   PathPointers, TrackerPointers: TArray<PAnsiChar>;
   TrackerBase: PPQsAnsiChar;
+  ResumeData: PByte;
 begin
   OwnMetadata := Metadata = nil;
   if OwnMetadata then Metadata := Inspect(FileName);
   try
     Prepared := PrepareTask(Metadata, SavePath, Priorities, Options);
+    // Stored paths already include the chosen subfolder. Do not strip or add it
+    // again during restoration. They are validated before crossing the ABI.
+    if Restoring then
+      for I := 0 to High(Metadata.Files) do
+      begin
+        ValidateRelativePath(Metadata.Files[I].Path);
+        Prepared.Paths[I] := Metadata.Files[I].Path;
+      end;
     SetLength(Paths, Length(Prepared.Paths));
     SetLength(PathPointers, Length(Paths));
     for I := 0 to High(Paths) do
@@ -248,9 +271,12 @@ begin
     if Length(Trackers) > 0 then TrackerBase := @TrackerPointers[0];
     EnsureSession;
     F := UTF8String(FileName); D := UTF8String(SavePath);
-    Result := FAddPrepared(FSession, PAnsiChar(F), PAnsiChar(D), @Priorities[0],
+    ResumeData := nil;
+    if Length(Resume) > 0 then ResumeData := @Resume[0];
+    Result := FAddPreparedResume(FSession, PAnsiChar(F), PAnsiChar(D), @Priorities[0],
       Length(Priorities), Ord(Options.Start), Ord(Options.Sequential), Prepared.DownloadBytes,
-      Prepared.UploadBytes, @PathPointers[0], TrackerBase, Length(Trackers));
+      Prepared.UploadBytes, @PathPointers[0], TrackerBase, Length(Trackers),
+      ResumeData, Length(Resume), ResumeUsed);
     Check(Result);
     if not OwnMetadata then
     begin
@@ -260,6 +286,33 @@ begin
   finally
     if OwnMetadata then Metadata.Free;
   end;
+end;
+
+procedure TQsEngine.RequestResume(Id: Integer; Flush: Boolean);
+begin
+  Check(FResumeRequest(FSession, Id, Ord(Flush)));
+end;
+
+function TQsEngine.PollResume(out Id, Status: Integer; out Bytes: TBytes): Boolean;
+var Blob: Pointer; Count: Integer; Data: PByte;
+begin
+  Id := 0;
+  Status := 0;
+  Bytes := nil;
+  // Inspect loads the bridge without creating a network session. The main
+  // timer still runs inside modal dialogs; there are no resume replies yet.
+  if FSession = nil then Exit(False);
+  Blob := FResumePoll(FSession, Id, Status, Count);
+  if (Blob = nil) and (Status < 0) then Check(-1);
+  Result := Blob <> nil;
+  if not Result then Exit;
+  try
+    if (Count < 0) or (Count > 256 * 1024 * 1024) then
+      raise Exception.Create('Invalid resume buffer size');
+    SetLength(Bytes, Count); Data := nil;
+    if Count > 0 then Data := @Bytes[0];
+    Check(FBlobCopy(Blob, Data, Count));
+  finally FBlobClose(Blob); end;
 end;
 
 function TQsEngine.ReadPieces(Id: Integer): TQsPieceState;

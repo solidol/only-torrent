@@ -8,6 +8,7 @@ function DefaultSessionOptions: TQsSessionOptions;
 function RateBytes(KiB: Integer): Integer;
 procedure ValidateConnectionSettings(Port, DownloadKiB, UploadKiB, Connections: Integer);
 procedure ValidateSubfolder(const Name: string);
+procedure ValidateRelativePath(const Name: string);
 function PrepareTask(Metadata: TQsMetadata; const SavePath: string;
   const Priorities: TArray<Integer>; const Options: TQsAddOptions): TQsPreparedTask;
 function FileKind(const Path: string): Integer;
@@ -18,7 +19,19 @@ function Sha1Text(const Bytes: array of Byte): string;
 
 implementation
 
-uses System.SysUtils, System.StrUtils;
+uses Qs.Localization, System.SysUtils, System.StrUtils;
+
+procedure ValidateRelativePath(const Name: string);
+var Part: string;
+begin
+  if (Name = '') or CharInSet(Name[1], ['/', '\']) then
+    raise EArgumentException.Create(L('message.25d6e709b50d', 'Некоректний збережений відносний шлях'));
+  for Part in StringReplace(Name, '/', '\', [rfReplaceAll]).Split(['\']) do
+  begin
+    if Part = '' then raise EArgumentException.Create(L('message.0d1c96114cc6', 'Некоректна частина збереженого шляху'));
+    ValidateSubfolder(Part);
+  end;
+end;
 
 function DefaultSessionOptions: TQsSessionOptions;
 begin
@@ -32,15 +45,15 @@ end;
 function RateBytes(KiB: Integer): Integer;
 begin
   if (KiB < 0) or (KiB > 1048576) then
-    raise EArgumentOutOfRangeException.Create('Швидкість має бути в межах 0–1048576 KiB/с.');
+    raise EArgumentOutOfRangeException.Create(L('text.ba6edbdab155', 'Швидкість має бути в межах 0–1048576 KiB/с.'));
   Result := KiB * 1024;
 end;
 
 procedure ValidateConnectionSettings(Port, DownloadKiB, UploadKiB, Connections: Integer);
 begin
-  if (Port < 1) or (Port > 65535) then raise EArgumentException.Create('Порт має бути в межах 1–65535.');
+  if (Port < 1) or (Port > 65535) then raise EArgumentException.Create(L('text.42f5604a5aca', 'Порт має бути в межах 1–65535.'));
   if (Connections < 10) or (Connections > 10000) then
-    raise EArgumentException.Create('Кількість з’єднань має бути в межах 10–10000.');
+    raise EArgumentException.Create(L('text.79a9b48b0117', 'Кількість з’єднань має бути в межах 10–10000.'));
   RateBytes(DownloadKiB);
   RateBytes(UploadKiB);
 end;
@@ -49,10 +62,10 @@ procedure ValidateSubfolder(const Name: string);
 var I: Integer;
 begin
   if (Name = '.') or (Name = '..') or Name.EndsWith('.') or Name.EndsWith(' ') then
-    raise EArgumentException.Create('Вкажіть коректну назву підпапки.');
+    raise EArgumentException.Create(L('text.80ca2adcafa1', 'Вкажіть коректну назву підпапки.'));
   for I := 1 to Length(Name) do
     if (Ord(Name[I]) < 32) or CharInSet(Name[I], ['\','/',':','*','?','"','<','>','|']) then
-      raise EArgumentException.Create('Підпапка має бути назвою, а не шляхом.');
+      raise EArgumentException.Create(L('text.e05a23f73e8f', 'Підпапка має бути назвою, а не шляхом.'));
 end;
 
 function RelativeTorrentFile(const Path: string): string;
@@ -70,8 +83,8 @@ var I: Integer; Any: Boolean; Lines: TArray<string>; Line, RawLine: string;
 begin
   if (Metadata = nil) or (Length(Priorities) = 0) or
     (Length(Priorities) <> Length(Metadata.Files)) then
-    raise EArgumentException.Create('Кількість файлів не відповідає пріоритетам.');
-  if Trim(SavePath) = '' then raise EArgumentException.Create('Вкажіть папку завантаження.');
+    raise EArgumentException.Create(L('text.b5b3ae732c24', 'Кількість файлів не відповідає пріоритетам.'));
+  if Trim(SavePath) = '' then raise EArgumentException.Create(L('text.081988160ca0', 'Вкажіть папку завантаження.'));
   ValidateSubfolder(Options.Subfolder);
   Result.DownloadBytes := RateBytes(Options.DownloadKiB);
   Result.UploadBytes := RateBytes(Options.UploadKiB);
@@ -79,12 +92,12 @@ begin
   Any := False;
   for I := 0 to High(Priorities) do
   begin
-    if not (Priorities[I] in [0, 4]) then raise EArgumentException.Create('Невідомий пріоритет файлу.');
+    if not (Priorities[I] in [0, 4]) then raise EArgumentException.Create(L('text.6c83c4544713', 'Невідомий пріоритет файлу.'));
     Any := Any or (Priorities[I] <> 0);
     Result.Paths[I] := RelativeTorrentFile(Metadata.Files[I].Path);
     if Options.Subfolder <> '' then Result.Paths[I] := Options.Subfolder + PathDelim + Result.Paths[I];
   end;
-  if not Any then raise EArgumentException.Create('Виберіть принаймні один файл.');
+  if not Any then raise EArgumentException.Create(L('text.a4e80e54dbce', 'Виберіть принаймні один файл.'));
   Result.Trackers := nil;
   Lines := StringReplace(Options.Trackers, #13, '', [rfReplaceAll]).Split([#10]);
   for RawLine in Lines do
@@ -92,7 +105,7 @@ begin
     Line := Trim(RawLine);
     if Line = '' then Continue;
     if not StartsText('http://', Line) and not StartsText('https://', Line) and not StartsText('udp://', Line) then
-      raise EArgumentException.Create('Трекер має використовувати http, https або udp.');
+      raise EArgumentException.Create(L('text.68666af49b79', 'Трекер має використовувати http, https або udp.'));
     SetLength(Result.Trackers, Length(Result.Trackers) + 1);
     Result.Trackers[High(Result.Trackers)] := Line;
   end;

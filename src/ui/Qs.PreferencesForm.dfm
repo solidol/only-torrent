@@ -60,6 +60,22 @@
     TabOrder = 1
     object TabSheetInterface: TTabSheet
       Caption = 'Інтерфейс'
+      object LabelLanguage: TLabel
+        Left = 28
+        Top = 312
+        Caption = 'Мова інтерфейсу:'
+      end
+      object ComboBoxLanguage: TComboBox
+        Left = 190
+        Top = 308
+        Width = 200
+        Height = 23
+        Style = csDropDownList
+        TabOrder = 2
+        Items.Strings = (
+          'Українська'
+          'English')
+      end
       object GroupBoxAppearance: TGroupBox
         Left = 12
         Top = 12
@@ -120,6 +136,39 @@
     end
     object TabSheetFolders: TTabSheet
       Caption = 'Папки'
+      object GroupBoxTorrentStorage: TGroupBox
+        Left = 12
+        Top = 178
+        Width = 496
+        Height = 160
+        Caption = 'Службові torrent-файли'
+        TabOrder = 1
+        object EditTorrentFolder: TEdit
+          Left = 16
+          Top = 32
+          Width = 356
+          Height = 23
+          TabOrder = 0
+        end
+        object ButtonBrowseTorrents: TButton
+          Left = 380
+          Top = 30
+          Width = 98
+          Height = 27
+          Caption = 'Огляд...'
+          OnClick = BrowseClick
+          TabOrder = 1
+        end
+        object LabelTorrentStorageNote: TLabel
+          Left = 16
+          Top = 78
+          Width = 460
+          Height = 64
+          AutoSize = False
+          WordWrap = True
+          Caption = 'Метадані копіюються сюди під час додавання. Початковий torrent-файл більше не потрібний. Зміна папки діє на нові завдання; наявні копії не переміщуються.'
+        end
+      end
       object GroupBoxFolder: TGroupBox
         Left = 12
         Top = 12
