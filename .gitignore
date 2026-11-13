@@ -1,0 +1,13 @@
+/bin/
+/build/
+/deps/
+*.dcu
+*.identcache
+*.local
+*.stat
+*.res
+__history/
+__recovery/
+
+__pycache__/
+*.err

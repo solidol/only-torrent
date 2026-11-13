@@ -1,0 +1,112 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{2D4CB65E-4146-4B1A-B687-8260DF0941C5}</ProjectGuid>
+        <ProjectVersion>20.3</ProjectVersion>
+        <Base>True</Base>
+        <TargetedPlatforms>2</TargetedPlatforms>
+        <SanitizedProjectName>qstorrent</SanitizedProjectName>
+        <MainSource>qstorrent.dpr</MainSource>
+        <Config Condition="'$(Config)'==''">Release</Config>
+        <Platform Condition="'$(Platform)'==''">Win64</Platform>
+        <AppType>Application</AppType>
+        <FrameworkType>VCL</FrameworkType>
+        <ProjectName Condition="'$(ProjectName)'==''">qstorrent</ProjectName>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+        <Cfg_1>true</Cfg_1>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+        <Cfg_1_Win64>true</Cfg_1_Win64>
+        <CfgParent>Cfg_1</CfgParent>
+        <Cfg_1>true</Cfg_1>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Config)'=='Debug' or '$(Cfg_2)'!=''">
+        <Cfg_2>true</Cfg_2>
+        <CfgParent>Base</CfgParent>
+        <Base>true</Base>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Base)'!=''">
+        <DCC_DependencyCheckOutputName>.\bin\Win64\qstorrent.exe</DCC_DependencyCheckOutputName>
+        <DCC_Namespace>System;Winapi;Vcl;System.Win;$(DCC_Namespace)</DCC_Namespace>
+        <DCC_UnitSearchPath>src\ui;src\engine;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_ExeOutput>.\bin\Win64</DCC_ExeOutput>
+        <DCC_DcuOutput>build\dcu\$(Config)</DCC_DcuOutput>
+        <DCC_UsePackage>;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_Optimize>true</DCC_Optimize>
+        <DCC_DebugInformation>0</DCC_DebugInformation>
+        <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+        <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
+        <DCC_MapFile>0</DCC_MapFile>
+        <DCC_GenerateStackFrames>false</DCC_GenerateStackFrames>
+        <DCC_MinimumOSVersion>6.1</DCC_MinimumOSVersion>
+        <Manifest_File>resources\qstorrent.manifest</Manifest_File>
+        <SanitizedProjectName>qstorrent</SanitizedProjectName>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
+        <BT_BuildType>Release</BT_BuildType>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(Cfg_2)'!=''">
+        <DCC_Optimize>false</DCC_Optimize>
+        <DCC_DebugInformation>2</DCC_DebugInformation>
+        <DCC_LocalDebugSymbols>true</DCC_LocalDebugSymbols>
+        <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
+    </PropertyGroup>
+    <ItemGroup>
+        <DelphiCompile Include="$(MainSource)">
+            <MainSource>MainSource</MainSource>
+        </DelphiCompile>
+        <DCCReference Include="src\ui\Qs.MainForm.pas">
+            <Form>FormMain</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="src\engine\Qs.Engine.pas"/>
+        <DCCReference Include="src\ui\Qs.Settings.pas"/>
+        <DCCReference Include="src\ui\Qs.Appearance.pas"/>
+        <DCCReference Include="src\ui\Qs.PreferencesForm.pas">
+            <Form>FormPreferences</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="src\ui\Qs.AddTorrentForm.pas">
+            <Form>FormAddTorrent</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <BuildConfiguration Include="Base">
+            <Key>Base</Key>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Release">
+            <Key>Cfg_1</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+        <BuildConfiguration Include="Debug">
+            <Key>Cfg_2</Key>
+            <CfgParent>Base</CfgParent>
+        </BuildConfiguration>
+    </ItemGroup>
+    <Target Name="GenerateManifest" BeforeTargets="CoreCompile">
+        <Exec Command="&quot;$(BDS)\Bin\brcc32.exe&quot; -foqstorrent.res resources\qstorrent.rc"/>
+    </Target>
+    <ProjectExtensions>
+        <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Delphi.Personality>
+                <Source>
+                    <Source Name="MainSource">qstorrent.dpr</Source>
+                </Source>
+            </Delphi.Personality>
+            <Platforms>
+                <Platform value="Win32">False</Platform>
+                <Platform value="Win64">True</Platform>
+            </Platforms>
+        </BorlandProject>
+        <ProjectFileVersion>12</ProjectFileVersion>
+    </ProjectExtensions>
+    <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')"/>
+    <Import Project="$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj" Condition="Exists('$(APPDATA)\Embarcadero\$(BDSAPPDATABASEDIR)\$(PRODUCTVERSION)\UserTools.proj')"/>
+</Project>
