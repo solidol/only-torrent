@@ -92,27 +92,18 @@ implementation
 
 uses Winapi.Windows, System.SysUtils, System.UITypes, System.IOUtils,
   System.StrUtils, System.DateUtils, System.Math, Vcl.FileCtrl, Vcl.Dialogs,
-  Vcl.Graphics, Qs.Appearance;
+  Vcl.Graphics, Qs.Appearance, Qs.TaskOptions, Qs.TransferMath, Qs.Types;
 
 {$R *.dfm}
 
 function TFormAddTorrent.RelativeFile(Index: Integer): string;
-var P: Integer;
 begin
-  Result := FMetadata.Files[Index].Path;
-  P := Pos('\', Result);
-  if P = 0 then P := Pos('/', Result);
-  if P > 0 then Delete(Result, 1, P);
+  Result := RelativeTorrentFile(FMetadata.Files[Index].Path);
 end;
 
 function TFormAddTorrent.FileKind(Index: Integer): Integer;
-var Extension: string;
 begin
-  Extension := LowerCase(ExtractFileExt(FMetadata.Files[Index].Path));
-  if MatchText(Extension, ['.mp4','.mkv','.avi','.mov','.wmv','.webm','.mpeg','.mpg','.m4v','.ts']) then Exit(0);
-  if MatchText(Extension, ['.mp3','.flac','.wav','.ogg','.aac','.m4a','.opus','.ape','.wma']) then Exit(1);
-  if MatchText(Extension, ['.jpg','.jpeg','.png','.gif','.bmp','.webp','.tif','.tiff','.svg']) then Exit(2);
-  Result := 3;
+  Result := Qs.TaskOptions.FileKind(FMetadata.Files[Index].Path);
 end;
 
 procedure TFormAddTorrent.Prepare(Metadata: TQsMetadata; const Settings: TQsSettings);
@@ -250,31 +241,22 @@ begin
 end;
 
 procedure TFormAddTorrent.UpdateSummary;
-var I, Kind, Count: Integer; SelectedBytes: Int64; Folder: string;
-  Counts, Selected: array[0..3] of Integer; TotalFree: Int64; Item: TListItem;
+var I: Integer; Folder: string; Summary: TQsSelectionSummary;
+  TotalFree: Int64; Item: TListItem;
 begin
   if FMetadata = nil then Exit;
-  Count := 0; SelectedBytes := 0;
-  FillChar(Counts, SizeOf(Counts), 0); FillChar(Selected, SizeOf(Selected), 0);
+  Summary := SelectionSummary(FMetadata.Files, FSelected);
   FUpdating := True;
   try
-    for I := 0 to High(FSelected) do
-    begin
-      Kind := FileKind(I); Inc(Counts[Kind]);
-      if FSelected[I] then
-      begin
-        Inc(Count); Inc(Selected[Kind]); Inc(SelectedBytes, FMetadata.Files[I].Size);
-      end;
-    end;
     LabelSelection.Caption := Format('Вибрано %d із %d файлів · %s',
-      [Count, Length(FSelected), SizeText(SelectedBytes)]);
+      [Summary.Count, Length(FSelected), SizeText(Summary.Bytes)]);
     CheckBoxAll.Caption := Format('Вибрати всі (%d)', [Length(FSelected)]);
-    SetSelectionState(CheckBoxAll, Length(FSelected), Count);
-    SetSelectionState(CheckBoxVideo, Counts[0], Selected[0]);
-    SetSelectionState(CheckBoxAudio, Counts[1], Selected[1]);
-    SetSelectionState(CheckBoxImages, Counts[2], Selected[2]);
-    SetSelectionState(CheckBoxOther, Counts[3], Selected[3]);
-    ButtonDownloadNow.Enabled := (Count > 0) and (Trim(ComboBoxFolder.Text) <> '');
+    SetSelectionState(CheckBoxAll, Length(FSelected), Summary.Count);
+    SetSelectionState(CheckBoxVideo, Summary.Counts[0], Summary.Selected[0]);
+    SetSelectionState(CheckBoxAudio, Summary.Counts[1], Summary.Selected[1]);
+    SetSelectionState(CheckBoxImages, Summary.Counts[2], Summary.Selected[2]);
+    SetSelectionState(CheckBoxOther, Summary.Counts[3], Summary.Selected[3]);
+    ButtonDownloadNow.Enabled := (Summary.Count > 0) and (Trim(ComboBoxFolder.Text) <> '');
     ButtonDownloadLater.Enabled := ButtonDownloadNow.Enabled;
     ListViewOrder.Items.BeginUpdate;
     try
@@ -308,7 +290,7 @@ begin
     Brush.Color := clWindow; FillRect(R);
     Used := R;
     if FDiskTotal > 0 then
-      Used.Right := Used.Left + Round(R.Width * ((FDiskTotal - FDiskFree) / FDiskTotal));
+      Used.Right := Used.Left + DiskUsedPixels(FDiskTotal, FDiskFree, R.Width);
     Brush.Color := clBtnFace; FillRect(Used);
     Brush.Style := bsClear; Pen.Color := clBtnShadow; Rectangle(R);
     Font.Assign(Self.Font); Font.Color := clWindowText;
@@ -357,19 +339,13 @@ begin
 end;
 
 procedure TFormAddTorrent.DownloadClick(Sender: TObject);
-var Value: TQsAddOptions; I: Integer;
+var Value: TQsAddOptions;
 begin
   if not ButtonDownloadNow.Enabled then Exit;
   try
     FStartNow := Sender = ButtonDownloadNow;
     Value := Options;
-    if (Value.Subfolder = '.') or (Value.Subfolder = '..') then
-      raise Exception.Create('Вкажіть коректну назву підпапки.');
-    for I := 1 to Length(Value.Subfolder) do
-      if CharInSet(Value.Subfolder[I], ['\','/',':','*','?','"','<','>','|']) then
-        raise Exception.Create('Підпапка має бути назвою, а не шляхом.');
-    if Value.Subfolder.EndsWith('.') or Value.Subfolder.EndsWith(' ') then
-      raise Exception.Create('Назва підпапки не може закінчуватися крапкою або пробілом.');
+    ValidateSubfolder(Value.Subfolder);
     if not System.SysUtils.ForceDirectories(SaveFolder) then
       raise Exception.Create('Не вдалося створити папку завантаження.');
     ModalResult := mrOk;

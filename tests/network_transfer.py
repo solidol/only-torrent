@@ -57,19 +57,15 @@ class Tracker(BaseHTTPRequestHandler):
 tracker=ThreadingHTTPServer(('127.0.0.1',0),Tracker)
 threading.Thread(target=tracker.serve_forever,daemon=True).start()
 threading.Thread(target=serve_seed,daemon=True).start()
-s=dll.qs_create()
+s=create_session()
 assert s,dll.qs_error()
 try:
     with tempfile.TemporaryDirectory(prefix='qs-network-') as tmp:
         root=Path(tmp)
         file=root/'network.torrent'
         file.write_bytes(bencode({b'announce':b'http://127.0.0.1:1/original',b'info':info}))
-        dll.qs_add_options.argtypes=[c.c_void_p,c.c_char_p,c.c_char_p,c.c_char_p,
-            c.POINTER(c.c_int),c.c_int,c.c_int,c.c_int,c.c_int,c.c_int,c.c_char_p]
-        priorities=(c.c_int*1)(4)
         edited_tracker=f'http://127.0.0.1:{tracker.server_port}/announce'.encode()
-        tid=dll.qs_add_options(s,str(file).encode(),str(root).encode(),b'',
-            priorities,1,1,0,0,0,edited_tracker)
+        tid=add_prepared(s,str(file).encode(),str(root).encode(),[4],trackers=[edited_tracker])
         assert tid>0,dll.qs_error()
         snap=Snapshot(); deadline=time.monotonic()+45
         while time.monotonic()<deadline:

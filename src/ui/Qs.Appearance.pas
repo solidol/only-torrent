@@ -2,7 +2,7 @@
 
 interface
 
-uses Vcl.Controls, Vcl.Graphics, System.Types, Qs.Engine;
+uses Vcl.Controls, Vcl.Graphics, System.Types, Qs.Types;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
 procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TQsBlockMap;
@@ -13,7 +13,7 @@ function StateText(Value: Integer): string;
 implementation
 
 uses Winapi.Windows, Winapi.UxTheme, Winapi.CommCtrl, System.SysUtils,
-  System.Math, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes;
+  System.Math, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes, Qs.BlockMap;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
 var I: Integer;
@@ -33,17 +33,14 @@ end;
 
 procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TQsBlockMap;
   Selected: Boolean; const Caption: string);
-var R, Plot, Bar, Fill, TextBounds: TRect; I, J, Count, First, Last, N: Integer;
-  V, Received, Requested: Integer; VerifiedColor, ReceivedColor: TColor;
+var R, Plot, Bar, Fill, TextBounds: TRect; I, Count: Integer;
+  DisplayMap: TQsBlockMap; VerifiedColor, ReceivedColor: TColor;
   Color: Longint; OldMode: Integer;
   procedure Layer(Value: Integer; LayerColor: TColor);
-  var Height: Integer;
   begin
     if Value <= 0 then Exit;
     Fill := Bar;
-    Height := Bar.Height;
-    if Value < 255 then Height := Max(0, Min(Height - 1, Max(1, MulDiv(Height, Value, 255))));
-    Fill.Top := Fill.Bottom - Height;
+    Fill.Top := Fill.Bottom - BlockLayerPixels(Bar.Height, Value);
     Canvas.Brush.Color := LayerColor;
     Canvas.FillRect(Fill);
   end;
@@ -65,8 +62,8 @@ begin
     Plot.Right := Max(Plot.Left, Plot.Right - 52);
     TextBounds.Left := Plot.Right + 3;
   end;
-  N := Length(Map.Verified);
-  Count := Min(N, Max(0, Plot.Width div 3));
+  DisplayMap := ResizeBlockMap(Map, Max(0, Plot.Width div 3));
+  Count := Length(DisplayMap.Verified);
   Color := ColorToRGB(clHighlight);
   VerifiedColor := clHighlight;
   if Selected then VerifiedColor := clHighlightText;
@@ -79,18 +76,9 @@ begin
     Bar.Right := Plot.Left + MulDiv(Plot.Width, I + 1, Count) - 1;
     Canvas.Brush.Color := clBtnFace;
     Canvas.FillRect(Bar);
-    First := I * N div Count;
-    Last := (I + 1) * N div Count;
-    V := 0; Received := 0; Requested := 0;
-    for J := First to Last - 1 do
-    begin
-      Inc(V, Map.Verified[J]);
-      Inc(Received, Map.Received[J]);
-      Inc(Requested, Map.Requested[J]);
-    end;
-    Layer(Requested div (Last - First), clBtnShadow);
-    Layer(Received div (Last - First), ReceivedColor);
-    Layer(V div (Last - First), VerifiedColor);
+    Layer(DisplayMap.Requested[I], clBtnShadow);
+    Layer(DisplayMap.Received[I], ReceivedColor);
+    Layer(DisplayMap.Verified[I], VerifiedColor);
   end;
   if Caption <> '' then
   begin

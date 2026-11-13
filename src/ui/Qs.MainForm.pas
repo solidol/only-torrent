@@ -112,7 +112,7 @@ var FormMain: TFormMain;
 implementation
 
 uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
-  Vcl.Graphics, Qs.Appearance, Qs.AddTorrentForm, Qs.PreferencesForm;
+  Vcl.Graphics, Qs.Appearance, Qs.AddTorrentForm, Qs.PreferencesForm, Qs.TransferMath, Qs.BlockMap;
 
 {$R *.dfm}
 
@@ -182,6 +182,7 @@ begin
   BuildImages;
   ListViewTorrents.DoubleBuffered := True;
   ListViewFiles.DoubleBuffered := True;
+  PanelGeneral.DoubleBuffered := True;
   TreeViewSidebar.Items.Add(nil, 'Усі (0)').ImageIndex := 0;
   TreeViewSidebar.Items.Add(nil, 'Завантажуються (0)').ImageIndex := 3;
   TreeViewSidebar.Items.Add(nil, 'Завершені (0)').ImageIndex := 2;
@@ -231,8 +232,8 @@ end;
 
 procedure TFormMain.AddClick(Sender: TObject);
 var FormDialog: TFormAddTorrent; Metadata: TQsMetadata; Entry: TTorrentEntry;
-  Priorities: TArray<Integer>; Folder, Path: string; Options: TQsAddOptions;
-  I, Id, Separator: Integer;
+  Priorities: TArray<Integer>; Folder: string; Options: TQsAddOptions;
+  I, Id: Integer;
 begin
   if not OpenDialogTorrent.Execute then Exit;
   if not EnsureEngine then Exit;
@@ -268,18 +269,7 @@ begin
         raise Exception.Create('Не вдалося створити папку завантаження.');
       FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB,
         FSettings.UploadKiB, FSettings.Connections);
-      Id := FEngine.AddOptions(OpenDialogTorrent.FileName, Folder, Priorities, Options);
-      for I := 0 to High(Metadata.Files) do
-      begin
-        Path := Metadata.Files[I].Path;
-        Separator := Pos('\', Path);
-        if Separator = 0 then Separator := Pos('/', Path);
-        if Separator > 0 then Delete(Path, 1, Separator);
-        if Options.Subfolder <> '' then Path := TPath.Combine(Options.Subfolder, Path);
-        Metadata.Files[I].Path := Path;
-      end;
-      Metadata.Trackers := StringReplace(Options.Trackers, #13, '', [rfReplaceAll]).Split(
-        [#10], TStringSplitOptions.ExcludeEmpty);
+      Id := FEngine.AddOptions(OpenDialogTorrent.FileName, Folder, Priorities, Options, Metadata);
       Entry := TTorrentEntry.Create;
       Entry.Id := Id;
       Entry.FileName := OpenDialogTorrent.FileName;
@@ -456,11 +446,17 @@ begin
 end;
 
 procedure TFormMain.UpdateRows;
-var Entry, Selected: TTorrentEntry; Item: TListItem; I, J: Integer; Seconds: Int64;
+var Entry, Selected: TTorrentEntry; Item: TListItem; I, J, ImageIndex: Integer; Seconds: Int64;
+  Rebuild: Boolean;
+  procedure SetSubItem(Index: Integer; const Value: string);
+  begin
+    if Item.SubItems[Index] <> Value then Item.SubItems[Index] := Value;
+  end;
 begin
   Selected := SelectedEntry;
   FRebuilding := True;
-  ListViewTorrents.Items.BeginUpdate;
+  Rebuild := FNeedsRebuild;
+  if Rebuild then ListViewTorrents.Items.BeginUpdate;
   try
     if FNeedsRebuild then
     begin
@@ -479,31 +475,31 @@ begin
     begin
       Item := ListViewTorrents.Items[I];
       Entry := TTorrentEntry(Item.Data);
-      Item.Caption := Entry.Metadata.Name;
-      Item.SubItems[0] := SizeText(Entry.Snapshot.TotalBytes);
-      Item.SubItems[1] := Format('%.1f %%', [Entry.Snapshot.Progress / 10000]);
-      Item.SubItems[2] := StateText(Entry.Snapshot.State);
-      Item.SubItems[3] := IntToStr(Entry.Snapshot.Seeds);
-      Item.SubItems[4] := IntToStr(Entry.Snapshot.Peers);
-      Item.SubItems[5] := SizeText(Entry.Snapshot.DownloadRate) + '/с';
-      Item.SubItems[6] := SizeText(Entry.Snapshot.UploadRate) + '/с';
-      Item.SubItems[7] := SizeText(Entry.Snapshot.DoneBytes);
+      if Item.Caption <> Entry.Metadata.Name then Item.Caption := Entry.Metadata.Name;
+      SetSubItem(0, SizeText(Entry.Snapshot.TotalBytes));
+      SetSubItem(1, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
+      SetSubItem(2, StateText(Entry.Snapshot.State));
+      SetSubItem(3, IntToStr(Entry.Snapshot.Seeds));
+      SetSubItem(4, IntToStr(Entry.Snapshot.Peers));
+      SetSubItem(5, SizeText(Entry.Snapshot.DownloadRate) + '/с');
+      SetSubItem(6, SizeText(Entry.Snapshot.UploadRate) + '/с');
+      SetSubItem(7, SizeText(Entry.Snapshot.DoneBytes));
       if Entry.Snapshot.DownloadRate > 0 then
       begin
-        Seconds := Max(Int64(0), Entry.Snapshot.TotalBytes - Entry.Snapshot.DoneBytes)
-          div Entry.Snapshot.DownloadRate;
-        Item.SubItems[8] := Format('%d:%.2d:%.2d',
-          [Seconds div 3600, (Seconds div 60) mod 60, Seconds mod 60]);
+        Seconds := RemainingSeconds(Entry.Snapshot.TotalBytes, Entry.Snapshot.DoneBytes, Entry.Snapshot.DownloadRate);
+        SetSubItem(8, Format('%d:%.2d:%.2d',
+          [Seconds div 3600, (Seconds div 60) mod 60, Seconds mod 60]));
       end
-      else if Entry.Snapshot.Progress >= 1000000 then Item.SubItems[8] := ''
-      else Item.SubItems[8] := '—';
-      if Entry.Snapshot.State = 8 then Item.ImageIndex := 3
-      else if Entry.Snapshot.State = 9 then Item.ImageIndex := 1
-      else if Entry.Snapshot.Progress >= 1000000 then Item.ImageIndex := 2
-      else Item.ImageIndex := 0;
+      else if Entry.Snapshot.Progress >= 1000000 then SetSubItem(8, '')
+      else SetSubItem(8, '—');
+      if Entry.Snapshot.State = 8 then ImageIndex := 3
+      else if Entry.Snapshot.State = 9 then ImageIndex := 1
+      else if Entry.Snapshot.Progress >= 1000000 then ImageIndex := 2
+      else ImageIndex := 0;
+      if Item.ImageIndex <> ImageIndex then Item.ImageIndex := ImageIndex;
     end;
   finally
-    ListViewTorrents.Items.EndUpdate;
+    if Rebuild then ListViewTorrents.Items.EndUpdate;
     FRebuilding := False;
   end;
 end;
@@ -630,6 +626,7 @@ end;
 
 procedure TFormMain.UpdateBlocks;
 var I, First, Last, Columns: Integer; Entry: TTorrentEntry;
+  NewBlocks: TQsBlockMap; Bounds: TRect;
 begin
   if FEngine = nil then Exit;
   if ListViewTorrents.TopItem <> nil then
@@ -641,9 +638,15 @@ begin
     begin
       Entry := TTorrentEntry(ListViewTorrents.Items[I].Data);
       try
-        Entry.Blocks := FEngine.Blocks(Entry.Id, Columns);
+        NewBlocks := FEngine.Blocks(Entry.Id, Columns);
       except
-        Entry.Blocks := Default(TQsBlockMap);
+        NewBlocks := Default(TQsBlockMap);
+      end;
+      if not SameBlockMap(Entry.Blocks, NewBlocks) then
+      begin
+        Entry.Blocks := NewBlocks;
+        if ListView_GetSubItemRect(ListViewTorrents.Handle, I, 2, LVIR_BOUNDS, @Bounds) then
+          InvalidateRect(ListViewTorrents.Handle, @Bounds, False);
       end;
     end;
   end;
@@ -652,17 +655,20 @@ begin
   begin
     Columns := EnsureRange((PaintBoxBlocks.Width - 6) div 3, 1, 4096);
     try
-      FSelectedBlocks := FEngine.Blocks(Entry.Id, Columns);
+      NewBlocks := FEngine.Blocks(Entry.Id, Columns);
       LabelBlockLegend.Caption := Format('Блоків: %s · розмір: %s · синій — перевірено; світлий — отримано; сірий — запитано',
-        [IntToStr(FSelectedBlocks.TotalBlocks), SizeText(FSelectedBlocks.BlockSize)]);
+        [IntToStr(NewBlocks.TotalBlocks), SizeText(NewBlocks.BlockSize)]);
     except
-      FSelectedBlocks := Default(TQsBlockMap);
+      NewBlocks := Default(TQsBlockMap);
       LabelBlockLegend.Caption := 'Карта блоків тимчасово недоступна';
     end;
   end
-  else FSelectedBlocks := Default(TQsBlockMap);
-  PaintBoxBlocks.Invalidate;
-  ListViewTorrents.Invalidate;
+  else NewBlocks := Default(TQsBlockMap);
+  if not SameBlockMap(FSelectedBlocks, NewBlocks) then
+  begin
+    FSelectedBlocks := NewBlocks;
+    PaintBoxBlocks.Invalidate;
+  end;
 end;
 
 procedure TFormMain.BlocksPaint(Sender: TObject);

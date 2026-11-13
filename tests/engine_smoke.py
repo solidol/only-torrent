@@ -1,7 +1,7 @@
-from engine_common import *
-assert dll.qs_version()==1
+﻿from engine_common import *
+assert dll.qs_version()==2
 with tempfile.TemporaryDirectory(prefix='qs-') as tmp:
-    s=dll.qs_create()
+    s=create_session()
     assert s, dll.qs_error()
     try:
         root=Path(tmp)

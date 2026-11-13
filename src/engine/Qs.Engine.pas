@@ -2,86 +2,18 @@
 
 interface
 
-uses Winapi.Windows, System.SysUtils;
+uses Winapi.Windows, System.SysUtils, Qs.Types, Qs.BridgeApi;
 
-const
-  QS_ABI_VERSION = 1;
+const QS_ABI_VERSION = Qs.BridgeApi.QS_ABI_VERSION;
 
 type
-  TQsBlockMap = record
-    Verified, Received, Requested: TBytes;
-    TotalBlocks: Int64;
-    BlockSize: Integer;
-  end;
-  TQsAddOptions = record
-    Subfolder, Trackers: string;
-    Start, Sequential: Boolean;
-    DownloadKiB, UploadKiB: Integer;
-  end;
-  TQsMetaFile = record
-    Size: Int64;
-    Path: string;
-  end;
-  TQsMetadata = class
-  public
-    Name, Comment, Creator, Publisher, PublisherURL, InfoHash, WebSeeds: string;
-    CreatedUTC: Int64;
-    Pieces, PieceLength: Integer;
-    TotalBytes: Int64;
-    Files: TArray<TQsMetaFile>;
-    Trackers: TArray<string>;
-  end;
-  TQsMetaInfoRaw = record
-    Total: Int64;
-    Files, Trackers: Integer;
-    Name: array[0..511] of AnsiChar;
-    Comment: array[0..1023] of AnsiChar;
-  end;
-  TQsMetaFileRaw = record
-    Size: Int64;
-    Path: array[0..4095] of AnsiChar;
-  end;
-  TQsMetaExtraRaw = record
-    Created: Int64;
-    Pieces, PieceLength: Integer;
-    Creator, Publisher: array[0..511] of AnsiChar;
-    PublisherURL: array[0..2047] of AnsiChar;
-    Hash: array[0..63] of AnsiChar;
-    WebSeeds: array[0..4095] of AnsiChar;
-  end;
-  TQsSnapshot = record
-    TotalBytes: Int64;
-    DoneBytes: Int64;
-    DownloadRate: Integer;
-    UploadRate: Integer;
-    Peers: Integer;
-    Seeds: Integer;
-    State: Integer;
-    Progress: Integer; // millionths
-    Name: array[0..511] of AnsiChar; // UTF-8
-    Error: array[0..511] of AnsiChar;
-  end;
-  TQsVersion = function: Integer; cdecl;
-  TQsCreate = function: Pointer; cdecl;
-  TQsDestroy = procedure(Session: Pointer); cdecl;
-  TQsAdd = function(Session: Pointer; FileName, SavePath: PAnsiChar): Integer; cdecl;
-  TQsSnapshotProc = function(Session: Pointer; Id: Integer; out Value: TQsSnapshot): Integer; cdecl;
-  TQsCommand = function(Session: Pointer; Id, Command: Integer): Integer; cdecl;
-  TQsError = function: PAnsiChar; cdecl;
-  TQsMetaOpen = function(FileName: PAnsiChar): Pointer; cdecl;
-  TQsMetaClose = procedure(Metadata: Pointer); cdecl;
-  TQsMetaInfoProc = function(Metadata: Pointer; out Info: TQsMetaInfoRaw): Integer; cdecl;
-  TQsMetaFileProc = function(Metadata: Pointer; Index: Integer; out Info: TQsMetaFileRaw): Integer; cdecl;
-  TQsMetaTracker = function(Metadata: Pointer; Index: Integer; Buffer: PAnsiChar; Capacity: Integer): Integer; cdecl;
-  TQsAddSelected = function(Session: Pointer; FileName, SavePath: PAnsiChar;
-    Priorities: PInteger; Count, Start: Integer): Integer; cdecl;
-  TQsConfigure = function(Session: Pointer; Port, DownKiB, UpKiB, Connections: Integer): Integer; cdecl;
-  TQsMetaExtraProc = function(Metadata: Pointer; FileName: PAnsiChar; out Info: TQsMetaExtraRaw): Integer; cdecl;
-  TQsBlocksProc = function(Session: Pointer; Id, Columns: Integer; Verified, Received,
-    Requested: PByte; out Total: Int64; out BlockSize: Integer): Integer; cdecl;
-  TQsAddOptionsProc = function(Session: Pointer; FileName, Path, Subfolder: PAnsiChar;
-    Priorities: PInteger; Count, Start, Sequential, DownloadKiB, UploadKiB: Integer;
-    Trackers: PAnsiChar): Integer; cdecl;
+  // Public application models stay independent of libtorrent and its C++ ABI.
+  TQsBlockMap = Qs.Types.TQsBlockMap;
+  TQsAddOptions = Qs.Types.TQsAddOptions;
+  TQsMetaFile = Qs.Types.TQsMetaFile;
+  TQsMetadata = Qs.Types.TQsMetadata;
+  TQsSnapshot = Qs.Types.TQsSnapshot;
+  TQsPieceState = Qs.Types.TQsPieceState;
 
   // All calls belong to the UI thread; network and disk work run in libtorrent.
   TQsEngine = class
@@ -102,8 +34,12 @@ type
     FAddSelected: TQsAddSelected;
     FConfigure: TQsConfigure;
     FMetaExtra: TQsMetaExtraProc;
-    FBlocks: TQsBlocksProc;
-    FAddOptions: TQsAddOptionsProc;
+    FPieceOpen: TQsPieceOpen;
+    FPieceBits: TQsPieceBits;
+    FPieceBlocks: TQsPieceBlocks;
+    FPieceClose: TQsPieceClose;
+    FAddPrepared: TQsAddPrepared;
+    FLibraryVersion: TQsLibraryVersion;
     function Resolve(const Name: AnsiString): Pointer;
     procedure Check(ResultCode: Integer);
     procedure EnsureSession;
@@ -116,19 +52,23 @@ type
       const Priorities: TArray<Integer>; Start: Boolean): Integer;
     procedure Configure(Port, DownKiB, UpKiB, Connections: Integer);
     function AddOptions(const FileName, SavePath: string; const Priorities: TArray<Integer>;
-      const Options: TQsAddOptions): Integer;
+      const Options: TQsAddOptions; Metadata: TQsMetadata = nil): Integer;
+    function ReadPieces(Id: Integer): TQsPieceState;
     function Blocks(Id, Columns: Integer): TQsBlockMap;
+    function LibraryVersion: string;
     function Snapshot(Id: Integer): TQsSnapshot;
     procedure Command(Id, Value: Integer); // 0 pause, 1 resume, 2 remove (keep data)
   end;
 
 implementation
 
+uses System.Classes, Qs.BlockMap, Qs.TaskOptions;
+
 function TQsEngine.Resolve(const Name: AnsiString): Pointer;
 begin
   Result := GetProcAddress(FLibrary, PAnsiChar(Name));
   if Result = nil then
-    raise Exception.Create('Несумісна qsengine.dll: ' + string(Name));
+    raise Exception.Create('Несумісна qsbridge.dll: ' + string(Name));
 end;
 
 constructor TQsEngine.Create;
@@ -139,15 +79,17 @@ begin
     raise Exception.Create('Помилка вирівнювання ABI рушія');
   if (SizeOf(TQsMetaInfoRaw) <> 1552) or (SizeOf(TQsMetaFileRaw) <> 4104) then
     raise Exception.Create('Помилка вирівнювання метаданих');
+  if (SizeOf(TQsSessionOptions) <> 32) or (SizeOf(TQsPieceHeader) <> 32) or
+    (SizeOf(TQsPartialBlock) <> 16) then raise Exception.Create('Помилка ABI моста');
   // Absolute path and altered search path: never load an engine from the CWD.
-  FLibrary := LoadLibraryEx(PChar(ExtractFilePath(ParamStr(0)) + 'qsengine.dll'),
+  FLibrary := LoadLibraryEx(PChar(ExtractFilePath(ParamStr(0)) + 'qsbridge.dll'),
     0, LOAD_WITH_ALTERED_SEARCH_PATH);
   if FLibrary = 0 then
-    raise Exception.Create('Не вдалося завантажити qsengine.dll. Код Windows: ' +
+    raise Exception.Create('Не вдалося завантажити qsbridge.dll. Код Windows: ' +
       IntToStr(GetLastError) + '. Див. README.md.');
   Version := TQsVersion(Resolve('qs_version'));
   if Version() <> QS_ABI_VERSION then
-    raise Exception.Create('Непідтримувана версія qsengine.dll');
+    raise Exception.Create('Непідтримувана версія qsbridge.dll');
   FDestroy := TQsDestroy(Resolve('qs_destroy'));
   FAdd := TQsAdd(Resolve('qs_add'));
   FSnapshot := TQsSnapshotProc(Resolve('qs_snapshot'));
@@ -162,14 +104,21 @@ begin
   FAddSelected := TQsAddSelected(Resolve('qs_add_selected'));
   FConfigure := TQsConfigure(Resolve('qs_configure'));
   FMetaExtra := TQsMetaExtraProc(Resolve('qs_meta_extra'));
-  FBlocks := TQsBlocksProc(Resolve('qs_blocks'));
-  FAddOptions := TQsAddOptionsProc(Resolve('qs_add_options'));
+  FPieceOpen := TQsPieceOpen(Resolve('qs_piece_open'));
+  FPieceBits := TQsPieceBits(Resolve('qs_piece_bits'));
+  FPieceBlocks := TQsPieceBlocks(Resolve('qs_piece_blocks'));
+  FPieceClose := TQsPieceClose(Resolve('qs_piece_close'));
+  FAddPrepared := TQsAddPrepared(Resolve('qs_add_prepared'));
+  FLibraryVersion := TQsLibraryVersion(Resolve('qs_libtorrent_version'));
 end;
 
 procedure TQsEngine.EnsureSession;
+var Options: TQsSessionOptions; Agent: UTF8String;
 begin
   if FSession <> nil then Exit;
-  FSession := FCreate();
+  Options := DefaultSessionOptions;
+  Agent := 'qsTorrent/0.1';
+  FSession := FCreate(@Options, PAnsiChar(Agent));
   if FSession = nil then Check(-1);
 end;
 
@@ -199,6 +148,7 @@ end;
 function TQsEngine.Inspect(const FileName: string): TQsMetadata;
 var F: UTF8String; Handle: Pointer; Info: TQsMetaInfoRaw; Extra: TQsMetaExtraRaw;
   Entry: TQsMetaFileRaw; I: Integer; Buffer: array[0..4095] of AnsiChar;
+  Stream: TFileStream; Bytes: TBytes;
 begin
   F := UTF8String(FileName);
   Handle := FMetaOpen(PAnsiChar(F));
@@ -210,12 +160,19 @@ begin
       Result.Name := UTF8ToString(PAnsiChar(@Info.Name[0]));
       Result.Comment := UTF8ToString(PAnsiChar(@Info.Comment[0]));
       Result.TotalBytes := Info.Total;
-      if SizeOf(Extra) <> 7248 then raise Exception.Create('Помилка ABI метаданих');
-      Check(FMetaExtra(Handle, PAnsiChar(F), Extra));
+      if SizeOf(Extra) <> 7216 then raise Exception.Create('Помилка ABI метаданих');
+      Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+      try
+        if (Stream.Size < 1) or (Stream.Size > 64 * 1024 * 1024) then
+          raise Exception.Create('Torrent metadata must be 1..64 MiB');
+        SetLength(Bytes, Stream.Size);
+        Stream.ReadBuffer(Bytes[0], Length(Bytes));
+      finally Stream.Free; end;
+      Check(FMetaExtra(Handle, @Bytes[0], Length(Bytes), Extra));
       Result.Creator := UTF8ToString(PAnsiChar(@Extra.Creator[0]));
       Result.Publisher := UTF8ToString(PAnsiChar(@Extra.Publisher[0]));
       Result.PublisherURL := UTF8ToString(PAnsiChar(@Extra.PublisherURL[0]));
-      Result.InfoHash := UTF8ToString(PAnsiChar(@Extra.Hash[0]));
+      Result.InfoHash := Sha1Text(Extra.Hash);
       Result.WebSeeds := UTF8ToString(PAnsiChar(@Extra.WebSeeds[0]));
       Result.CreatedUTC := Extra.Created;
       Result.Pieces := Extra.Pieces;
@@ -257,37 +214,86 @@ end;
 
 procedure TQsEngine.Configure(Port, DownKiB, UpKiB, Connections: Integer);
 begin
+  ValidateConnectionSettings(Port, DownKiB, UpKiB, Connections);
   EnsureSession;
-  Check(FConfigure(FSession, Port, DownKiB, UpKiB, Connections));
+  Check(FConfigure(FSession, Port, RateBytes(DownKiB), RateBytes(UpKiB), Connections));
 end;
 
 function TQsEngine.AddOptions(const FileName, SavePath: string;
-  const Priorities: TArray<Integer>; const Options: TQsAddOptions): Integer;
-var F, D, S, T: UTF8String;
+  const Priorities: TArray<Integer>; const Options: TQsAddOptions; Metadata: TQsMetadata): Integer;
+var F, D: UTF8String; Prepared: TQsPreparedTask; OwnMetadata: Boolean; I: Integer;
+  Paths, Trackers: TArray<UTF8String>;
+  PathPointers, TrackerPointers: TArray<PAnsiChar>;
+  TrackerBase: PPQsAnsiChar;
 begin
-  if Length(Priorities) = 0 then raise Exception.Create('Не вибрано файли');
-  EnsureSession;
-  F := UTF8String(FileName); D := UTF8String(SavePath);
-  S := UTF8String(Options.Subfolder); T := UTF8String(Options.Trackers);
-  Result := FAddOptions(FSession, PAnsiChar(F), PAnsiChar(D), PAnsiChar(S),
-    @Priorities[0], Length(Priorities), Ord(Options.Start), Ord(Options.Sequential),
-    Options.DownloadKiB, Options.UploadKiB, PAnsiChar(T));
-  Check(Result);
+  OwnMetadata := Metadata = nil;
+  if OwnMetadata then Metadata := Inspect(FileName);
+  try
+    Prepared := PrepareTask(Metadata, SavePath, Priorities, Options);
+    SetLength(Paths, Length(Prepared.Paths));
+    SetLength(PathPointers, Length(Paths));
+    for I := 0 to High(Paths) do
+    begin
+      Paths[I] := UTF8String(Prepared.Paths[I]);
+      PathPointers[I] := PAnsiChar(Paths[I]);
+    end;
+    SetLength(Trackers, Length(Prepared.Trackers));
+    SetLength(TrackerPointers, Length(Trackers));
+    for I := 0 to High(Trackers) do
+    begin
+      Trackers[I] := UTF8String(Prepared.Trackers[I]);
+      TrackerPointers[I] := PAnsiChar(Trackers[I]);
+    end;
+    TrackerBase := nil;
+    if Length(Trackers) > 0 then TrackerBase := @TrackerPointers[0];
+    EnsureSession;
+    F := UTF8String(FileName); D := UTF8String(SavePath);
+    Result := FAddPrepared(FSession, PAnsiChar(F), PAnsiChar(D), @Priorities[0],
+      Length(Priorities), Ord(Options.Start), Ord(Options.Sequential), Prepared.DownloadBytes,
+      Prepared.UploadBytes, @PathPointers[0], TrackerBase, Length(Trackers));
+    Check(Result);
+    if not OwnMetadata then
+    begin
+      for I := 0 to High(Prepared.Paths) do Metadata.Files[I].Path := Prepared.Paths[I];
+      Metadata.Trackers := Prepared.Trackers;
+    end;
+  finally
+    if OwnMetadata then Metadata.Free;
+  end;
+end;
+
+function TQsEngine.ReadPieces(Id: Integer): TQsPieceState;
+var Header: TQsPieceHeader; Handle: Pointer; Bits: PByte; Partial: Pointer; Count: Integer;
+begin
+  Result := Default(TQsPieceState);
+  Handle := FPieceOpen(FSession, Id, Header);
+  if Handle = nil then Check(-1);
+  try
+    if (Header.HaveBytes < 0) or (Header.HaveBytes > (Int64(Header.PieceCount) + 7) div 8) or
+      (Header.PartialCount < 0) then raise Exception.Create('Invalid piece snapshot ABI');
+    Result.TotalBytes := Header.TotalBytes;
+    Result.PieceLength := Header.PieceLength; Result.PieceCount := Header.PieceCount;
+    Result.BlockSize := Header.BlockSize; Result.IsSeeding := Header.IsSeed <> 0;
+    SetLength(Result.HavePieces, Header.HaveBytes);
+    SetLength(Result.PartialBlocks, Header.PartialCount);
+    Bits := nil; Partial := nil;
+    if Header.HaveBytes > 0 then Bits := @Result.HavePieces[0];
+    if Header.PartialCount > 0 then Partial := @Result.PartialBlocks[0];
+    Count := FPieceBits(Handle, Bits, Header.HaveBytes); Check(Count);
+    if Count <> Header.HaveBytes then raise Exception.Create('Invalid piece bitmap length');
+    Count := FPieceBlocks(Handle, Partial, Header.PartialCount); Check(Count);
+    if Count <> Header.PartialCount then raise Exception.Create('Invalid partial block count');
+  finally FPieceClose(Handle); end;
 end;
 
 function TQsEngine.Blocks(Id, Columns: Integer): TQsBlockMap;
-var Count: Integer;
 begin
-  if (Columns < 1) or (Columns > 4096) then raise Exception.Create('Некоректна ширина карти блоків');
-  SetLength(Result.Verified, Columns);
-  SetLength(Result.Received, Columns);
-  SetLength(Result.Requested, Columns);
-  Count := FBlocks(FSession, Id, Columns, @Result.Verified[0], @Result.Received[0],
-    @Result.Requested[0], Result.TotalBlocks, Result.BlockSize);
-  Check(Count);
-  SetLength(Result.Verified, Count);
-  SetLength(Result.Received, Count);
-  SetLength(Result.Requested, Count);
+  Result := BuildBlockMap(ReadPieces(Id), Columns);
+end;
+
+function TQsEngine.LibraryVersion: string;
+begin
+  Result := UTF8ToString(FLibraryVersion());
 end;
 
 function TQsEngine.Snapshot(Id: Integer): TQsSnapshot;

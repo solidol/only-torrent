@@ -1,28 +1,31 @@
 ﻿$ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
-Set-Location (Split-Path $PSScriptRoot -Parent)
+$workspacePath = Split-Path $PSScriptRoot -Parent
+Set-Location $workspacePath
+$config = Get-Content -Raw -Encoding UTF8 native/dependencies.json | ConvertFrom-Json
 New-Item -ItemType Directory -Force deps | Out-Null
-$packages = @(
-  @{ Url = 'https://codeload.github.com/arvidn/libtorrent/tar.gz/refs/tags/v1.2.19'; File = 'deps/libtorrent.tar.gz'; Directory = 'deps/libtorrent'; Extracted = 'deps/libtorrent-1.2.19' },
-  @{ Url = 'https://archives.boost.io/release/1.78.0/source/boost_1_78_0.tar.gz'; File = 'deps/boost.tar.gz'; Directory = 'deps/boost_1_78_0'; Extracted = 'deps/boost_1_78_0' }
-)
-foreach ($package in $packages) {
-  if (-not (Test-Path -LiteralPath $package.Directory)) {
-    if (-not (Test-Path -LiteralPath $package.File)) {
-      Invoke-WebRequest -UseBasicParsing $package.Url -OutFile $package.File
-    }
-    & tar.exe -xzf $package.File -C deps
-    if ($LASTEXITCODE -ne 0) { throw "Archive extraction failed: $($package.File)" }
-    if ($package.Extracted -ne $package.Directory) {
-      $depsRoot = [IO.Path]::GetFullPath((Join-Path (Get-Location).Path 'deps')) + [IO.Path]::DirectorySeparatorChar
-      $sourcePath = [IO.Path]::GetFullPath((Join-Path (Get-Location).Path $package.Extracted))
-      $targetPath = [IO.Path]::GetFullPath((Join-Path (Get-Location).Path $package.Directory))
-      if (-not $sourcePath.StartsWith($depsRoot, [StringComparison]::OrdinalIgnoreCase) -or
-          -not $targetPath.StartsWith($depsRoot, [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'Dependency paths must stay inside the workspace deps folder'
-      }
-      Move-Item -LiteralPath $sourcePath -Destination $targetPath
-    }
+$depsRoot = [IO.Path]::GetFullPath((Join-Path $workspacePath 'deps')) + [IO.Path]::DirectorySeparatorChar
+foreach ($package in @($config.libtorrent, $config.boost)) {
+  $archivePath = [IO.Path]::GetFullPath((Join-Path $workspacePath $package.archive))
+  $sourcePath = [IO.Path]::GetFullPath((Join-Path $workspacePath $package.source))
+  if (-not $archivePath.StartsWith($depsRoot, [StringComparison]::OrdinalIgnoreCase) -or
+      -not $sourcePath.StartsWith($depsRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Dependencies must stay inside workspace deps' }
+  if (-not (Test-Path -LiteralPath $archivePath)) {
+    Invoke-WebRequest -UseBasicParsing $package.url -OutFile $archivePath
+  }
+  if ((Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash -ne $package.sha256) {
+    throw "SHA-256 mismatch: $archivePath"
+  }
+  if (-not (Test-Path -LiteralPath $sourcePath)) {
+    & tar.exe -xzf $archivePath -C deps
+    if ($LASTEXITCODE -ne 0) { throw "Archive extraction failed: $archivePath" }
+    if ($package -eq $config.libtorrent) { $extractedName = 'libtorrent-' + $package.version }
+    else { $extractedName = 'boost_' + $package.version.Replace('.','_') }
+    $extractedPath = [IO.Path]::GetFullPath((Join-Path (Join-Path $workspacePath 'deps') $extractedName))
+    if (-not $extractedPath.StartsWith($depsRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid extraction path' }
+    if ($extractedPath -ne $sourcePath) { Move-Item -LiteralPath $extractedPath -Destination $sourcePath }
   }
 }
-Write-Host 'Sources downloaded. See README.md for build and license details.'
+python tests/upstream_integrity.py
+if ($LASTEXITCODE -ne 0) { throw 'Original libtorrent source verification failed' }
+Write-Output 'Pinned upstream dependencies are ready.'

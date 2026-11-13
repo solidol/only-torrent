@@ -1,10 +1,10 @@
 ﻿# Quick Start Torrent (qsTorrent)
 
-Торрент-клієнт Delphi 13 CE / VCL / DFM, Windows x64. Рушій: libtorrent 1.2.19 через власну qsengine.dll. Ліцензія власного коду: BSD-3-Clause.
+Торрент-клієнт Delphi 13 CE / VCL / DFM, Windows x64. Рушій: оригінальний libtorrent 1.2.19 в `torrent-rasterbar.dll`, окремий C-міст `qsbridge.dll`. Ліцензія власного коду: BSD-3-Clause.
 
 ## Збирання та запуск
 
-Відкрийте qstorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/qstorrent.exe. Поруч потрібна qsengine.dll.
+Відкрийте qstorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/qstorrent.exe. Поруч потрібні `qsbridge.dll`, `torrent-rasterbar.dll` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
 
 Для встановленої тут CE працює штатний AutoBuild через IDE:
 
@@ -21,7 +21,7 @@ powershell -ExecutionPolicy Bypass -File tools/fetch-deps.ps1
 powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1
 ```
 
-Скрипти завантажують офіційні вихідні коди libtorrent та Boost 1.78.0. Збирання DLL також копіює ліцензії до bin/Win64/licenses. Довільна C++ DLL libtorrent не замінює qsengine.dll: потрібен власний C ABI.
+Скрипти перевіряють SHA-256 офіційних архівів libtorrent та Boost 1.78.0. Оригінальний SDK збирається окремо, коли його ще немає; повторне збирання моста не перебудовує бібліотеку чи Delphi EXE. Ліцензії копіюються до bin/Win64/licenses. Архітектура, сумісність ABI та оновлення без перезбирання інтерфейсу: [docs/ENGINE-ARCHITECTURE.md](docs/ENGINE-ARCHITECTURE.md).
 
 ## Інтерфейс
 
@@ -53,13 +53,16 @@ SHA-1 обчислює libtorrent через системну Windows CryptoAPI.
 
 ```powershell
 python tests/project_structure.py
+python tests/upstream_integrity.py
+python tests/separation.py
 python tests/engine_smoke.py
 python tests/network_transfer.py
 python tests/add_options.py
 python tests/block_map.py
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -UiTests
+powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -CoreTests
 ```
 
 Окремий bin/Win64/QsUiSmoke.exe перевіряє всі DFM-форми, оформлення, навігацію налаштувань і вибір файлів. Запускати з робочою папкою tests. Тестові знімки в build містять синтетичні дані, а не справжнє завантаження. Результати: [docs/VALIDATION.md](docs/VALIDATION.md).
 
-Код: src/ui — форми, оформлення й налаштування; src/engine — Delphi-адаптер; native — DLL; tests — перевірки; docs — план і дослідження. Перед поширенням див. THIRD_PARTY.md.
+Код: src/ui — форми, оформлення й налаштування; src/core — моделі й обчислення; src/engine — Delphi-адаптер і C ABI; native — тонкий міст і конфігурація залежностей; tests — перевірки; docs — план і дослідження. Перед поширенням див. THIRD_PARTY.md.

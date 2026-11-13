@@ -1,8 +1,14 @@
-﻿param([switch]$UiTests)
+﻿param([switch]$UiTests, [switch]$CoreTests)
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path $PSScriptRoot -Parent
 $idePath = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin64\bds.exe'
-if ($UiTests) {
+if ($UiTests -and $CoreTests) { throw 'Choose UiTests or CoreTests' }
+if ($CoreTests) {
+  $workingPath = Join-Path $workspacePath 'tests'
+  $mainSource = 'QsCoreTests.dpr'
+  $errorLog = Join-Path $workingPath 'QsCoreTests.err'
+  $binaryPath = Join-Path $workspacePath 'bin\Win64\QsCoreTests.exe'
+} elseif ($UiTests) {
   $workingPath = Join-Path $workspacePath 'tests'
   $mainSource = 'QsUiSmoke.dpr'
   $errorLog = Join-Path $workingPath 'QsUiSmoke.err'

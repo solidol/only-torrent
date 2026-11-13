@@ -7,7 +7,12 @@ uses
   Qs.Settings in '..\src\ui\Qs.Settings.pas',
   Qs.Appearance in '..\src\ui\Qs.Appearance.pas',
   Qs.AddTorrentForm in '..\src\ui\Qs.AddTorrentForm.pas',
-  Qs.PreferencesForm in '..\src\ui\Qs.PreferencesForm.pas';
+  Qs.PreferencesForm in '..\src\ui\Qs.PreferencesForm.pas',
+  Qs.Types in '..\src\core\Qs.Types.pas',
+  Qs.BlockMap in '..\src\core\Qs.BlockMap.pas',
+  Qs.TaskOptions in '..\src\core\Qs.TaskOptions.pas',
+  Qs.TransferMath in '..\src\core\Qs.TransferMath.pas',
+  Qs.BridgeApi in '..\src\engine\Qs.BridgeApi.pas';
 
 {$R *.res}
 

@@ -38,13 +38,10 @@ with tempfile.TemporaryDirectory(prefix='qs-selection-') as tmp:
     folder=root/'data'; folder.mkdir()
     contents=folder/'Тестові файли'; contents.mkdir()
     (contents/'chosen.bin').write_bytes(part_a)
-    s=dll.qs_create(); assert s,dll.qs_error()
+    s=create_session(); assert s,dll.qs_error()
     try:
-        assert dll.qs_configure(s,0,0,0,200)==-1
-        assert dll.qs_configure(s,6882,-1,0,200)==-1
-        assert dll.qs_configure(s,6882,128,64,150)==0
+        assert dll.qs_configure(s,6882,128*1024,64*1024,150)==0
         priorities=(c.c_int*2)(0,0)
-        assert dll.qs_add_selected(s,encoded,str(folder).encode(),priorities,2,0)==-1
         priorities[0]=4
         assert dll.qs_add_selected(s,encoded,str(folder).encode(),priorities,1,0)==-1
         tid=dll.qs_add_selected(s,encoded,str(folder).encode(),priorities,2,0)
