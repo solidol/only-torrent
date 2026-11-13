@@ -49,6 +49,14 @@
         <DCC_GenerateStackFrames>false</DCC_GenerateStackFrames>
         <DCC_MinimumOSVersion>6.1</DCC_MinimumOSVersion>
         <Manifest_File>resources\qstorrent.manifest</Manifest_File>
+        <Icon_MainIcon>resources\qstorrent.ico</Icon_MainIcon>
+        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_MajorVer>0</VerInfo_MajorVer>
+        <VerInfo_MinorVer>1</VerInfo_MinorVer>
+        <VerInfo_Release>0</VerInfo_Release>
+        <VerInfo_Build>0</VerInfo_Build>
+        <VerInfo_Locale>1033</VerInfo_Locale>
+        <VerInfo_Keys>CompanyName=qsTorrent contributors;FileDescription=Quick Start Torrent;FileVersion=0.1.0.0;InternalName=qstorrent;OriginalFilename=qstorrent.exe;ProductName=Quick Start Torrent;ProductVersion=0.1.0.0</VerInfo_Keys>
         <SanitizedProjectName>qstorrent</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
