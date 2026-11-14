@@ -27,6 +27,7 @@ uses
   Ot.BridgeApi in 'src\engine\Ot.BridgeApi.pas';
 
 {$R *.res}
+{$R build\Ot.Version.res}
 
 procedure SetWindowBranding(WindowHandle: HWND);
 var LargeIcon, SmallIcon: HICON;

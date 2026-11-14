@@ -50,13 +50,16 @@
         <DCC_MinimumOSVersion>6.1</DCC_MinimumOSVersion>
         <Manifest_File>resources\otorrent.manifest</Manifest_File>
         <Icon_MainIcon>resources\otorrent.ico</Icon_MainIcon>
-        <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
+        <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
+        <PreBuildEvent>powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(PROJECTDIR)\tools\prepare-build.ps1&quot; -ResourceCompiler &quot;$(BDS)\bin\brcc32.exe&quot;</PreBuildEvent>
+        <PreBuildEventExecuteWhen>Always</PreBuildEventExecuteWhen>
+        <PreBuildEventIgnoreExitCode>false</PreBuildEventIgnoreExitCode>
         <VerInfo_MajorVer>0</VerInfo_MajorVer>
         <VerInfo_MinorVer>1</VerInfo_MinorVer>
         <VerInfo_Release>10</VerInfo_Release>
-        <VerInfo_Build>0</VerInfo_Build>
+        <VerInfo_Build>1</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.1.10.0;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.1.10.0</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.1.10.1;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.1.10.1</VerInfo_Keys>
         <SanitizedProjectName>otorrent</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
@@ -121,10 +124,6 @@
             <CfgParent>Base</CfgParent>
         </BuildConfiguration>
     </ItemGroup>
-    <Target Name="GenerateManifest" BeforeTargets="CoreCompile">
-        <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\version.ps1&quot; -NextBuild"/>
-        <Exec Command="&quot;$(BDS)\Bin\brcc32.exe&quot; -footorrent.res resources\otorrent.rc"/>
-    </Target>
     <PropertyGroup>
         <PROJECTDIR Condition="'$(PROJECTDIR)'==''">$(MSBuildProjectDirectory)\</PROJECTDIR>
         <OUTPUTDIR Condition="'$(OUTPUTDIR)'==''">$(MSBuildProjectDirectory)\$(DCC_ExeOutput)\</OUTPUTDIR>
