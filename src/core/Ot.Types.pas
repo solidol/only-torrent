@@ -12,6 +12,7 @@ type
   end;
   TOtAddOptions = record
     Subfolder, Trackers: string;
+    MagnetLink: string;
     Start, Sequential: Boolean;
     NeedsVerification: Boolean;
     DownloadKiB, UploadKiB: Integer;

@@ -364,6 +364,11 @@
         ShortCut = 16463
         OnClick = AddClick
       end
+      object MenuItemAddLink: TMenuItem
+        Caption = 'Додати HTTP / magnet-посилання...'
+        ShortCut = 16469
+        OnClick = AddLinkClick
+      end
       object MenuItemImport: TMenuItem
         Caption = 'Імпорт задач з BitComet / µTorrent...'
         OnClick = ImportClick
@@ -414,6 +419,20 @@
     OnTimer = RefreshTimerTimer
     Left = 480
     Top = 80
+  end
+  object TrayIconMain: TTrayIcon
+    Hint = 'Only Torrent'
+    Visible = False
+    OnClick = TrayClick
+    Left = 624
+    Top = 128
+  end
+  object TimerWatch: TTimer
+    Enabled = False
+    Interval = 1000
+    OnTimer = WatchTimer
+    Left = 576
+    Top = 128
   end
   object ImageListMain: TImageList
     Height = 20

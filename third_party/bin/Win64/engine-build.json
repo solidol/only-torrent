@@ -1,7 +1,7 @@
 ﻿{
     "files":  {
                   "torrent-rasterbar.dll":  "5ae5e1fd589ad613887147f389e7097f2521f2d25ce4ab58ae4e2cd1598e6850",
-                  "ltbridge.dll":  "c827bc59646f14bdfede7a5442b4ccea6857f7317a9243836f716634557c8c2d"
+                  "ltbridge.dll":  "8dfee3582a0c3d6a5780ca4083d2494761a9e6f6cce63b2f09dbc78ad4fd0b8b"
               },
     "bridgeAbi":  2,
     "upstreamArchiveSha256":  "c09c3f13dd6462d6ef0a5d1780ed0f73b504fcfbbdb5c6cad2cfad05daea50ba",

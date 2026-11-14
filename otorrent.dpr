@@ -2,6 +2,9 @@
 
 uses
   Winapi.Windows, Winapi.Messages,
+  Ot.WatchFolder in 'src\core\Ot.WatchFolder.pas',
+  Ot.TorrentSource in 'src\core\Ot.TorrentSource.pas',
+  Ot.AddLinkForm in 'src\ui\Ot.AddLinkForm.pas' {FormAddLink},
   Ot.Profile in 'src\core\Ot.Profile.pas',
   Ot.Sqlite in 'src\core\Ot.Sqlite.pas',
   Ot.TaskStore in 'src\core\Ot.TaskStore.pas',

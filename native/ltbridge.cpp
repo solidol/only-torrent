@@ -12,6 +12,10 @@
 #include <libtorrent/alert_types.hpp>
 #include <libtorrent/read_resume_data.hpp>
 #include <libtorrent/write_resume_data.hpp>
+#include <libtorrent/magnet_uri.hpp>
+#include <libtorrent/create_torrent.hpp>
+#include <libtorrent/bencode.hpp>
+#include <libtorrent/storage_defs.hpp>
 #include <deque>
 #include <set>
 #include <algorithm>
@@ -43,6 +47,11 @@ struct engine {
     explicit engine(lt::settings_pack const& p) : session(p) {}
 };
 thread_local std::string last_error;
+struct magnet_job {
+    lt::session session;
+    lt::torrent_handle handle;
+    explicit magnet_job(lt::settings_pack const& settings) : session(settings) {}
+};
 static engine& get(void* p) {
     if (!p) throw std::runtime_error("Invalid engine handle");
     return *static_cast<engine*>(p);
@@ -404,6 +413,92 @@ LT_API int lt_blob_copy(void* p, unsigned char* buffer, int capacity) noexcept {
       catch (...) { last_error = "Blob copy error"; return -1; }
 }
 LT_API void lt_blob_close(void* p) noexcept { delete static_cast<std::vector<char>*>(p); }
+
+LT_API void* lt_magnet_open(char const* uri, int enable_dht) noexcept {
+    try {
+        if (!uri || std::strlen(uri) > 32768 || std::strncmp(uri, "magnet:?", 8) != 0)
+            throw std::runtime_error("Invalid magnet link");
+        lt::error_code ec;
+        auto params = lt::parse_magnet_uri(uri, ec);
+        if (ec) throw std::runtime_error(ec.message());
+        params.save_path = ".";
+        params.storage = lt::disabled_storage_constructor;
+        params.flags &= ~(lt::torrent_flags::paused | lt::torrent_flags::auto_managed);
+        params.flags |= lt::torrent_flags::upload_mode;
+        lt::settings_pack settings;
+        settings.set_bool(lt::settings_pack::enable_dht, enable_dht != 0);
+        settings.set_bool(lt::settings_pack::enable_lsd, false);
+        settings.set_bool(lt::settings_pack::enable_upnp, false);
+        settings.set_bool(lt::settings_pack::enable_natpmp, false);
+        settings.set_str(lt::settings_pack::listen_interfaces, "0.0.0.0:0,[::]:0");
+        settings.set_int(lt::settings_pack::stop_tracker_timeout, 0);
+        settings.set_int(lt::settings_pack::connections_limit, 40);
+        settings.set_int(lt::settings_pack::max_metadata_size, 64 * 1024 * 1024);
+        auto job = std::unique_ptr<magnet_job>(new magnet_job(settings));
+        job->handle = job->session.add_torrent(params, ec);
+        if (ec) throw std::runtime_error(ec.message());
+        return job.release();
+    } catch (std::exception const& e) { last_error = e.what(); return nullptr; }
+      catch (...) { last_error = "Magnet open failed"; return nullptr; }
+}
+
+LT_API void* lt_magnet_poll(void* p, int* status, int* length) noexcept {
+    try {
+        if (!p || !status || !length) throw std::runtime_error("Invalid magnet job");
+        *status = 0; *length = 0;
+        auto& job = *static_cast<magnet_job*>(p);
+        std::vector<lt::alert*> alerts;
+        job.session.pop_alerts(&alerts);
+        auto state = job.handle.status();
+        if (state.errc) throw std::runtime_error(state.errc.message());
+        auto info = job.handle.torrent_file();
+        if (!info || !info->is_valid()) return nullptr;
+        job.handle.pause();
+        lt::create_torrent torrent(*info);
+        for (auto const& tracker : job.handle.trackers()) torrent.add_tracker(tracker.url, tracker.tier);
+        auto bytes = std::unique_ptr<std::vector<char>>(new std::vector<char>);
+        lt::bencode(std::back_inserter(*bytes), torrent.generate());
+        if (bytes->empty() || bytes->size() > 64 * 1024 * 1024)
+            throw std::runtime_error("Magnet metadata exceeds 64 MiB");
+        *length = static_cast<int>(bytes->size()); *status = 1;
+        return bytes.release();
+    } catch (std::exception const& e) { last_error = e.what(); if (status) *status = -1; return nullptr; }
+      catch (...) { last_error = "Magnet poll failed"; if (status) *status = -1; return nullptr; }
+}
+
+LT_API void lt_magnet_close(void* p) noexcept {
+    try { delete static_cast<magnet_job*>(p); } catch (...) {}
+}
+
+LT_API int lt_discovery(void* p, int enable_dht) noexcept {
+    try {
+        lt::settings_pack settings;
+        settings.set_bool(lt::settings_pack::enable_dht, enable_dht != 0);
+        get(p).session.apply_settings(settings);
+        return 0;
+    } catch (std::exception const& e) { last_error = e.what(); return -1; }
+      catch (...) { last_error = "DHT configuration failed"; return -1; }
+}
+
+LT_API int lt_apply_magnet(void* p, int id, char const* uri) noexcept {
+    try {
+        if (!uri || std::strlen(uri) > 32768) throw std::runtime_error("Invalid magnet URI");
+        lt::error_code ec;
+        auto params = lt::parse_magnet_uri(uri, ec);
+        if (ec) throw std::runtime_error(ec.message());
+        auto handle = get(p).torrents.at(id);
+        if (params.info_hash != handle.info_hash()) throw std::runtime_error("Magnet info-hash mismatch");
+        for (std::size_t i = 0; i < params.trackers.size(); ++i) {
+            lt::announce_entry tracker(params.trackers[i]);
+            if (i < params.tracker_tiers.size())
+                tracker.tier = static_cast<std::uint8_t>((std::max)(0, (std::min)(255, params.tracker_tiers[i])));
+            handle.add_tracker(tracker);
+        }
+        for (auto const& peer : params.peers) handle.connect_peer(peer);
+        return 0;
+    } catch (std::exception const& e) { last_error = e.what(); return -1; }
+      catch (...) { last_error = "Magnet peer setup failed"; return -1; }
+}
 
 LT_API void* lt_meta_open(char const* file) noexcept {
     try {

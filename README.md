@@ -61,13 +61,28 @@ powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 
 Працюють .torrent, вибір файлів, перевірка частин, TCP-піри, HTTP/UDP-трекери, пауза, продовження, видалення запису зі збереженням файлів. Локальне end-to-end завантаження перевірено тестом. Нижня вкладка трекерів показує адреси з метаданих, а не стан кожного announce.
 
-Поки немає магнетів, DHT, проксі чи веб-сервера. Вибір файлів у цій версії змінюється під час додавання; у нижній вкладці він лише відображається.
+Додано HTTP/HTTPS і magnet: меню «Файл → Додати HTTP / magnet-посилання…», Ctrl+U.
+Папка автопідхвату вмикається в налаштуваннях; вихідні torrent-файли зберігаються.
+Після отримання метаданих відкривається звичайний діалог додавання.
+[Налаштування, обмеження та перевірки](docs/TORRENT-SOURCES.md).
+
+Поки немає проксі чи веб-сервера. Вибір файлів змінюється під час додавання;
+у нижній вкладці він лише відображається.
+
+Кнопка закриття повністю завершує програму зі збереженням стану. Мінімізація
+приховує вікно в трей; один клік по значку повертає його, зберігаючи
+максимізований стан, якщо він був активним.
 
 ## Windows 7 та залежності
 
 Ціль — Windows 7 SP1 x64 і новіші. Manifest містить Common Controls v6 та Windows 7; код використовує системні API, доступні на Windows 7. Запуск саме на Windows 7 ще потрібно перевірити. Для відповідної версії Delphi перевірте доступність оновлень сумісності.
 
-SHA-1 обчислює libtorrent через системну Windows CryptoAPI. MSE/PE увімкнено. OpenSSL не включено, тому HTTPS-трекери не підтримуються. DHT, UPnP/NAT-PMP вимкнені; типовий порт 6881 можна змінити в налаштуваннях. Перед публічним релізом потрібен аудит зафіксованих залежностей.
+SHA-1 обчислює libtorrent через системну Windows CryptoAPI. MSE/PE увімкнено.
+OpenSSL не включено, тому HTTPS-трекери libtorrent не підтримуються; отримання
+самого .torrent через HTTPS використовує системний WinHTTP і підтримується.
+DHT має перемикач у налаштуваннях і вмикається після додавання magnet;
+UPnP/NAT-PMP залишаються вимкненими. Типовий порт 6881 можна змінити.
+Перед публічним релізом потрібен аудит зафіксованих залежностей.
 
 ## Перевірки
 
@@ -83,6 +98,8 @@ python tests/engine_smoke.py
 python tests/network_transfer.py
 python tests/add_options.py
 python tests/block_map.py
+python tests/torrent_sources.py
+python tests/batch_tasks.py
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -UiTests
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -CoreTests
 python tests/persistence_restart.py

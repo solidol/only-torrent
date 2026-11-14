@@ -10,7 +10,7 @@ import sys
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = Path(os.environ.get('OT_ENGINE_DIR', ROOT / 'build/persistence-candidate')).resolve()
+PACKAGE = Path(os.environ.get('OT_ENGINE_DIR', ROOT / 'bin/Win64')).resolve()
 PROFILE = Path((ROOT / 'build/persistence-profile.path').read_text(encoding='utf-8-sig'))
 
 def run(profile, mode):

@@ -77,6 +77,7 @@ begin
     Root.AddPair('total', TJSONNumber.Create(Metadata.TotalBytes));
     Root.AddPair('sequential', TJSONBool.Create(Options.Sequential));
     Root.AddPair('needsVerification', TJSONBool.Create(Options.NeedsVerification));
+    Root.AddPair('magnet', Options.MagnetLink);
     Root.AddPair('downloadKiB', TJSONNumber.Create(Options.DownloadKiB));
     Root.AddPair('uploadKiB', TJSONNumber.Create(Options.UploadKiB));
     Files := TJSONArray.Create; Root.AddPair('files', Files);
@@ -108,6 +109,7 @@ begin
     Options.Sequential := Root.GetValue<Boolean>('sequential');
     // Old records have no explicit confirmation of their on-disk state.
     Options.NeedsVerification := Root.GetValue<Boolean>('needsVerification', True);
+    Options.MagnetLink := Root.GetValue<string>('magnet', '');
     Options.DownloadKiB := Root.GetValue<Integer>('downloadKiB');
     Options.UploadKiB := Root.GetValue<Integer>('uploadKiB');
     Files := Root.GetValue<TJSONArray>('files');

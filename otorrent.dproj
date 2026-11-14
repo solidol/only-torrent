@@ -69,6 +69,12 @@
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
+        <DCCReference Include="src\core\Ot.WatchFolder.pas"/>
+        <DCCReference Include="src\core\Ot.TorrentSource.pas"/>
+        <DCCReference Include="src\ui\Ot.AddLinkForm.pas">
+            <Form>FormAddLink</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <DCCReference Include="src\core\Ot.Profile.pas"/>
         <DCCReference Include="src\core\Ot.Sqlite.pas"/>
         <DCCReference Include="src\core\Ot.TaskStore.pas"/>

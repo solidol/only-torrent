@@ -1,6 +1,9 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.WatchFolder in '..\src\core\Ot.WatchFolder.pas',
+  Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
+  Ot.AddLinkForm in '..\src\ui\Ot.AddLinkForm.pas',
   Ot.Profile in '..\src\core\Ot.Profile.pas',
   Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
   Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
@@ -9,6 +12,7 @@ uses
   Ot.ImportTasksForm in '..\src\ui\Ot.ImportTasksForm.pas',
   Ot.BitCometImportTest in 'Ot.BitCometImportTest.pas',
   Ot.BatchTests in 'Ot.BatchTests.pas',
+  Ot.SourceUiTests in 'Ot.SourceUiTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
@@ -70,6 +74,7 @@ end;
 
 var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TFormPreferences;
   FormImportTasks: TFormImportTasks;
+  FormAddLink: TFormAddLink;
   Entry: TTorrentEntry; Item: TListItem; Settings: TOtSettings;
   InspectEngine: TOtEngine; TorrentMetadata: TOtMetadata;
   I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
@@ -78,11 +83,23 @@ begin
   try
     try
       if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') and
-        (ParamStr(1) <> '--bitcomet-import') and (ParamStr(1) <> '--batch-test') then
+        (ParamStr(1) <> '--bitcomet-import') and (ParamStr(1) <> '--batch-test') and
+        (ParamStr(1) <> '--source-test') and (ParamStr(1) <> '--watch-test') then
         SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
+      if ParamStr(1) = '--source-test' then
+      begin
+        try RunSourceUi(FormMain, ParamStr(2), ParamStr(3), ParamStr(4));
+        finally FormMain.Free; end;
+        Exit;
+      end;
+      if ParamStr(1) = '--watch-test' then
+      begin
+        try RunWatchUi(FormMain, ParamStr(2)); finally FormMain.Free; end;
+        Exit;
+      end;
       if ParamStr(1) = '--batch-test' then
       begin
         try RunBatchScenario(FormMain, ParamStr(2), ParamStr(3), ParamStr(4));
@@ -246,6 +263,16 @@ begin
           FormImportTasks.Prepare(True, nil);
           Capture(FormImportTasks, 'ui-import-tasks');
         finally FormImportTasks.Free; end;
+        FormAddLink := TFormAddLink.Create(nil);
+        try
+          LoadLanguage('en-US');
+          FormAddLink.Prepare(True);
+          Require(FormAddLink.ButtonFetch.Caption = 'Retrieve torrent', 'English link dialog');
+          Require(not FormAddLink.TimerDownload.Enabled, 'No network request until user action');
+          LoadLanguage('uk-UA');
+          FormAddLink.Prepare(True);
+          Capture(FormAddLink, 'ui-add-link');
+        finally FormAddLink.Free; end;
         FormMain.ListViewTorrents.Items.Clear;
       finally
         Entry.Free;

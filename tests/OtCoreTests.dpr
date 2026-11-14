@@ -1,12 +1,15 @@
 ﻿program OtCoreTests;
 {$APPTYPE CONSOLE}
 uses
+  Ot.WatchFolder in '..\src\core\Ot.WatchFolder.pas',
+  Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
   Ot.Profile in '..\src\core\Ot.Profile.pas',
   Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
   Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
   Ot.Bencode in '..\src\core\Ot.Bencode.pas',
   Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
   Ot.ImportTests in 'Ot.ImportTests.pas',
+  Ot.SourceModelTests in 'Ot.SourceModelTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
   Ot.Settings in '..\src\ui\Ot.Settings.pas',
@@ -262,6 +265,8 @@ begin
     try
       CoreCalculations;
       ImportModels;
+      SourceModels;
+      Results.Add('PASS: source URL validation, torrent response validation, stable-file watching, writer locks and retry');
       Results.Add('PASS: bounded bencode parsing, import paths, file selection, BitComet offsets, info-hash mismatch');
       Results.Add('PASS: pure Delphi aggregation, holes, partial blocks, resampling, ETA, disk usage, paths, rates, trackers, selection');
       EngineIntegration;

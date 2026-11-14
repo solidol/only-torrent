@@ -80,6 +80,13 @@ LT_API int lt_resume_request(void* session, int id, int flush) LT_NOEXCEPT;
 LT_API void* lt_resume_poll(void* session, int* id, int* status, int* length) LT_NOEXCEPT;
 LT_API int lt_blob_copy(void* blob, unsigned char* buffer, int capacity) LT_NOEXCEPT;
 LT_API void lt_blob_close(void* blob) LT_NOEXCEPT;
+// Metadata-only magnet resolver. No payload files are created or downloaded.
+LT_API void* lt_magnet_open(char const* uri, int enable_dht) LT_NOEXCEPT;
+// status: 0 waiting, 1 complete, -1 failure. A completed blob uses lt_blob_*.
+LT_API void* lt_magnet_poll(void* job, int* status, int* length) LT_NOEXCEPT;
+LT_API void lt_magnet_close(void* job) LT_NOEXCEPT;
+LT_API int lt_apply_magnet(void* session, int id, char const* uri) LT_NOEXCEPT;
+LT_API int lt_discovery(void* session, int enable_dht) LT_NOEXCEPT;
 LT_API int lt_add_prepared_resume(void* session, char const* file, char const* path,
     int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
     char const* const* paths, char const* const* trackers, int tracker_count,

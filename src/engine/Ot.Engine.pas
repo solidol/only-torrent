@@ -8,6 +8,8 @@ const OT_ABI_VERSION = Ot.BridgeApi.OT_ABI_VERSION;
 
 type
   TOtRecheckPaused = function(Session: Pointer; Id: Integer): Integer; cdecl;
+  TOtApplyMagnet = function(Session: Pointer; Id: Integer; Uri: PAnsiChar): Integer; cdecl;
+  TOtDiscovery = function(Session: Pointer; Enabled: Integer): Integer; cdecl;
   TOtRemovePoll = function(Session: Pointer; out Id: Integer; Error: PAnsiChar;
     Capacity: Integer): Integer; cdecl;
   // Public application models stay independent of libtorrent and its C++ ABI.
@@ -50,6 +52,8 @@ type
     FAddPreparedResume: TOtAddPreparedResume;
     FRecheckPaused: TOtRecheckPaused;
     FRemovePoll: TOtRemovePoll;
+    FApplyMagnet: TOtApplyMagnet;
+    FDiscovery: TOtDiscovery;
     function Resolve(const Name: AnsiString): Pointer;
     procedure Check(ResultCode: Integer);
     procedure EnsureSession;
@@ -60,7 +64,7 @@ type
     function Inspect(const FileName: string): TOtMetadata;
     function AddSelected(const FileName, SavePath: string;
       const Priorities: TArray<Integer>; Start: Boolean): Integer;
-    procedure Configure(Port, DownKiB, UpKiB, Connections: Integer);
+    procedure Configure(Port, DownKiB, UpKiB, Connections: Integer; EnableDHT: Boolean = False);
     function AddOptions(const FileName, SavePath: string; const Priorities: TArray<Integer>;
       const Options: TOtAddOptions; Metadata: TOtMetadata = nil;
       const Resume: TBytes = nil; Restoring: Boolean = False): Integer;
@@ -114,6 +118,8 @@ begin
   // Optional extension: older ABI 2 bundles continue to load normally.
   FRecheckPaused := TOtRecheckPaused(GetProcAddress(FLibrary, 'lt_recheck_paused'));
   FRemovePoll := TOtRemovePoll(GetProcAddress(FLibrary, 'lt_remove_poll'));
+  FApplyMagnet := TOtApplyMagnet(GetProcAddress(FLibrary, 'lt_apply_magnet'));
+  FDiscovery := TOtDiscovery(GetProcAddress(FLibrary, 'lt_discovery'));
   FError := TOtError(Resolve('lt_error'));
   FCreate := TOtCreate(Resolve('lt_create'));
   FMetaOpen := TOtMetaOpen(Resolve('lt_meta_open'));
@@ -237,17 +243,19 @@ begin
   Check(Result);
 end;
 
-procedure TOtEngine.Configure(Port, DownKiB, UpKiB, Connections: Integer);
+procedure TOtEngine.Configure(Port, DownKiB, UpKiB, Connections: Integer; EnableDHT: Boolean);
 begin
   ValidateConnectionSettings(Port, DownKiB, UpKiB, Connections);
   EnsureSession;
   Check(FConfigure(FSession, Port, RateBytes(DownKiB), RateBytes(UpKiB), Connections));
+  if Assigned(FDiscovery) then Check(FDiscovery(FSession, Ord(EnableDHT)))
+  else if EnableDHT then raise Exception.Create(L('source.magnetDll', 'Потрібна ltbridge.dll з підтримкою magnet-посилань.'));
 end;
 
 function TOtEngine.AddOptions(const FileName, SavePath: string;
   const Priorities: TArray<Integer>; const Options: TOtAddOptions; Metadata: TOtMetadata;
   const Resume: TBytes; Restoring: Boolean): Integer;
-var F, D: UTF8String; Prepared: TOtPreparedTask; OwnMetadata: Boolean; I, ResumeUsed: Integer;
+var F, D, Magnet: UTF8String; Prepared: TOtPreparedTask; OwnMetadata: Boolean; I, ResumeUsed: Integer;
   Paths, Trackers: TArray<UTF8String>;
   PathPointers, TrackerPointers: TArray<PAnsiChar>;
   TrackerBase: PPOtAnsiChar;
@@ -290,6 +298,15 @@ begin
       Prepared.UploadBytes, @PathPointers[0], TrackerBase, Length(Trackers),
       ResumeData, Length(Resume), ResumeUsed);
     Check(Result);
+    if Options.MagnetLink <> '' then
+    try
+      if not Assigned(FApplyMagnet) then raise Exception.Create(L('source.magnetDll', 'Потрібна ltbridge.dll з підтримкою magnet-посилань.'));
+      Magnet := UTF8String(Options.MagnetLink);
+      Check(FApplyMagnet(FSession, Result, PAnsiChar(Magnet)));
+    except
+      FCommand(FSession, Result, 2);
+      raise;
+    end;
     if not OwnMetadata then
     begin
       for I := 0 to High(Prepared.Paths) do Metadata.Files[I].Path := Prepared.Paths[I];

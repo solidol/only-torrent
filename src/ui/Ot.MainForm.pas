@@ -3,10 +3,11 @@
 interface
 
 uses
-  Winapi.Windows, System.SysUtils, System.Classes, System.UITypes, System.Types,
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, System.UITypes, System.Types,
   System.Generics.Collections, Vcl.Forms, Vcl.Controls, Vcl.ComCtrls,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList,
-  Ot.Engine, Ot.Settings, System.ImageList, Vcl.ToolWin, Ot.TaskStore, Ot.TaskImport;
+  Ot.Engine, Ot.Settings, System.ImageList, Vcl.ToolWin, Ot.TaskStore, Ot.TaskImport,
+  Ot.WatchFolder;
 
 type
   TTorrentEntry = class
@@ -30,6 +31,7 @@ type
     MainMenuMain: TMainMenu;
     MenuItemFile: TMenuItem;
     MenuItemAdd: TMenuItem;
+    MenuItemAddLink: TMenuItem;
     MenuItemImport: TMenuItem;
     MenuItemExit: TMenuItem;
     MenuItemOptions: TMenuItem;
@@ -71,6 +73,8 @@ type
     ListViewTorrents: TListView;
     OpenDialogTorrent: TOpenDialog;
     TimerRefresh: TTimer;
+    TimerWatch: TTimer;
+    TrayIconMain: TTrayIcon;
     PopupMenuTorrent: TPopupMenu;
     MenuItemStart: TMenuItem;
     MenuItemPause: TMenuItem;
@@ -82,6 +86,10 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure AddClick(Sender: TObject);
+    procedure AddLinkClick(Sender: TObject);
+    procedure WatchTimer(Sender: TObject);
+    procedure MinimizeToTray(Sender: TObject);
+    procedure TrayClick(Sender: TObject);
     procedure ImportClick(Sender: TObject);
     procedure RecheckClick(Sender: TObject);
     procedure StartClick(Sender: TObject);
@@ -111,6 +119,13 @@ type
     FStore: TOtTaskStore;
     FLastResumeTick, FCloseDeadline: UInt64;
     FClosing, FAllowClose, FFinalResume: Boolean;
+    FAddingTorrent: Boolean;
+    FInTray: Boolean;
+    FWatcher: TOtWatchFolder;
+    procedure WMSysCommand(var Message: TWMSysCommand); message WM_SYSCOMMAND;
+    procedure WMSize(var Message: TWMSize); message WM_SIZE;
+    function AddTorrentFile(const FileName: string; ShowDialog, ReportErrors: Boolean;
+      const MagnetLink: string = ''): Boolean;
     procedure RestoreTasks;
     procedure StartStored(Entry: TTorrentEntry; AllowStart: Boolean = True);
     procedure BeginVerification(Entry: TTorrentEntry; StartAfter: Boolean);
@@ -140,9 +155,9 @@ var FormMain: TFormMain;
 
 implementation
 
-uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI, Winapi.Messages,
+uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
   Vcl.Graphics, Ot.Appearance, Ot.AddTorrentForm, Ot.PreferencesForm, Ot.TransferMath, Ot.BlockMap, Ot.Profile, Ot.Localization, Ot.FormLocalization,
-  Ot.ImportTasksForm;
+  Ot.ImportTasksForm, Ot.AddLinkForm;
 
 {$R *.dfm}
 
@@ -215,6 +230,9 @@ end;
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
   FEntries := TObjectList<TTorrentEntry>.Create(True);
+  FWatcher := TOtWatchFolder.Create;
+  TrayIconMain.Icon.Assign(Application.Icon);
+  Application.OnMinimize := MinimizeToTray;
   FSettings.Load;
   LoadLanguage(FSettings.Language);
   Font.Assign(Screen.MenuFont);
@@ -253,12 +271,17 @@ begin
     end;
   end;
   FLastResumeTick := GetTickCount64;
+  TimerWatch.Enabled := FSettings.WatchEnabled;
   UpdateButtons;
 end;
 
 procedure TFormMain.FormDestroy(Sender: TObject);
 begin
+  Application.OnMinimize := nil;
+  TrayIconMain.Visible := False;
   TimerRefresh.Enabled := False;
+  TimerWatch.Enabled := False;
+  FreeAndNil(FWatcher);
   FRebuilding := True;
   ListViewTorrents.Items.Clear;
   FreeAndNil(FEngine);
@@ -272,7 +295,7 @@ begin
   if not DirectoryExists(Entry.Folder) then
     raise Exception.Create(L('message.674241440297', 'Папка завантаження недоступна: ') + Entry.Folder);
   if not EnsureEngine then raise Exception.Create(L('message.f0bd0106fef6', 'Рушій недоступний'));
-  FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB, FSettings.UploadKiB, FSettings.Connections);
+  FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB, FSettings.UploadKiB, FSettings.Connections, FSettings.EnableDHT);
   Original := FEngine.Inspect(Entry.FileName);
   try
     if Original.InfoHash <> Entry.Stored.InfoHash then raise Exception.Create(L('message.44aa788f91e3', 'Info-hash службового торрента не збігається із записом завдання'));
@@ -313,7 +336,7 @@ begin
     try
       ReadTaskDetails(Task.Details, Entry.Metadata, Entry.Priorities, Entry.Options);
       if not EnsureEngine then raise Exception.Create(L('message.f0bd0106fef6', 'Рушій недоступний'));
-      FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB, FSettings.UploadKiB, FSettings.Connections);
+      FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB, FSettings.UploadKiB, FSettings.Connections, FSettings.EnableDHT);
       StartStored(Entry);
     except
       on E: Exception do
@@ -393,6 +416,8 @@ end;
 
 procedure TFormMain.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
+  // Closing always terminates; hiding is exclusively the minimize action.
+  TrayIconMain.Visible := False;
   CanClose := FAllowClose or (FEngine = nil) or (FStore = nil) or (FEntries.Count = 0);
   if CanClose then Exit;
   if FClosing then Exit;
@@ -401,6 +426,43 @@ begin
   ToolBarMain.Enabled := False; MainMenuMain.Items.Enabled := False;
   PopupMenuTorrent.Items.Enabled := False;
   ContinueClosing;
+end;
+
+procedure TFormMain.WMSysCommand(var Message: TWMSysCommand);
+begin
+  if Message.CmdType and $FFF0 = SC_MINIMIZE then
+  begin
+    MinimizeToTray(nil);
+    Message.Result := 0;
+    Exit;
+  end;
+  inherited;
+end;
+
+procedure TFormMain.WMSize(var Message: TWMSize);
+begin
+  inherited;
+  if Message.SizeType = SIZE_MINIMIZED then MinimizeToTray(nil);
+end;
+
+procedure TFormMain.MinimizeToTray(Sender: TObject);
+begin
+  if (TrayIconMain = nil) or FClosing or FInTray or Application.Terminated or (csDestroying in ComponentState) then Exit;
+  TrayIconMain.Visible := True;
+  FInTray := True;
+  Hide;
+end;
+
+procedure TFormMain.TrayClick(Sender: TObject);
+begin
+  if FClosing or Application.Terminated then Exit;
+  FInTray := False;
+  Application.Restore;
+  if WindowState = wsMinimized then WindowState := wsNormal;
+  Show;
+  BringToFront;
+  SetForegroundWindow(Handle);
+  TrayIconMain.Visible := False;
 end;
 
 procedure TFormMain.ContinueClosing;
@@ -441,6 +503,7 @@ begin
     on E: Exception do
     begin
       FClosing := False;
+      if FInTray then TrayClick(nil);
       ToolBarMain.Enabled := True; MainMenuMain.Items.Enabled := True;
       PopupMenuTorrent.Items.Enabled := True;
       MessageDlg(E.Message, mtError, [mbOK], 0);
@@ -471,18 +534,88 @@ begin
 end;
 
 procedure TFormMain.AddClick(Sender: TObject);
-var FormDialog: TFormAddTorrent; Metadata: TOtMetadata; Entry: TTorrentEntry;
-  Priorities: TArray<Integer>; Folder: string; Options: TOtAddOptions;
-  I, Id: Integer; ManagedFile: string;
 begin
   if FClosing then Exit;
-  if not OpenDialogTorrent.Execute then Exit;
+  if OpenDialogTorrent.Execute then
+    AddTorrentFile(OpenDialogTorrent.FileName, FSettings.ShowAddDialog, True);
+end;
+
+procedure TFormMain.AddLinkClick(Sender: TObject);
+var FormDialog: TFormAddLink; Token: TGUID; Temporary, Magnet: string;
+begin
+  if FClosing or FAddingTorrent or (FStore = nil) then Exit;
+  FormDialog := TFormAddLink.Create(Self);
+  try
+    FormDialog.Prepare(FSettings.SystemTheme);
+    FAddingTorrent := True;
+    try
+      if FormDialog.ShowModal <> mrOk then Exit;
+    finally FAddingTorrent := False; end;
+    CreateGUID(Token);
+    Temporary := TPath.Combine(TPath.Combine(ProfileFolder, 'Incoming'), GUIDToString(Token) + '.torrent');
+    try
+      AtomicWrite(Temporary, FormDialog.TorrentBytes);
+      Magnet := '';
+      if FormDialog.WasMagnet then Magnet := 'magnet:?' + Copy(Trim(FormDialog.EditLink.Text), 9, MaxInt);
+      if AddTorrentFile(Temporary, True, True, Magnet) and FormDialog.WasMagnet then
+      begin
+        FSettings.EnableDHT := True;
+        FSettings.Save;
+        FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB,
+          FSettings.UploadKiB, FSettings.Connections, True);
+      end;
+    finally
+      if FileExists(Temporary) then System.SysUtils.DeleteFile(Temporary);
+    end;
+  finally FormDialog.Free; end;
+end;
+
+procedure TFormMain.WatchTimer(Sender: TObject);
+var FileName: string; I: Integer; Started: UInt64;
+begin
+  if FClosing or FAddingTorrent or (FStore = nil) or not FSettings.WatchEnabled then Exit;
+  if (FSettings.WatchFolder = '') or SameFileName(FSettings.WatchFolder, FSettings.TorrentFolder) then Exit;
+  Started := GetTickCount64;
+  try
+    for I := 1 to 8 do
+    begin
+      FileName := FWatcher.Next(FSettings.WatchFolder, GetTickCount64);
+      if FileName = '' then Break;
+      AddTorrentFile(FileName, False, False);
+      if GetTickCount64 - Started >= 100 then Break;
+    end;
+  except on E: Exception do Log(E.Message); end;
+end;
+
+function TFormMain.AddTorrentFile(const FileName: string; ShowDialog, ReportErrors: Boolean;
+  const MagnetLink: string): Boolean;
+var FormDialog: TFormAddTorrent; Metadata: TOtMetadata; Entry, Existing, AddedEntry: TTorrentEntry;
+  Priorities: TArray<Integer>; Folder: string; Options: TOtAddOptions;
+  I, Id: Integer; ManagedFile: string; Probe: TFileStream;
+  WantsStart: Boolean;
+begin
+  Result := False;
+  if FClosing or FAddingTorrent or (FStore = nil) then Exit;
   if not EnsureEngine then Exit;
+  FAddingTorrent := True;
   Metadata := nil;
   Entry := nil;
   try
     try
-      Metadata := FEngine.Inspect(OpenDialogTorrent.FileName);
+      Probe := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+      try
+        if Probe.Size < 1 then
+          raise EReadError.Create(L('source.invalidTorrent', 'Отримані дані не є torrent-файлом.'));
+        if Probe.Size > 64 * 1024 * 1024 then
+          raise EReadError.Create(L('source.tooLarge', 'Torrent-файл перевищує 64 MiB.'));
+      finally Probe.Free; end;
+      Metadata := FEngine.Inspect(FileName);
+      for Existing in FEntries do
+        if SameText(Existing.Stored.InfoHash, Metadata.InfoHash) then
+        begin
+          Log(L('source.duplicate', 'Торрент уже є у списку: ') + Metadata.Name);
+          Exit;
+        end;
       Folder := FSettings.DownloadFolder;
       Options := Default(TOtAddOptions);
       Options.Start := FSettings.StartImmediately;
@@ -492,7 +625,7 @@ begin
       Options.Trackers := string.Join(sLineBreak, Metadata.Trackers);
       SetLength(Priorities, Length(Metadata.Files));
       for I := 0 to High(Priorities) do Priorities[I] := 4;
-      if FSettings.ShowAddDialog then
+      if ShowDialog then
       begin
         FormDialog := TFormAddTorrent.Create(Self);
         try
@@ -505,17 +638,22 @@ begin
           FormDialog.Free;
         end;
       end;
+      Options.MagnetLink := MagnetLink;
       Folder := ExpandFileName(Folder);
       if not System.SysUtils.ForceDirectories(Folder) then
         raise Exception.Create(L('text.ca1203e6fb5e', 'Не вдалося створити папку завантаження.'));
       FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB,
-        FSettings.UploadKiB, FSettings.Connections);
-      ManagedFile := ImportTorrent(OpenDialogTorrent.FileName, FSettings.TorrentFolder, Metadata.InfoHash);
+        FSettings.UploadKiB, FSettings.Connections, FSettings.EnableDHT);
+      ManagedFile := ImportTorrent(FileName, FSettings.TorrentFolder, Metadata.InfoHash);
       // Validate the committed copy rather than relying on the source in Downloads.
       with FEngine.Inspect(ManagedFile) do
       try
         if InfoHash <> Metadata.InfoHash then raise Exception.Create(L('message.fb6538500ed0', 'Торрент змінився під час копіювання'));
       finally Free; end;
+      // A paused new task has no confirmed disk state or trustworthy resume yet.
+      WantsStart := Options.Start;
+      Options.Start := False;
+      Options.NeedsVerification := True;
       Id := FEngine.AddOptions(ManagedFile, Folder, Priorities, Options, Metadata);
       Entry := TTorrentEntry.Create;
       Entry.Id := Id;
@@ -529,7 +667,7 @@ begin
       Entry.Stored.Name := Entry.Metadata.Name;
       Entry.Stored.TorrentFile := ManagedFile;
       Entry.Stored.SavePath := Folder;
-      Entry.Stored.Running := Options.Start;
+      Entry.Stored.Running := WantsStart;
       Entry.Stored.Position := FEntries.Count;
       Entry.Stored.Details := TaskDetails(Entry.Metadata, Priorities, Options);
       try
@@ -539,7 +677,11 @@ begin
         raise;
       end;
       FEntries.Add(Entry);
+      AddedEntry := Entry;
       Entry := nil;
+      Result := True;
+      FNeedsRebuild := True;
+      if WantsStart then BeginVerification(AddedEntry, True);
       Log(L('text.4eb7a3577fcb', 'Додано: ') + FEntries.Last.Metadata.Name);
       FNeedsRebuild := True;
       RefreshTimerTimer(nil);
@@ -554,13 +696,14 @@ begin
     except
       on E: Exception do
       begin
-        Log(E.Message);
-        MessageDlg(E.Message, mtError, [mbOK], 0);
+        Log(FileName + ': ' + E.Message);
+        if ReportErrors then MessageDlg(E.Message, mtError, [mbOK], 0);
       end;
     end;
   finally
     Entry.Free;
     Metadata.Free;
+    FAddingTorrent := False;
   end;
 end;
 
@@ -889,9 +1032,11 @@ end;
 procedure TFormMain.OptionsApplied(Sender: TObject);
 begin
   FSettings := TFormPreferences(Sender).Value;
+  FWatcher.Reset;
+  TimerWatch.Enabled := FSettings.WatchEnabled;
   if (FEngine <> nil) and (FEntries.Count > 0) then
     FEngine.Configure(FSettings.ListenPort, FSettings.DownloadKiB,
-      FSettings.UploadKiB, FSettings.Connections);
+      FSettings.UploadKiB, FSettings.Connections, FSettings.EnableDHT);
   LoadLanguage(FSettings.Language);
   TranslateForm(Self);
   ApplyAppearance(Self, FSettings.SystemTheme);
@@ -1074,7 +1219,7 @@ end;
 procedure TFormMain.RefreshTimerTimer(Sender: TObject);
 const Names: array[0..5] of string = ('Усі', 'Завантажуються', 'Завершені', 'Активні', 'Неактивні', 'Без мітки');
 var Entry: TTorrentEntry; Down, Up: Int64; I: Integer; Count: array[0..5] of Integer;
-  Before: Boolean; ErrorText: string;
+  Before: Boolean; ErrorText, Discovery: string;
 begin
   if (FStore = nil) or (FEntries = nil) then Exit;
   DrainResume;
@@ -1145,7 +1290,9 @@ begin
   UpdateBlocks;
   UpdateDetails(False);
   UpdateButtons;
-  StatusBarMain.Panels[0].Text := LF('text.2e6f13ed5386', 'Торрентів: %d   ·   DHT вимкнено', [FEntries.Count]);
+  Discovery := L('source.dhtOff', 'вимкнено');
+  if FSettings.EnableDHT then Discovery := L('source.dhtOn', 'увімкнено');
+  StatusBarMain.Panels[0].Text := LF('source.status', 'Торрентів: %d   ·   DHT %s', [FEntries.Count, Discovery]);
   StatusBarMain.Panels[1].Text := L('text.16561c24aaa7', 'Вниз: ') + SizeText(Down) + L('text.a9208f0400fe', '/с');
   StatusBarMain.Panels[2].Text := L('text.2ab5db5de322', 'Вгору: ') + SizeText(Up) + L('text.a9208f0400fe', '/с');
   if Sender = TimerRefresh then

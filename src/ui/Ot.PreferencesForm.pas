@@ -14,6 +14,12 @@ type
     TabSheetConnection: TTabSheet;
     TabSheetBandwidth: TTabSheet;
     TabSheetFuture: TTabSheet;
+    TabSheetWatch: TTabSheet;
+    GroupBoxWatch: TGroupBox;
+    CheckBoxWatch: TCheckBox;
+    EditWatchFolder: TEdit;
+    ButtonBrowseWatch: TButton;
+    LabelWatchNote: TLabel;
     GroupBoxAppearance: TGroupBox;
     CheckBoxSystemTheme: TCheckBox;
     CheckBoxProgress: TCheckBox;
@@ -35,6 +41,7 @@ type
     LabelPort: TLabel;
     EditPort: TEdit;
     LabelPortNote: TLabel;
+    CheckBoxDHT: TCheckBox;
     GroupBoxLimits: TGroupBox;
     LabelDownload: TLabel;
     LabelUpload: TLabel;
@@ -77,6 +84,7 @@ begin
   TreeViewCategories.Items.Add(nil, L('text.d5823b720a94', 'З’єднання'));
   TreeViewCategories.Items.Add(nil, L('text.d8c69ef04dda', 'Швидкість'));
   TreeViewCategories.Items.Add(nil, L('text.048483ff51ba', 'Наступні етапи'));
+  TreeViewCategories.Items.Add(nil, L('source.watchCategory', 'Автопідхват'));
   TreeViewCategories.Selected := TreeViewCategories.Items[0];
   TranslateForm(Self);
 end;
@@ -90,8 +98,11 @@ begin
   CheckBoxStart.Checked := Value.StartImmediately;
   EditFolder.Text := Value.DownloadFolder;
   EditTorrentFolder.Text := Value.TorrentFolder;
+  CheckBoxWatch.Checked := Value.WatchEnabled;
+  EditWatchFolder.Text := Value.WatchFolder;
   ComboBoxLanguage.ItemIndex := Ord(SameText(Value.Language, 'en-US'));
   EditPort.Text := IntToStr(Value.ListenPort);
+  CheckBoxDHT.Checked := Value.EnableDHT;
   EditDownload.Text := IntToStr(Value.DownloadKiB);
   EditUpload.Text := IntToStr(Value.UploadKiB);
   EditConnections.Text := IntToStr(Value.Connections);
@@ -107,10 +118,12 @@ procedure TFormPreferences.BrowseClick(Sender: TObject);
 var Folder: string;
 begin
   if Sender = ButtonBrowseTorrents then Folder := EditTorrentFolder.Text
+  else if Sender = ButtonBrowseWatch then Folder := EditWatchFolder.Text
   else Folder := EditFolder.Text;
   if SelectDirectory(L('text.46998b40d825', 'Папка для нових завантажень'), '', Folder,
     [sdNewUI, sdNewFolder], Self) then
     if Sender = ButtonBrowseTorrents then EditTorrentFolder.Text := Folder
+    else if Sender = ButtonBrowseWatch then EditWatchFolder.Text := Folder
     else EditFolder.Text := Folder;
 end;
 
@@ -142,12 +155,21 @@ begin
     NewValue.DownloadFolder := ExpandFileName(NewValue.DownloadFolder);
     if Trim(EditTorrentFolder.Text) = '' then raise Exception.Create(L('text.21ba4eba4706', 'Вкажіть папку службових torrent-файлів.'));
     NewValue.TorrentFolder := ExpandFileName(Trim(EditTorrentFolder.Text));
+    PageControlSettings.ActivePage := TabSheetWatch;
+    NewValue.WatchEnabled := CheckBoxWatch.Checked;
+    NewValue.WatchFolder := Trim(EditWatchFolder.Text);
+    if NewValue.WatchFolder <> '' then NewValue.WatchFolder := ExpandFileName(NewValue.WatchFolder);
+    if NewValue.WatchEnabled and not System.SysUtils.DirectoryExists(NewValue.WatchFolder) then
+      raise Exception.Create(L('source.watchMissing', 'Вкажіть наявну папку автопідхвату.'));
+    if NewValue.WatchEnabled and SameFileName(NewValue.WatchFolder, NewValue.TorrentFolder) then
+      raise Exception.Create(L('source.watchStorage', 'Папка автопідхвату має відрізнятися від папки службових торрентів.'));
     NewValue.Language := 'uk-UA';
     if ComboBoxLanguage.ItemIndex = 1 then NewValue.Language := 'en-US';
     NewValue.SystemTheme := CheckBoxSystemTheme.Checked;
     NewValue.ShowProgressBars := CheckBoxProgress.Checked;
     NewValue.ShowAddDialog := CheckBoxShowDialog.Checked;
     NewValue.StartImmediately := CheckBoxStart.Checked;
+    NewValue.EnableDHT := CheckBoxDHT.Checked;
     NewValue.Save;
     Value := NewValue;
     LoadLanguage(Value.Language);

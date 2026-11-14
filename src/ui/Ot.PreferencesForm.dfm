@@ -209,7 +209,7 @@
         Left = 12
         Top = 12
         Width = 496
-        Height = 180
+        Height = 230
         Caption = 'Порт вхідних з’єднань'
         TabOrder = 0
         object LabelPort: TLabel
@@ -224,6 +224,16 @@
           Height = 23
           NumbersOnly = True
           TabOrder = 0
+        end
+        object CheckBoxDHT: TCheckBox
+          Left = 16
+          Top = 180
+          Width = 460
+          Height = 21
+          Caption = 'Використовувати DHT для пошуку пірів'
+          Hint = 'Також автоматично вмикається після додавання magnet-посилання'
+          ShowHint = True
+          TabOrder = 1
         end
         object LabelPortNote: TLabel
           Left = 16
@@ -304,7 +314,51 @@
         Height = 240
         AutoSize = False
         WordWrap = True
-        Caption = 'Заплановано: магнет-посилання, багатомовність, DHT, проксі та веб-інтерфейс. Параметри цих можливостей з’являться разом з їх реалізацією.'
+        Caption = 'Заплановано: розширені налаштування DHT, проксі та веб-інтерфейс. Отримання метаданих magnet використовує окрему DHT-сесію.'
+      end
+    end
+    object TabSheetWatch: TTabSheet
+      Caption = 'Автопідхват'
+      object GroupBoxWatch: TGroupBox
+        Left = 12
+        Top = 12
+        Width = 496
+        Height = 240
+        Caption = 'Папка автопідхвату torrent-файлів'
+        TabOrder = 0
+        object CheckBoxWatch: TCheckBox
+          Left = 16
+          Top = 28
+          Width = 460
+          Height = 21
+          Caption = 'Автоматично додавати нові torrent-файли'
+          TabOrder = 0
+        end
+        object EditWatchFolder: TEdit
+          Left = 16
+          Top = 64
+          Width = 356
+          Height = 23
+          TabOrder = 1
+        end
+        object ButtonBrowseWatch: TButton
+          Left = 380
+          Top = 62
+          Width = 98
+          Height = 27
+          Caption = 'Огляд...'
+          TabOrder = 2
+          OnClick = BrowseClick
+        end
+        object LabelWatchNote: TLabel
+          Left = 16
+          Top = 108
+          Width = 460
+          Height = 110
+          AutoSize = False
+          WordWrap = True
+          Caption = 'Файли додаються без діалогу за поточними налаштуваннями папки й запуску. Оригінали не видаляються. Файл має залишатися незмінним щонайменше 1,5 секунди. Дублікати не додаються. Вкладені папки не переглядаються.'
+        end
       end
     end
   end
