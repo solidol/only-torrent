@@ -1,50 +1,50 @@
-﻿unit Qs.Engine;
+﻿unit Ot.Engine;
 
 interface
 
-uses Winapi.Windows, System.SysUtils, Qs.Types, Qs.BridgeApi;
+uses Winapi.Windows, System.SysUtils, Ot.Types, Ot.BridgeApi;
 
-const QS_ABI_VERSION = Qs.BridgeApi.QS_ABI_VERSION;
+const OT_ABI_VERSION = Ot.BridgeApi.OT_ABI_VERSION;
 
 type
   // Public application models stay independent of libtorrent and its C++ ABI.
-  TQsBlockMap = Qs.Types.TQsBlockMap;
-  TQsAddOptions = Qs.Types.TQsAddOptions;
-  TQsMetaFile = Qs.Types.TQsMetaFile;
-  TQsMetadata = Qs.Types.TQsMetadata;
-  TQsSnapshot = Qs.Types.TQsSnapshot;
-  TQsPieceState = Qs.Types.TQsPieceState;
+  TOtBlockMap = Ot.Types.TOtBlockMap;
+  TOtAddOptions = Ot.Types.TOtAddOptions;
+  TOtMetaFile = Ot.Types.TOtMetaFile;
+  TOtMetadata = Ot.Types.TOtMetadata;
+  TOtSnapshot = Ot.Types.TOtSnapshot;
+  TOtPieceState = Ot.Types.TOtPieceState;
 
   // All calls belong to the UI thread; network and disk work run in libtorrent.
-  TQsEngine = class
+  TOtEngine = class
   private
     FLibrary: HMODULE;
     FSession: Pointer;
-    FCreate: TQsCreate;
-    FDestroy: TQsDestroy;
-    FAdd: TQsAdd;
-    FSnapshot: TQsSnapshotProc;
-    FCommand: TQsCommand;
-    FError: TQsError;
-    FMetaOpen: TQsMetaOpen;
-    FMetaClose: TQsMetaClose;
-    FMetaInfo: TQsMetaInfoProc;
-    FMetaFile: TQsMetaFileProc;
-    FMetaTracker: TQsMetaTracker;
-    FAddSelected: TQsAddSelected;
-    FConfigure: TQsConfigure;
-    FMetaExtra: TQsMetaExtraProc;
-    FPieceOpen: TQsPieceOpen;
-    FPieceBits: TQsPieceBits;
-    FPieceBlocks: TQsPieceBlocks;
-    FPieceClose: TQsPieceClose;
-    FAddPrepared: TQsAddPrepared;
-    FLibraryVersion: TQsLibraryVersion;
-    FResumeRequest: TQsResumeRequest;
-    FResumePoll: TQsResumePoll;
-    FBlobCopy: TQsBlobCopy;
-    FBlobClose: TQsBlobClose;
-    FAddPreparedResume: TQsAddPreparedResume;
+    FCreate: TOtCreate;
+    FDestroy: TOtDestroy;
+    FAdd: TOtAdd;
+    FSnapshot: TOtSnapshotProc;
+    FCommand: TOtCommand;
+    FError: TOtError;
+    FMetaOpen: TOtMetaOpen;
+    FMetaClose: TOtMetaClose;
+    FMetaInfo: TOtMetaInfoProc;
+    FMetaFile: TOtMetaFileProc;
+    FMetaTracker: TOtMetaTracker;
+    FAddSelected: TOtAddSelected;
+    FConfigure: TOtConfigure;
+    FMetaExtra: TOtMetaExtraProc;
+    FPieceOpen: TOtPieceOpen;
+    FPieceBits: TOtPieceBits;
+    FPieceBlocks: TOtPieceBlocks;
+    FPieceClose: TOtPieceClose;
+    FAddPrepared: TOtAddPrepared;
+    FLibraryVersion: TOtLibraryVersion;
+    FResumeRequest: TOtResumeRequest;
+    FResumePoll: TOtResumePoll;
+    FBlobCopy: TOtBlobCopy;
+    FBlobClose: TOtBlobClose;
+    FAddPreparedResume: TOtAddPreparedResume;
     function Resolve(const Name: AnsiString): Pointer;
     procedure Check(ResultCode: Integer);
     procedure EnsureSession;
@@ -52,103 +52,103 @@ type
     constructor Create;
     destructor Destroy; override;
     function Add(const FileName, SavePath: string): Integer;
-    function Inspect(const FileName: string): TQsMetadata;
+    function Inspect(const FileName: string): TOtMetadata;
     function AddSelected(const FileName, SavePath: string;
       const Priorities: TArray<Integer>; Start: Boolean): Integer;
     procedure Configure(Port, DownKiB, UpKiB, Connections: Integer);
     function AddOptions(const FileName, SavePath: string; const Priorities: TArray<Integer>;
-      const Options: TQsAddOptions; Metadata: TQsMetadata = nil;
+      const Options: TOtAddOptions; Metadata: TOtMetadata = nil;
       const Resume: TBytes = nil; Restoring: Boolean = False): Integer;
     procedure RequestResume(Id: Integer; Flush: Boolean);
     function PollResume(out Id, Status: Integer; out Bytes: TBytes): Boolean;
-    function ReadPieces(Id: Integer): TQsPieceState;
-    function Blocks(Id, Columns: Integer): TQsBlockMap;
+    function ReadPieces(Id: Integer): TOtPieceState;
+    function Blocks(Id, Columns: Integer): TOtBlockMap;
     function LibraryVersion: string;
-    function Snapshot(Id: Integer): TQsSnapshot;
+    function Snapshot(Id: Integer): TOtSnapshot;
     procedure Command(Id, Value: Integer); // 0 pause, 1 resume, 2 remove (keep data)
   end;
 
 implementation
 
-uses Qs.Localization, System.Classes, Qs.BlockMap, Qs.TaskOptions;
+uses Ot.Localization, System.Classes, Ot.BlockMap, Ot.TaskOptions;
 
-function TQsEngine.Resolve(const Name: AnsiString): Pointer;
+function TOtEngine.Resolve(const Name: AnsiString): Pointer;
 begin
   Result := GetProcAddress(FLibrary, PAnsiChar(Name));
   if Result = nil then
     raise Exception.Create(L('text.b47da4b9a701', 'Несумісна qsbridge.dll: ') + string(Name));
 end;
 
-constructor TQsEngine.Create;
-var Version: TQsVersion;
+constructor TOtEngine.Create;
+var Version: TOtVersion;
 begin
   inherited;
-  if SizeOf(TQsSnapshot) <> 1064 then
+  if SizeOf(TOtSnapshot) <> 1064 then
     raise Exception.Create(L('text.afb20fd06e67', 'Помилка вирівнювання ABI рушія'));
-  if (SizeOf(TQsMetaInfoRaw) <> 1552) or (SizeOf(TQsMetaFileRaw) <> 4104) then
+  if (SizeOf(TOtMetaInfoRaw) <> 1552) or (SizeOf(TOtMetaFileRaw) <> 4104) then
     raise Exception.Create(L('text.eebde55774a6', 'Помилка вирівнювання метаданих'));
-  if (SizeOf(TQsSessionOptions) <> 32) or (SizeOf(TQsPieceHeader) <> 32) or
-    (SizeOf(TQsPartialBlock) <> 16) then raise Exception.Create(L('text.c76046369240', 'Помилка ABI моста'));
+  if (SizeOf(TOtSessionOptions) <> 32) or (SizeOf(TOtPieceHeader) <> 32) or
+    (SizeOf(TOtPartialBlock) <> 16) then raise Exception.Create(L('text.c76046369240', 'Помилка ABI моста'));
   // Absolute path and altered search path: never load an engine from the CWD.
   FLibrary := LoadLibraryEx(PChar(ExtractFilePath(ParamStr(0)) + 'qsbridge.dll'),
     0, LOAD_WITH_ALTERED_SEARCH_PATH);
   if FLibrary = 0 then
     raise Exception.Create(L('text.d991fa9a1c50', 'Не вдалося завантажити qsbridge.dll. Код Windows: ') +
       IntToStr(GetLastError) + L('text.28e0baeb9110', '. Див. README.md.'));
-  Version := TQsVersion(Resolve('qs_version'));
-  if Version() <> QS_ABI_VERSION then
+  Version := TOtVersion(Resolve('qs_version'));
+  if Version() <> OT_ABI_VERSION then
     raise Exception.Create(L('text.894c87b0336b', 'Непідтримувана версія qsbridge.dll'));
-  FDestroy := TQsDestroy(Resolve('qs_destroy'));
-  FAdd := TQsAdd(Resolve('qs_add'));
-  FSnapshot := TQsSnapshotProc(Resolve('qs_snapshot'));
-  FCommand := TQsCommand(Resolve('qs_command'));
-  FError := TQsError(Resolve('qs_error'));
-  FCreate := TQsCreate(Resolve('qs_create'));
-  FMetaOpen := TQsMetaOpen(Resolve('qs_meta_open'));
-  FMetaClose := TQsMetaClose(Resolve('qs_meta_close'));
-  FMetaInfo := TQsMetaInfoProc(Resolve('qs_meta_info'));
-  FMetaFile := TQsMetaFileProc(Resolve('qs_meta_file'));
-  FMetaTracker := TQsMetaTracker(Resolve('qs_meta_tracker'));
-  FAddSelected := TQsAddSelected(Resolve('qs_add_selected'));
-  FConfigure := TQsConfigure(Resolve('qs_configure'));
-  FMetaExtra := TQsMetaExtraProc(Resolve('qs_meta_extra'));
-  FPieceOpen := TQsPieceOpen(Resolve('qs_piece_open'));
-  FPieceBits := TQsPieceBits(Resolve('qs_piece_bits'));
-  FPieceBlocks := TQsPieceBlocks(Resolve('qs_piece_blocks'));
-  FPieceClose := TQsPieceClose(Resolve('qs_piece_close'));
-  FAddPrepared := TQsAddPrepared(Resolve('qs_add_prepared'));
-  FLibraryVersion := TQsLibraryVersion(Resolve('qs_libtorrent_version'));
-  FResumeRequest := TQsResumeRequest(Resolve('qs_resume_request'));
-  FResumePoll := TQsResumePoll(Resolve('qs_resume_poll'));
-  FBlobCopy := TQsBlobCopy(Resolve('qs_blob_copy'));
-  FBlobClose := TQsBlobClose(Resolve('qs_blob_close'));
-  FAddPreparedResume := TQsAddPreparedResume(Resolve('qs_add_prepared_resume'));
+  FDestroy := TOtDestroy(Resolve('qs_destroy'));
+  FAdd := TOtAdd(Resolve('qs_add'));
+  FSnapshot := TOtSnapshotProc(Resolve('qs_snapshot'));
+  FCommand := TOtCommand(Resolve('qs_command'));
+  FError := TOtError(Resolve('qs_error'));
+  FCreate := TOtCreate(Resolve('qs_create'));
+  FMetaOpen := TOtMetaOpen(Resolve('qs_meta_open'));
+  FMetaClose := TOtMetaClose(Resolve('qs_meta_close'));
+  FMetaInfo := TOtMetaInfoProc(Resolve('qs_meta_info'));
+  FMetaFile := TOtMetaFileProc(Resolve('qs_meta_file'));
+  FMetaTracker := TOtMetaTracker(Resolve('qs_meta_tracker'));
+  FAddSelected := TOtAddSelected(Resolve('qs_add_selected'));
+  FConfigure := TOtConfigure(Resolve('qs_configure'));
+  FMetaExtra := TOtMetaExtraProc(Resolve('qs_meta_extra'));
+  FPieceOpen := TOtPieceOpen(Resolve('qs_piece_open'));
+  FPieceBits := TOtPieceBits(Resolve('qs_piece_bits'));
+  FPieceBlocks := TOtPieceBlocks(Resolve('qs_piece_blocks'));
+  FPieceClose := TOtPieceClose(Resolve('qs_piece_close'));
+  FAddPrepared := TOtAddPrepared(Resolve('qs_add_prepared'));
+  FLibraryVersion := TOtLibraryVersion(Resolve('qs_libtorrent_version'));
+  FResumeRequest := TOtResumeRequest(Resolve('qs_resume_request'));
+  FResumePoll := TOtResumePoll(Resolve('qs_resume_poll'));
+  FBlobCopy := TOtBlobCopy(Resolve('qs_blob_copy'));
+  FBlobClose := TOtBlobClose(Resolve('qs_blob_close'));
+  FAddPreparedResume := TOtAddPreparedResume(Resolve('qs_add_prepared_resume'));
 end;
 
-procedure TQsEngine.EnsureSession;
-var Options: TQsSessionOptions; Agent: UTF8String;
+procedure TOtEngine.EnsureSession;
+var Options: TOtSessionOptions; Agent: UTF8String;
 begin
   if FSession <> nil then Exit;
   Options := DefaultSessionOptions;
-  Agent := 'qsTorrent/0.1';
+  Agent := 'OnlyTorrent/0.1';
   FSession := FCreate(@Options, PAnsiChar(Agent));
   if FSession = nil then Check(-1);
 end;
 
-destructor TQsEngine.Destroy;
+destructor TOtEngine.Destroy;
 begin
   if (FSession <> nil) and Assigned(FDestroy) then FDestroy(FSession);
   if FLibrary <> 0 then FreeLibrary(FLibrary);
   inherited;
 end;
 
-procedure TQsEngine.Check(ResultCode: Integer);
+procedure TOtEngine.Check(ResultCode: Integer);
 begin
   if ResultCode < 0 then
     raise Exception.Create(UTF8ToString(FError()));
 end;
 
-function TQsEngine.Add(const FileName, SavePath: string): Integer;
+function TOtEngine.Add(const FileName, SavePath: string): Integer;
 var F, D: UTF8String;
 begin
   EnsureSession;
@@ -158,9 +158,9 @@ begin
   Check(Result);
 end;
 
-function TQsEngine.Inspect(const FileName: string): TQsMetadata;
-var F: UTF8String; Handle: Pointer; Info: TQsMetaInfoRaw; Extra: TQsMetaExtraRaw;
-  Entry: TQsMetaFileRaw; I: Integer; Buffer: array[0..4095] of AnsiChar;
+function TOtEngine.Inspect(const FileName: string): TOtMetadata;
+var F: UTF8String; Handle: Pointer; Info: TOtMetaInfoRaw; Extra: TOtMetaExtraRaw;
+  Entry: TOtMetaFileRaw; I: Integer; Buffer: array[0..4095] of AnsiChar;
   Stream: TFileStream; Bytes: TBytes;
 begin
   F := UTF8String(FileName);
@@ -168,7 +168,7 @@ begin
   if Handle = nil then Check(-1);
   try
     Check(FMetaInfo(Handle, Info));
-    Result := TQsMetadata.Create;
+    Result := TOtMetadata.Create;
     try
       Result.Name := UTF8ToString(PAnsiChar(@Info.Name[0]));
       Result.Comment := UTF8ToString(PAnsiChar(@Info.Comment[0]));
@@ -212,7 +212,7 @@ begin
   end;
 end;
 
-function TQsEngine.AddSelected(const FileName, SavePath: string;
+function TOtEngine.AddSelected(const FileName, SavePath: string;
   const Priorities: TArray<Integer>; Start: Boolean): Integer;
 var F, D: UTF8String;
 begin
@@ -225,20 +225,20 @@ begin
   Check(Result);
 end;
 
-procedure TQsEngine.Configure(Port, DownKiB, UpKiB, Connections: Integer);
+procedure TOtEngine.Configure(Port, DownKiB, UpKiB, Connections: Integer);
 begin
   ValidateConnectionSettings(Port, DownKiB, UpKiB, Connections);
   EnsureSession;
   Check(FConfigure(FSession, Port, RateBytes(DownKiB), RateBytes(UpKiB), Connections));
 end;
 
-function TQsEngine.AddOptions(const FileName, SavePath: string;
-  const Priorities: TArray<Integer>; const Options: TQsAddOptions; Metadata: TQsMetadata;
+function TOtEngine.AddOptions(const FileName, SavePath: string;
+  const Priorities: TArray<Integer>; const Options: TOtAddOptions; Metadata: TOtMetadata;
   const Resume: TBytes; Restoring: Boolean): Integer;
-var F, D: UTF8String; Prepared: TQsPreparedTask; OwnMetadata: Boolean; I, ResumeUsed: Integer;
+var F, D: UTF8String; Prepared: TOtPreparedTask; OwnMetadata: Boolean; I, ResumeUsed: Integer;
   Paths, Trackers: TArray<UTF8String>;
   PathPointers, TrackerPointers: TArray<PAnsiChar>;
-  TrackerBase: PPQsAnsiChar;
+  TrackerBase: PPOtAnsiChar;
   ResumeData: PByte;
 begin
   OwnMetadata := Metadata = nil;
@@ -288,12 +288,12 @@ begin
   end;
 end;
 
-procedure TQsEngine.RequestResume(Id: Integer; Flush: Boolean);
+procedure TOtEngine.RequestResume(Id: Integer; Flush: Boolean);
 begin
   Check(FResumeRequest(FSession, Id, Ord(Flush)));
 end;
 
-function TQsEngine.PollResume(out Id, Status: Integer; out Bytes: TBytes): Boolean;
+function TOtEngine.PollResume(out Id, Status: Integer; out Bytes: TBytes): Boolean;
 var Blob: Pointer; Count: Integer; Data: PByte;
 begin
   Id := 0;
@@ -315,10 +315,10 @@ begin
   finally FBlobClose(Blob); end;
 end;
 
-function TQsEngine.ReadPieces(Id: Integer): TQsPieceState;
-var Header: TQsPieceHeader; Handle: Pointer; Bits: PByte; Partial: Pointer; Count: Integer;
+function TOtEngine.ReadPieces(Id: Integer): TOtPieceState;
+var Header: TOtPieceHeader; Handle: Pointer; Bits: PByte; Partial: Pointer; Count: Integer;
 begin
-  Result := Default(TQsPieceState);
+  Result := Default(TOtPieceState);
   Handle := FPieceOpen(FSession, Id, Header);
   if Handle = nil then Check(-1);
   try
@@ -339,23 +339,23 @@ begin
   finally FPieceClose(Handle); end;
 end;
 
-function TQsEngine.Blocks(Id, Columns: Integer): TQsBlockMap;
+function TOtEngine.Blocks(Id, Columns: Integer): TOtBlockMap;
 begin
   Result := BuildBlockMap(ReadPieces(Id), Columns);
 end;
 
-function TQsEngine.LibraryVersion: string;
+function TOtEngine.LibraryVersion: string;
 begin
   Result := UTF8ToString(FLibraryVersion());
 end;
 
-function TQsEngine.Snapshot(Id: Integer): TQsSnapshot;
+function TOtEngine.Snapshot(Id: Integer): TOtSnapshot;
 begin
   FillChar(Result, SizeOf(Result), 0);
   Check(FSnapshot(FSession, Id, Result));
 end;
 
-procedure TQsEngine.Command(Id, Value: Integer);
+procedure TOtEngine.Command(Id, Value: Integer);
 begin
   Check(FCommand(FSession, Id, Value));
 end;

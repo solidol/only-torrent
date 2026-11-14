@@ -1,7 +1,7 @@
 ﻿object FormMain: TFormMain
   Left = 0
   Top = 0
-  Caption = 'Quick Start Torrent '#8212' qsTorrent'
+  Caption = 'Only Torrent'
   ClientHeight = 640
   ClientWidth = 1120
   Color = clBtnFace

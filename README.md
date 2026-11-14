@@ -1,10 +1,14 @@
-﻿# Quick Start Torrent (qsTorrent)
+﻿# Only Torrent
 
 Торрент-клієнт Delphi 13 CE / VCL / DFM, Windows x64. Рушій: оригінальний libtorrent 1.2.19 в `torrent-rasterbar.dll`, окремий C-міст `qsbridge.dll`. Ліцензія власного коду: BSD-3-Clause.
 
 ## Збирання та запуск
 
-Відкрийте qstorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/qstorrent.exe. Поруч потрібні `qsbridge.dll`, `torrent-rasterbar.dll`, `sqlite3.dll`, папка `Languages` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
+Проєкт перейменовано на **Only Torrent**: відкривати `otorrent.dproj`, очікуваний вихід — `bin/Win64/otorrent.exe`. Власні Pascal-модулі й типи використовують префікс `Ot`. Нова іконка — OT у синьому колі. Перейменування внесено лише у вихідні файли та ресурси; збирання, тести, запуск і розгортання не виконувалися. Деталі сумісності: [docs/REBRANDING.md](docs/REBRANDING.md).
+
+Поточна зміна коду: SQLite переведено на FireDAC, оскільки він скорочує власний код доступу. Схема БД та комплект DLL залишені попередніми. Цей перехід ще не збирався й не тестувався; готовий EXE не оновлений. [Аналіз і обмеження](docs/FIREDAC-ANALYSIS.md).
+
+Відкрийте otorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/otorrent.exe. Поруч потрібні `qsbridge.dll`, `torrent-rasterbar.dll`, `sqlite3.dll`, папка `Languages` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
 
 Для встановленої тут CE працює штатний AutoBuild через IDE:
 
@@ -32,7 +36,7 @@ powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 - Нижні вкладки: загальні відомості, файли, трекери, швидкість, журнал.
 - Діалог за локальним BitComet 2.23: шлях і підпапка, місце на диску, пошук і вибір файлів за типами, видавець, трекери, ліміти завдання та послідовне завантаження. Кнопки «Завантажити зараз» / «Завантажити пізніше». Перегляд метаданих не запускає мережеву сесію. Деталі — [docs/BITCOMET-UI.md](docs/BITCOMET-UI.md).
 - Налаштування: системне / класичне оформлення стандартних контролів, прогресбари, показ діалогу, автоматичний старт, типова папка, порт, глобальні ліміти швидкості й з’єднань.
-- Параметри зберігаються в %APPDATA%/qsTorrent/settings.ini. Застосування не вимагає перезапуску.
+- Параметри зберігаються в %APPDATA%/Only Torrent/settings.ini. Застосування не вимагає перезапуску.
 
 Аналіз джерел µTorrent 2.x/3.x та межі відтворення: [docs/UI-RESEARCH.md](docs/UI-RESEARCH.md). Системна тема означає стандартне Win32-оформлення ОС; автоматична темна тема Windows не реалізована. Таблиці використовують системні кольори.
 
@@ -52,6 +56,8 @@ SHA-1 обчислює libtorrent через системну Windows CryptoAPI.
 
 ## Перевірки
 
+За правилами проєкту збирання, тести та запуск програми виконуються лише на явну вимогу користувача. Наведені команди — довідка, а не обов’язкові автоматичні дії після редагування. Під час дозволеного AutoBuild сценарій відстежує помилки й вікна свого екземпляра IDE, зберігає їхній текст у `*.dialogs.log`, підтверджує OK та повертає помилку. Очікування обмежено 180 секундами; завислий службовий процес завершується без втручання в інші екземпляри IDE.
+
 ```powershell
 python tests/project_structure.py
 python tests/languages.py
@@ -67,6 +73,6 @@ powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -CoreTests
 python tests/persistence_restart.py
 ```
 
-Окремий bin/Win64/QsUiSmoke.exe перевіряє всі DFM-форми, оформлення, навігацію налаштувань і вибір файлів. Запускати з робочою папкою tests. Тестові знімки в build містять синтетичні дані, а не справжнє завантаження. Результати: [docs/VALIDATION.md](docs/VALIDATION.md).
+Окремий bin/Win64/OtUiSmoke.exe перевіряє всі DFM-форми, оформлення, навігацію налаштувань і вибір файлів. Запускати з робочою папкою tests. Тестові знімки в build містять синтетичні дані, а не справжнє завантаження. Результати: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 Код: src/ui — форми, оформлення й налаштування; src/core — моделі й обчислення; src/engine — Delphi-адаптер і C ABI; native — тонкий міст і конфігурація залежностей; tests — перевірки; docs — план і дослідження. Перед поширенням див. THIRD_PARTY.md.

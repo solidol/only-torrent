@@ -1,6 +1,6 @@
 # Збереження завдань і локалізація
 
-Типовий профіль: `%APPDATA%\qsTorrent`. Завантажувані користувацькі дані залишаються у вибраних для завдань папках.
+Типовий профіль: `%APPDATA%\Only Torrent`. Завантажувані користувацькі дані залишаються у вибраних для завдань папках.
 
 | Розташування | Призначення |
 |---|---|
@@ -20,14 +20,14 @@
 Language=uk-UA
 
 [Storage]
-TorrentFolder=C:\Users\User\AppData\Roaming\qsTorrent\Torrents
+TorrentFolder=C:\Users\User\AppData\Roaming\Only Torrent\Torrents
 ```
 
 Мова вибирається в розділі «Інтерфейс» і застосовується без перезапуску. INI не містить списку завдань або resume-даних. Запис INI виконується через тимчасовий файл із подальшою атомарною заміною.
 
 ## SQLite та відновлення
 
-`Qs.TaskStore` володіє окремим потоком і з’єднанням SQLite. Команди виконуються послідовно. Додавання, зміна бажаного стану та видалення очікують підтвердження запису; періодичні resume-знімки записуються у фоні. Використовуються WAL, `synchronous=FULL`, підготовлені SQL-запити й транзакції. `PRAGMA user_version=1` позначає схему; перше відкриття створює її в транзакції, новіша невідома версія відхиляється без видалення даних. Профіль має файлове блокування одного екземпляра застосунку.
+`Ot.TaskStore` володіє окремим потоком і з’єднанням SQLite. У поточному коді доступ переведено на FireDAC (`TFDConnection` / `TFDQuery`) через `Ot.Sqlite`; попередній ручний C API видалено. Після переходу збирання й тести ще не виконувалися; аналіз і статус: [FIREDAC-ANALYSIS.md](FIREDAC-ANALYSIS.md). Команди виконуються послідовно. Додавання, зміна бажаного стану та видалення очікують підтвердження запису; періодичні resume-знімки записуються у фоні. Використовуються WAL, `synchronous=FULL`, підготовлені SQL-запити й транзакції. `PRAGMA user_version=1` позначає схему; перше відкриття створює її в транзакції, новіша невідома версія відхиляється без видалення даних. Профіль має файлове блокування одного екземпляра застосунку.
 
 Масиви шляхів, розмірів, пріоритетів, трекерів і параметри завдання зберігаються як версійований JSON у колонці `details` **всередині SQLite**. Окремими JSON-файлами є лише мовні каталоги. Сам `.torrent` у БД не дублюється; fast-resume — двійковий BLOB у колонці `resume`.
 
@@ -51,7 +51,7 @@ TorrentFolder=C:\Users\User\AppData\Roaming\qsTorrent\Torrents
 
 ## Збирання й перевірки
 
-Окрім двох DLL рушія потрібна оригінальна `sqlite3.dll` x64. Усі три готові DLL включено в `third_party/bin/Win64`. Звичайне збирання та `stage-client.ps1` копіюють їх звідти без `deps`, джерел, SDK або мережі. FireDAC та додаткові runtime packages не використовуються.
+Окрім двох DLL рушія потрібна оригінальна `sqlite3.dll` x64. Усі три готові DLL включено в `third_party/bin/Win64`. Звичайне збирання та `stage-client.ps1` копіюють їх звідти без `deps`, джерел, SDK або мережі. Новий код використовує FireDAC зі встановленої Delphi, динамічний SQLite і вимкнені runtime packages; додаткові BPL та статична копія SQLite не включаються.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1 -OutputDirectory build/persistence-candidate
@@ -62,6 +62,6 @@ powershell -ExecutionPolicy Bypass -File tools/stage-client.ps1
 
 Для необов’язкового оновлення SQLite `tools/fetch-sqlite.py` завантажує офіційну DLL і перевіряє SHA3-256 видавця; результат залишається лише в кеші. Порядок публікації перевірених залежностей: [third_party/README.md](../third_party/README.md).
 
-`QsCoreTests` перевіряє INI, потік SQLite, постійні ID, блокування профілю, JSON/fallback, службову копію після видалення оригіналу, справжні resume-дані та пошкоджений resume. `QsUiSmoke --restore-test` перевіряє відновлення головної форми та коректне закриття. `tests/persistence_restart.py` перевіряє повторні запуски, недоступний диск, відсутній torrent і перервану SQLite-транзакцію. Тести використовують окремі профілі в `build`; `QS_PROFILE_DIR` дозволяє явно вибрати ізольований профіль.
+`OtCoreTests` перевіряє INI, потік SQLite, постійні ID, блокування профілю, JSON/fallback, службову копію після видалення оригіналу, справжні resume-дані та пошкоджений resume. `OtUiSmoke --restore-test` перевіряє відновлення головної форми та коректне закриття. `tests/persistence_restart.py` перевіряє повторні запуски, недоступний диск, відсутній torrent і перервану SQLite-транзакцію. Тести використовують окремі профілі в `build`; `OT_PROFILE_DIR` дозволяє явно вибрати ізольований профіль.
 
 Джерела: [SQLite downloads і контрольні суми](https://www.sqlite.org/download.html), [WAL](https://www.sqlite.org/wal.html), [fast-resume libtorrent](https://libtorrent.org/manual-ref.html#fast-resume).

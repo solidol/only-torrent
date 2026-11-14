@@ -1,19 +1,19 @@
-﻿unit Qs.BlockMap;
+﻿unit Ot.BlockMap;
 
 interface
 
-uses Qs.Types;
+uses Ot.Types;
 
-function BuildBlockMap(const State: TQsPieceState; Columns: Integer): TQsBlockMap;
-function ResizeBlockMap(const Source: TQsBlockMap; Columns: Integer): TQsBlockMap;
+function BuildBlockMap(const State: TOtPieceState; Columns: Integer): TOtBlockMap;
+function ResizeBlockMap(const Source: TOtBlockMap; Columns: Integer): TOtBlockMap;
 function BlockLayerPixels(Height, Density: Integer): Integer;
-function SameBlockMap(const Left, Right: TQsBlockMap): Boolean;
+function SameBlockMap(const Left, Right: TOtBlockMap): Boolean;
 
 implementation
 
 uses System.SysUtils, System.Math, System.Generics.Collections;
 
-function SameBlockMap(const Left, Right: TQsBlockMap): Boolean;
+function SameBlockMap(const Left, Right: TOtBlockMap): Boolean;
   function SameBytes(const A, B: TBytes): Boolean;
   begin
     Result := Length(A) = Length(B);
@@ -42,13 +42,13 @@ begin
   else Result := EnsureRange(Trunc((Value / Total) * 255), Int64(1), Int64(254));
 end;
 
-function BuildBlockMap(const State: TQsPieceState; Columns: Integer): TQsBlockMap;
+function BuildBlockMap(const State: TOtPieceState; Columns: Integer): TOtBlockMap;
 var PerPiece, Count, I, Piece, FirstBlock, EndBlock: Integer;
   LastBytes, First, Limit, V, R, Q: Int64;
-  Groups: TObjectDictionary<Integer, TList<TQsPartialBlock>>;
-  List: TList<TQsPartialBlock>; Block: TQsPartialBlock; Verified: Boolean;
+  Groups: TObjectDictionary<Integer, TList<TOtPartialBlock>>;
+  List: TList<TOtPartialBlock>; Block: TOtPartialBlock; Verified: Boolean;
 begin
-  Result := Default(TQsBlockMap);
+  Result := Default(TOtBlockMap);
   if (Columns < 1) or (Columns > 4096) then
     raise EArgumentOutOfRangeException.Create('Block map columns must be 1..4096');
   if (State.TotalBytes = 0) and (State.PieceCount = 0) then Exit;
@@ -73,7 +73,7 @@ begin
     FillChar(Result.Requested[0], Count, 255);
     Exit;
   end;
-  Groups := TObjectDictionary<Integer, TList<TQsPartialBlock>>.Create([doOwnsValues]);
+  Groups := TObjectDictionary<Integer, TList<TOtPartialBlock>>.Create([doOwnsValues]);
   try
     for Block in State.PartialBlocks do
     begin
@@ -82,7 +82,7 @@ begin
         raise EArgumentException.Create('Invalid partial block index');
       if not Groups.TryGetValue(Block.Piece, List) then
       begin
-        List := TList<TQsPartialBlock>.Create;
+        List := TList<TOtPartialBlock>.Create;
         Groups.Add(Block.Piece, List);
       end;
       List.Add(Block);
@@ -121,7 +121,7 @@ begin
   end;
 end;
 
-function ResizeBlockMap(const Source: TQsBlockMap; Columns: Integer): TQsBlockMap;
+function ResizeBlockMap(const Source: TOtBlockMap; Columns: Integer): TOtBlockMap;
 var I, J, First, Limit, Count, V, R, Q: Integer;
 begin
   if (Length(Source.Verified) <> Length(Source.Received)) or
@@ -129,7 +129,7 @@ begin
     raise EArgumentException.Create('Inconsistent block map arrays');
   Count := Min(Max(0, Columns), Length(Source.Verified));
   if Count = Length(Source.Verified) then Exit(Source);
-  Result := Default(TQsBlockMap);
+  Result := Default(TOtBlockMap);
   Result.TotalBlocks := Source.TotalBlocks;
   Result.BlockSize := Source.BlockSize;
   SetLength(Result.Verified, Count);

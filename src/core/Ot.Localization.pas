@@ -1,4 +1,4 @@
-﻿unit Qs.Localization;
+﻿unit Ot.Localization;
 
 interface
 

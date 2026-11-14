@@ -1,14 +1,14 @@
 # Відокремлення libtorrent
 
-Залежності виконання: `qstorrent.exe → qsbridge.dll → torrent-rasterbar.dll`.
+Залежності виконання: `otorrent.exe → qsbridge.dll → torrent-rasterbar.dll`.
 
 Готовий runtime зафіксовано в `third_party/bin/Win64` разом із SQLite, ліцензіями та SHA-256. Звичайне збирання Delphi не використовує джерела, SDK або CMake. Наведені нижче команди стосуються необов’язкового перезбирання залежностей. Публікація перевіреного пакета: [third_party/README.md](../third_party/README.md).
 
 `torrent-rasterbar.dll` збирається штатним CMake із незміненого libtorrent 1.2.19. Наших функцій у ній немає. Версії, адреси архівів і SHA-256 зафіксовані в `native/dependencies.json`. `tests/upstream_integrity.py` порівнює джерела з архівом; зараз збігаються всі 932 файли.
 
-`qsbridge.dll` містить лише адаптацію типів, керування непрозорими дескрипторами, перехоплення винятків та виклики API libtorrent. Delphi завантажує її динамічно. Контракт C ABI 2 описаний у `native/qsbridge.h` і `src/engine/Qs.BridgeApi.pas`: cdecl, UTF-8, фіксовані POD-структури, без STL і звільнення чужої пам’яті через межу Delphi/C++.
+`qsbridge.dll` містить лише адаптацію типів, керування непрозорими дескрипторами, перехоплення винятків та виклики API libtorrent. Delphi завантажує її динамічно. Контракт C ABI 2 описаний у `native/qsbridge.h` і `src/engine/Ot.BridgeApi.pas`: cdecl, UTF-8, фіксовані POD-структури, без STL і звільнення чужої пам’яті через межу Delphi/C++.
 
-Обчислення належать основному застосунку: `src/core/Qs.BlockMap.pas` групує блоки та визначає заповнення смужок; `Qs.TaskOptions.pas` готує шляхи, трекери, вибір файлів і ліміти; `Qs.TransferMath.pas` обчислює ETA й використання диска. Спільні моделі — `Qs.Types.pas`. Додаткових DLL для цих обчислень немає. Мережа, перевірка хешів і робота з даними залишаються в libtorrent.
+Обчислення належать основному застосунку: `src/core/Ot.BlockMap.pas` групує блоки та визначає заповнення смужок; `Ot.TaskOptions.pas` готує шляхи, трекери, вибір файлів і ліміти; `Ot.TransferMath.pas` обчислює ETA й використання диска. Спільні моделі — `Ot.Types.pas`. Додаткових DLL для цих обчислень немає. Мережа, перевірка хешів і робота з даними залишаються в libtorrent.
 
 ## Збирання й оновлення
 
@@ -30,6 +30,6 @@ powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 
 ## Перевірки
 
-`tests/separation.py` перевіряє PE-імпорти й експорти, справжню версію бібліотеки, спільний CRT та ABI. Мережеві тести перевіряють фактичне завантаження і SHA-1. `QsCoreTests` перевіряє Delphi-обчислення та інтеграцію з обома DLL; `QsUiSmoke` завантажує DFM й малює прогрес. Після чистого перезбирання моста SHA-256 готового EXE та оригінальної DLL залишилися незмінними. Усі DFM і контрольний PNG «забору» збігаються побайтово зі станом до відокремлення.
+`tests/separation.py` перевіряє PE-імпорти й експорти, справжню версію бібліотеки, спільний CRT та ABI. Мережеві тести перевіряють фактичне завантаження і SHA-1. `OtCoreTests` перевіряє Delphi-обчислення та інтеграцію з обома DLL; `OtUiSmoke` завантажує DFM й малює прогрес. Після чистого перезбирання моста SHA-256 готового EXE та оригінальної DLL залишилися незмінними. Усі DFM і контрольний PNG «забору» збігаються побайтово зі станом до відокремлення.
 
 Першоджерела: [ABI libtorrent](https://libtorrent.org/manual-ref.html#abi-considerations), [параметри збірки](https://libtorrent.org/building.html), [CRT між DLL](https://learn.microsoft.com/en-us/cpp/c-runtime-library/potential-errors-passing-crt-objects-across-dll-boundaries).

@@ -1,4 +1,4 @@
-﻿unit Qs.Profile;
+﻿unit Ot.Profile;
 
 interface
 
@@ -10,17 +10,17 @@ function ImportTorrent(const Source, Folder, InfoHash: string): string;
 
 implementation
 
-uses Qs.Localization, System.Classes, System.IOUtils, Winapi.ShlObj;
+uses Ot.Localization, System.Classes, System.IOUtils, Winapi.ShlObj;
 
 function ProfileFolder: string;
 var Buffer: array[0..MAX_PATH] of Char;
 begin
-  Result := GetEnvironmentVariable('QS_PROFILE_DIR');
+  Result := GetEnvironmentVariable('OT_PROFILE_DIR');
   if Result = '' then
   begin
     if SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, Buffer) <> S_OK then
       raise Exception.Create(L('message.5c8bb96edec0', 'Не вдалося визначити папку профілю'));
-    Result := TPath.Combine(Buffer, 'qsTorrent');
+    Result := TPath.Combine(Buffer, 'Only Torrent');
   end;
   Result := ExpandFileName(Result);
   if not ForceDirectories(Result) then raise Exception.Create(L('message.671188351642', 'Не вдалося створити профіль: ') + Result);

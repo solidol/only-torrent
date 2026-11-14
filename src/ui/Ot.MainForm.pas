@@ -1,4 +1,4 @@
-﻿unit Qs.MainForm;
+﻿unit Ot.MainForm;
 
 interface
 
@@ -6,19 +6,19 @@ uses
   Winapi.Windows, System.SysUtils, System.Classes, System.UITypes, System.Types,
   System.Generics.Collections, Vcl.Forms, Vcl.Controls, Vcl.ComCtrls,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList,
-  Qs.Engine, Qs.Settings, System.ImageList, Vcl.ToolWin, Qs.TaskStore;
+  Ot.Engine, Ot.Settings, System.ImageList, Vcl.ToolWin, Ot.TaskStore;
 
 type
   TTorrentEntry = class
   public
     Id: Integer;
     FileName, Folder, LastError: string;
-    Metadata: TQsMetadata;
+    Metadata: TOtMetadata;
     Priorities: TArray<Integer>;
-    Snapshot: TQsSnapshot;
-    Blocks: TQsBlockMap;
-    Stored: TQsStoredTask;
-    Options: TQsAddOptions;
+    Snapshot: TOtSnapshot;
+    Blocks: TOtBlockMap;
+    Stored: TOtStoredTask;
+    Options: TOtAddOptions;
     ResumePending: Boolean;
     destructor Destroy; override;
   end;
@@ -91,14 +91,14 @@ type
     procedure GraphPaint(Sender: TObject);
     procedure BlocksPaint(Sender: TObject);
   private
-    FEngine: TQsEngine;
-    FSettings: TQsSettings;
+    FEngine: TOtEngine;
+    FSettings: TOtSettings;
     FEntries: TObjectList<TTorrentEntry>;
     FFilter: Integer;
     FRebuilding, FNeedsRebuild: Boolean;
     FDownHistory, FUpHistory: array[0..119] of Int64;
-    FSelectedBlocks: TQsBlockMap;
-    FStore: TQsTaskStore;
+    FSelectedBlocks: TOtBlockMap;
+    FStore: TOtTaskStore;
     FLastResumeTick, FCloseDeadline: UInt64;
     FClosing, FAllowClose, FFinalResume: Boolean;
     procedure RestoreTasks;
@@ -124,7 +124,7 @@ var FormMain: TFormMain;
 implementation
 
 uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI, Winapi.Messages,
-  Vcl.Graphics, Qs.Appearance, Qs.AddTorrentForm, Qs.PreferencesForm, Qs.TransferMath, Qs.BlockMap, Qs.Profile, Qs.Localization, Qs.FormLocalization;
+  Vcl.Graphics, Ot.Appearance, Ot.AddTorrentForm, Ot.PreferencesForm, Ot.TransferMath, Ot.BlockMap, Ot.Profile, Ot.Localization, Ot.FormLocalization;
 
 {$R *.dfm}
 
@@ -208,11 +208,11 @@ begin
   StatusBarMain.Panels[0].Text := L('text.398c7d4f7b0d', 'Готово');
   StatusBarMain.Panels[1].Text := L('text.84042003acd8', 'Вниз: 0 KiB/с');
   StatusBarMain.Panels[2].Text := L('text.3222b3fd5803', 'Вгору: 0 KiB/с');
-  Log(L('text.114738e16962', 'qsTorrent готовий до роботи.'));
+  Log(L('text.114738e16962', 'Only Torrent готовий до роботи.'));
   TranslateForm(Self);
   if LanguageWarning <> '' then Log(LanguageWarning);
   try
-    FStore := TQsTaskStore.Create(ProfileFolder);
+    FStore := TOtTaskStore.Create(ProfileFolder);
     if not FileExists(TPath.Combine(ProfileFolder, 'settings.ini')) then FSettings.Save;
     RestoreTasks;
   except
@@ -241,7 +241,7 @@ begin
 end;
 
 procedure TFormMain.StartStored(Entry: TTorrentEntry);
-var Original: TQsMetadata; I: Integer;
+var Original: TOtMetadata; I: Integer;
 begin
   if not DirectoryExists(Entry.Folder) then
     raise Exception.Create(L('message.674241440297', 'Папка завантаження недоступна: ') + Entry.Folder);
@@ -270,13 +270,13 @@ begin
 end;
 
 procedure TFormMain.RestoreTasks;
-var Task: TQsStoredTask; Entry: TTorrentEntry;
+var Task: TOtStoredTask; Entry: TTorrentEntry;
 begin
   for Task in FStore.Load do
   begin
     Entry := TTorrentEntry.Create;
     Entry.Stored := Task; Entry.FileName := Task.TorrentFile; Entry.Folder := Task.SavePath;
-    Entry.Metadata := TQsMetadata.Create;
+    Entry.Metadata := TOtMetadata.Create;
     Entry.Metadata.Name := Task.Name; Entry.Metadata.InfoHash := Task.InfoHash;
     FEntries.Add(Entry);
     try
@@ -389,7 +389,7 @@ function TFormMain.EnsureEngine: Boolean;
 begin
   if FEngine = nil then
     try
-      FEngine := TQsEngine.Create;
+      FEngine := TOtEngine.Create;
     except
       on E: Exception do
       begin
@@ -402,8 +402,8 @@ begin
 end;
 
 procedure TFormMain.AddClick(Sender: TObject);
-var FormDialog: TFormAddTorrent; Metadata: TQsMetadata; Entry: TTorrentEntry;
-  Priorities: TArray<Integer>; Folder: string; Options: TQsAddOptions;
+var FormDialog: TFormAddTorrent; Metadata: TOtMetadata; Entry: TTorrentEntry;
+  Priorities: TArray<Integer>; Folder: string; Options: TOtAddOptions;
   I, Id: Integer; ManagedFile: string;
 begin
   if FClosing then Exit;
@@ -415,7 +415,7 @@ begin
     try
       Metadata := FEngine.Inspect(OpenDialogTorrent.FileName);
       Folder := FSettings.DownloadFolder;
-      Options := Default(TQsAddOptions);
+      Options := Default(TOtAddOptions);
       Options.Start := FSettings.StartImmediately;
       if (Length(Metadata.Files) > 1) or
         ((Length(Metadata.Files) > 0) and (Metadata.Files[0].Path <> Metadata.Name)) then
@@ -626,7 +626,7 @@ begin
 end;
 
 function TFormMain.Matches(Entry: TTorrentEntry; Filter: Integer): Boolean;
-var S: TQsSnapshot;
+var S: TOtSnapshot;
 begin
   S := Entry.Snapshot;
   case Filter of
@@ -721,7 +721,7 @@ begin
   Entry := SelectedEntry;
   if Entry = nil then
   begin
-    FSelectedBlocks := Default(TQsBlockMap);
+    FSelectedBlocks := Default(TOtBlockMap);
     PaintBoxBlocks.Invalidate;
     LabelBlockLegend.Caption := '';
     LabelProgress.Caption := L('text.81fbbf68b1cc', 'Не вибрано торрент');
@@ -846,7 +846,7 @@ end;
 
 procedure TFormMain.UpdateBlocks;
 var I, First, Last, Columns: Integer; Entry: TTorrentEntry;
-  NewBlocks: TQsBlockMap; Bounds: TRect;
+  NewBlocks: TOtBlockMap; Bounds: TRect;
 begin
   if FEngine = nil then Exit;
   if ListViewTorrents.TopItem <> nil then
@@ -859,9 +859,9 @@ begin
       Entry := TTorrentEntry(ListViewTorrents.Items[I].Data);
       try
         if Entry.Id > 0 then NewBlocks := FEngine.Blocks(Entry.Id, Columns)
-        else NewBlocks := Default(TQsBlockMap);
+        else NewBlocks := Default(TOtBlockMap);
       except
-        NewBlocks := Default(TQsBlockMap);
+        NewBlocks := Default(TOtBlockMap);
       end;
       if not SameBlockMap(Entry.Blocks, NewBlocks) then
       begin
@@ -877,15 +877,15 @@ begin
     Columns := EnsureRange((PaintBoxBlocks.Width - 6) div 3, 1, 4096);
     try
       if Entry.Id > 0 then NewBlocks := FEngine.Blocks(Entry.Id, Columns)
-      else NewBlocks := Default(TQsBlockMap);
+      else NewBlocks := Default(TOtBlockMap);
       LabelBlockLegend.Caption := LF('text.4bd1be887cf3', 'Блоків: %s · розмір: %s · синій — перевірено; світлий — отримано; сірий — запитано',
         [IntToStr(NewBlocks.TotalBlocks), SizeText(NewBlocks.BlockSize)]);
     except
-      NewBlocks := Default(TQsBlockMap);
+      NewBlocks := Default(TOtBlockMap);
       LabelBlockLegend.Caption := L('text.f12da9086f0c', 'Карта блоків тимчасово недоступна');
     end;
   end
-  else NewBlocks := Default(TQsBlockMap);
+  else NewBlocks := Default(TOtBlockMap);
   if not SameBlockMap(FSelectedBlocks, NewBlocks) then
   begin
     FSelectedBlocks := NewBlocks;

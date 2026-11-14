@@ -2,8 +2,8 @@
 import re
 import xml.etree.ElementTree as ET
 
-ET.parse('qstorrent.dproj')
-ET.parse('resources/qstorrent.manifest')
+ET.parse('otorrent.dproj')
+ET.parse('resources/otorrent.manifest')
 for path in Path('src/ui').glob('*.dfm'):
     pas=path.with_suffix('.pas').read_text(encoding='utf-8-sig')
     dfm=path.read_text(encoding='utf-8-sig')

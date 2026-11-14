@@ -2,29 +2,31 @@
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path $PSScriptRoot -Parent
 $idePath = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin64\bds.exe'
+. (Join-Path $PSScriptRoot 'wait-ide-build.ps1')
 if ($UiTests -and $CoreTests) { throw 'Choose UiTests or CoreTests' }
 if ($CoreTests) {
   & python (Join-Path $workspacePath 'tests/prepare_core_fixture.py')
   if ($LASTEXITCODE -ne 0) { throw 'Cannot prepare synthetic test fixture' }
   $workingPath = Join-Path $workspacePath 'tests'
-  $mainSource = 'QsCoreTests.dpr'
-  $errorLog = Join-Path $workingPath 'QsCoreTests.err'
-  $binaryPath = Join-Path $workspacePath 'bin\Win64\QsCoreTests.exe'
+  $mainSource = 'OtCoreTests.dpr'
+  $errorLog = Join-Path $workingPath 'OtCoreTests.err'
+  $binaryPath = Join-Path $workspacePath 'bin\Win64\OtCoreTests.exe'
 } elseif ($UiTests) {
   $workingPath = Join-Path $workspacePath 'tests'
-  $mainSource = 'QsUiSmoke.dpr'
-  $errorLog = Join-Path $workingPath 'QsUiSmoke.err'
-  $binaryPath = Join-Path $workspacePath 'bin\Win64\QsUiSmoke.exe'
+  $mainSource = 'OtUiSmoke.dpr'
+  $errorLog = Join-Path $workingPath 'OtUiSmoke.err'
+  $binaryPath = Join-Path $workspacePath 'bin\Win64\OtUiSmoke.exe'
 } else {
   $workingPath = $workspacePath
-  $mainSource = 'qstorrent.dpr'
-  $errorLog = Join-Path $workingPath 'qstorrent.err'
-  $binaryPath = Join-Path $workspacePath 'bin\Win64\qstorrent.exe'
+  $mainSource = 'otorrent.dpr'
+  $errorLog = Join-Path $workingPath 'otorrent.err'
+  $binaryPath = Join-Path $workspacePath 'bin\Win64\otorrent.exe'
 }
 # IDE AutoBuild instances share environment.proj. Serialize across all scripts.
-$buildMutex = [Threading.Mutex]::new($false, 'Local\qsTorrent.DelphiAutoBuild')
+$buildMutex = [Threading.Mutex]::new($false, 'Local\Only Torrent.DelphiAutoBuild')
 $ownsBuild = $false
 $previousProject = $null
+$ideProcess = $null
 try {
   try { $ownsBuild = $buildMutex.WaitOne(30000) }
   catch [Threading.AbandonedMutexException] { $ownsBuild = $true }
@@ -45,7 +47,7 @@ if ($OutputDirectory) {
 $buildStart = Get-Date
 # DPR first: verified with Delphi 13 CE's IDE AutoBuild.
 $ideProcess = Start-Process -FilePath $idePath -ArgumentList $mainSource,'-b','-ns' -WorkingDirectory $workingPath -WindowStyle Hidden -PassThru
-$ideProcess.WaitForExit()
+Wait-OtIdeBuild -Process $ideProcess -ErrorLog $errorLog -BuildStart $buildStart
 if (Test-Path -LiteralPath $errorLog) {
   $buildLog = Get-Content -Raw -LiteralPath $errorLog
   $buildLog -split "`r?`n" | Select-String '\[dcc|\[Exec|Success|Failed|Elapsed'
@@ -58,7 +60,18 @@ if (-not (Test-Path -LiteralPath $binaryPath) -or (Get-Item -LiteralPath $binary
 Write-Output "Built: $binaryPath"
   & (Join-Path $PSScriptRoot 'copy-runtime.ps1') -Destination (Split-Path $binaryPath -Parent)
 } finally {
-  if ($null -ne $previousProject) { [IO.File]::WriteAllBytes($projectPath, $previousProject) }
-  if ($ownsBuild) { $buildMutex.ReleaseMutex() }
-  $buildMutex.Dispose()
+  try {
+    if ($null -ne $ideProcess -and -not $ideProcess.HasExited) {
+      # Cleanup only our AutoBuild process if monitoring itself was interrupted.
+      $ideProcess.Kill()
+      [void]$ideProcess.WaitForExit(5000)
+    }
+  } finally {
+    try {
+      if ($null -ne $previousProject) { [IO.File]::WriteAllBytes($projectPath, $previousProject) }
+    } finally {
+      if ($ownsBuild) { $buildMutex.ReleaseMutex() }
+      $buildMutex.Dispose()
+    }
+  }
 }

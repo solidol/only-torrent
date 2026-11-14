@@ -16,7 +16,7 @@ def bencode(v):
     if isinstance(v, dict): return b'd'+b''.join(bencode(k)+bencode(v[k]) for k in sorted(v))+b'e'
     raise TypeError(v)
 
-dll=c.CDLL(str((Path(os.environ.get('QS_ENGINE_DIR', 'bin/Win64')) / 'qsbridge.dll').resolve()), winmode=0x8)
+dll=c.CDLL(str((Path(os.environ.get('OT_ENGINE_DIR', 'bin/Win64')) / 'qsbridge.dll').resolve()), winmode=0x8)
 class SessionOptions(c.Structure):
     _fields_=[('size',c.c_uint32)]+[(n,c.c_int32) for n in ('port','down','up','connections','flags','stop_timeout','reserved')]
 assert c.sizeof(SessionOptions)==32
@@ -26,7 +26,7 @@ dll.qs_create.restype=c.c_void_p
 
 def create_session(port=6881):
     config=SessionOptions(c.sizeof(SessionOptions),port,0,0,200,0,2,0)
-    return dll.qs_create(c.byref(config),b'qsTorrent-test/0.1')
+    return dll.qs_create(c.byref(config),b'OnlyTorrent-test/0.1')
 
 dll.qs_add_prepared.argtypes=[c.c_void_p,c.c_char_p,c.c_char_p,c.POINTER(c.c_int),
     c.c_int,c.c_int,c.c_int,c.c_int,c.c_int,c.POINTER(c.c_char_p),c.POINTER(c.c_char_p),c.c_int]

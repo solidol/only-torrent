@@ -1,5 +1,5 @@
 ﻿object FormAddTorrent: TFormAddTorrent
-  Caption = 'Створити нове завдання BitTorrent — qsTorrent'
+  Caption = 'Створити нове завдання BitTorrent — Only Torrent'
   ClientHeight = 600
   ClientWidth = 840
   Constraints.MinHeight = 560

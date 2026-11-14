@@ -1,25 +1,25 @@
-﻿unit Qs.TaskOptions;
+﻿unit Ot.TaskOptions;
 
 interface
 
-uses Qs.Types;
+uses Ot.Types;
 
-function DefaultSessionOptions: TQsSessionOptions;
+function DefaultSessionOptions: TOtSessionOptions;
 function RateBytes(KiB: Integer): Integer;
 procedure ValidateConnectionSettings(Port, DownloadKiB, UploadKiB, Connections: Integer);
 procedure ValidateSubfolder(const Name: string);
 procedure ValidateRelativePath(const Name: string);
-function PrepareTask(Metadata: TQsMetadata; const SavePath: string;
-  const Priorities: TArray<Integer>; const Options: TQsAddOptions): TQsPreparedTask;
+function PrepareTask(Metadata: TOtMetadata; const SavePath: string;
+  const Priorities: TArray<Integer>; const Options: TOtAddOptions): TOtPreparedTask;
 function FileKind(const Path: string): Integer;
 function RelativeTorrentFile(const Path: string): string;
-function SelectionSummary(const Files: TArray<TQsMetaFile>;
-  const Selected: TArray<Boolean>): TQsSelectionSummary;
+function SelectionSummary(const Files: TArray<TOtMetaFile>;
+  const Selected: TArray<Boolean>): TOtSelectionSummary;
 function Sha1Text(const Bytes: array of Byte): string;
 
 implementation
 
-uses Qs.Localization, System.SysUtils, System.StrUtils;
+uses Ot.Localization, System.SysUtils, System.StrUtils;
 
 procedure ValidateRelativePath(const Name: string);
 var Part: string;
@@ -33,9 +33,9 @@ begin
   end;
 end;
 
-function DefaultSessionOptions: TQsSessionOptions;
+function DefaultSessionOptions: TOtSessionOptions;
 begin
-  Result := Default(TQsSessionOptions);
+  Result := Default(TOtSessionOptions);
   Result.Size := SizeOf(Result);
   Result.Port := 6881;
   Result.Connections := 200;
@@ -77,8 +77,8 @@ begin
   if P > 0 then Delete(Result, 1, P);
 end;
 
-function PrepareTask(Metadata: TQsMetadata; const SavePath: string;
-  const Priorities: TArray<Integer>; const Options: TQsAddOptions): TQsPreparedTask;
+function PrepareTask(Metadata: TOtMetadata; const SavePath: string;
+  const Priorities: TArray<Integer>; const Options: TOtAddOptions): TOtPreparedTask;
 var I: Integer; Any: Boolean; Lines: TArray<string>; Line, RawLine: string;
 begin
   if (Metadata = nil) or (Length(Priorities) = 0) or
@@ -121,12 +121,12 @@ begin
   Result := 3;
 end;
 
-function SelectionSummary(const Files: TArray<TQsMetaFile>;
-  const Selected: TArray<Boolean>): TQsSelectionSummary;
+function SelectionSummary(const Files: TArray<TOtMetaFile>;
+  const Selected: TArray<Boolean>): TOtSelectionSummary;
 var I, Kind: Integer;
 begin
   if Length(Files) <> Length(Selected) then raise EArgumentException.Create('Invalid selection size');
-  Result := Default(TQsSelectionSummary);
+  Result := Default(TOtSelectionSummary);
   for I := 0 to High(Files) do
   begin
     Kind := FileKind(Files[I].Path);

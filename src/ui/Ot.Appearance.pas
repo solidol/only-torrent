@@ -1,19 +1,19 @@
-﻿unit Qs.Appearance;
+﻿unit Ot.Appearance;
 
 interface
 
-uses Vcl.Controls, Vcl.Graphics, System.Types, Qs.Types;
+uses Vcl.Controls, Vcl.Graphics, System.Types, Ot.Types;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
-procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TQsBlockMap;
+procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TOtBlockMap;
   Selected: Boolean; const Caption: string);
 function SizeText(Value: Int64): string;
 function StateText(Value: Integer): string;
 
 implementation
 
-uses Qs.Localization, Winapi.Windows, Winapi.UxTheme, Winapi.CommCtrl, System.SysUtils,
-  System.Math, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes, Qs.BlockMap;
+uses Ot.Localization, Winapi.Windows, Winapi.UxTheme, Winapi.CommCtrl, System.SysUtils,
+  System.Math, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes, Ot.BlockMap;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
 var I: Integer;
@@ -31,10 +31,10 @@ begin
   Control.Invalidate;
 end;
 
-procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TQsBlockMap;
+procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TOtBlockMap;
   Selected: Boolean; const Caption: string);
 var R, Plot, Bar, Fill, TextBounds: TRect; I, Count: Integer;
-  DisplayMap: TQsBlockMap; VerifiedColor, ReceivedColor: TColor;
+  DisplayMap: TOtBlockMap; VerifiedColor, ReceivedColor: TColor;
   Color: Longint; OldMode: Integer;
   procedure Layer(Value: Integer; LayerColor: TColor);
   begin

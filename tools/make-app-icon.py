@@ -8,8 +8,8 @@ import struct
 from PIL import Image
 
 root = Path(__file__).resolve().parents[1]
-source = root / 'resources/branding/concepts/qs-04-motion-circle-2758a8.png'
-target = root / 'resources/qstorrent.ico'
+source = root / 'resources/branding/ot-logo-circle-2758a8.png'
+target = root / 'resources/otorrent.ico'
 sizes = [(n, n) for n in (16, 20, 24, 32, 40, 48, 64, 128, 256)]
 with Image.open(source) as image:
     image = image.convert('RGBA')

@@ -1,9 +1,9 @@
-﻿unit Qs.Settings;
+﻿unit Ot.Settings;
 
 interface
 
 type
-  TQsSettings = record
+  TOtSettings = record
     SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
     DownloadFolder, TorrentFolder, Language: string;
     ListenPort, DownloadKiB, UploadKiB, Connections: Integer;
@@ -13,14 +13,14 @@ type
 
 implementation
 
-uses Qs.Localization, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, Qs.Profile;
+uses Ot.Localization, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, Ot.Profile;
 
 function SettingsFile: string;
 begin
   Result := TPath.Combine(ProfileFolder, 'settings.ini');
 end;
 
-procedure TQsSettings.Load;
+procedure TOtSettings.Load;
 var Ini: TMemIniFile;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
@@ -33,7 +33,7 @@ begin
     StartImmediately := Ini.ReadBool('Adding', 'StartImmediately', True);
     ShowAddDialog := Ini.ReadBool('Adding', 'ShowDialog', True);
     DownloadFolder := Ini.ReadString('Adding', 'Folder',
-      TPath.Combine(TPath.GetDocumentsPath, 'qsTorrent'));
+      TPath.Combine(TPath.GetDocumentsPath, 'Only Torrent'));
     ListenPort := Ini.ReadInteger('Network', 'Port', 6881);
     DownloadKiB := Ini.ReadInteger('Network', 'DownloadKiB', 0);
     UploadKiB := Ini.ReadInteger('Network', 'UploadKiB', 0);
@@ -47,7 +47,7 @@ begin
   end;
 end;
 
-procedure TQsSettings.Save;
+procedure TOtSettings.Save;
 var Ini: TMemIniFile; Lines: TStringList;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);

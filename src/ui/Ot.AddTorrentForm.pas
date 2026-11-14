@@ -1,9 +1,9 @@
-﻿unit Qs.AddTorrentForm;
+﻿unit Ot.AddTorrentForm;
 
 interface
 
 uses System.Classes, Vcl.Forms, Vcl.Controls, Vcl.StdCtrls, Vcl.ExtCtrls,
-  Vcl.ComCtrls, Qs.Engine, Qs.Settings;
+  Vcl.ComCtrls, Ot.Engine, Ot.Settings;
 
 type
   TFormAddTorrent = class(TForm)
@@ -72,7 +72,7 @@ type
     procedure DownloadClick(Sender: TObject);
     procedure DiskPaint(Sender: TObject);
   private
-    FMetadata: TQsMetadata;
+    FMetadata: TOtMetadata;
     FSelected: TArray<Boolean>;
     FUpdating, FStartNow, FSingleFile: Boolean;
     FDiskFree, FDiskTotal: Int64;
@@ -81,18 +81,18 @@ type
     function FileKind(Index: Integer): Integer;
     function RelativeFile(Index: Integer): string;
   public
-    procedure Prepare(Metadata: TQsMetadata; const Settings: TQsSettings);
+    procedure Prepare(Metadata: TOtMetadata; const Settings: TOtSettings);
     procedure SelectAll(Value: Boolean);
     function Priorities: TArray<Integer>;
     function SaveFolder: string;
-    function Options: TQsAddOptions;
+    function Options: TOtAddOptions;
   end;
 
 implementation
 
-uses Qs.Localization, Winapi.Windows, System.SysUtils, System.UITypes, System.IOUtils,
+uses Ot.Localization, Winapi.Windows, System.SysUtils, System.UITypes, System.IOUtils,
   System.StrUtils, System.DateUtils, System.Math, Vcl.FileCtrl, Vcl.Dialogs,
-  Vcl.Graphics, Qs.Appearance, Qs.TaskOptions, Qs.TransferMath, Qs.Types, Qs.FormLocalization;
+  Vcl.Graphics, Ot.Appearance, Ot.TaskOptions, Ot.TransferMath, Ot.Types, Ot.FormLocalization;
 
 {$R *.dfm}
 
@@ -103,10 +103,10 @@ end;
 
 function TFormAddTorrent.FileKind(Index: Integer): Integer;
 begin
-  Result := Qs.TaskOptions.FileKind(FMetadata.Files[Index].Path);
+  Result := Ot.TaskOptions.FileKind(FMetadata.Files[Index].Path);
 end;
 
-procedure TFormAddTorrent.Prepare(Metadata: TQsMetadata; const Settings: TQsSettings);
+procedure TFormAddTorrent.Prepare(Metadata: TOtMetadata; const Settings: TOtSettings);
 var I: Integer;
 begin
   TranslateForm(Self);
@@ -242,7 +242,7 @@ begin
 end;
 
 procedure TFormAddTorrent.UpdateSummary;
-var I: Integer; Folder: string; Summary: TQsSelectionSummary;
+var I: Integer; Folder: string; Summary: TOtSelectionSummary;
   TotalFree: Int64; Item: TListItem;
 begin
   if FMetadata = nil then Exit;
@@ -321,9 +321,9 @@ begin
   Result := ExpandFileName(Trim(ComboBoxFolder.Text));
 end;
 
-function TFormAddTorrent.Options: TQsAddOptions;
+function TFormAddTorrent.Options: TOtAddOptions;
 begin
-  Result := Default(TQsAddOptions);
+  Result := Default(TOtAddOptions);
   if EditSubfolder.Enabled then Result.Subfolder := Trim(EditSubfolder.Text);
   Result.Trackers := MemoTrackers.Text;
   Result.Start := FStartNow;
@@ -340,7 +340,7 @@ begin
 end;
 
 procedure TFormAddTorrent.DownloadClick(Sender: TObject);
-var Value: TQsAddOptions;
+var Value: TOtAddOptions;
 begin
   if not ButtonDownloadNow.Enabled then Exit;
   try

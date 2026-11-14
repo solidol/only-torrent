@@ -4,13 +4,13 @@
         <ProjectVersion>20.3</ProjectVersion>
         <Base>True</Base>
         <TargetedPlatforms>2</TargetedPlatforms>
-        <SanitizedProjectName>QsUiSmoke</SanitizedProjectName>
-        <MainSource>QsUiSmoke.dpr</MainSource>
+        <SanitizedProjectName>OtUiSmoke</SanitizedProjectName>
+        <MainSource>OtUiSmoke.dpr</MainSource>
         <Config Condition="'$(Config)'==''">Release</Config>
         <Platform Condition="'$(Platform)'==''">Win64</Platform>
         <AppType>Application</AppType>
         <FrameworkType>VCL</FrameworkType>
-        <ProjectName Condition="'$(ProjectName)'==''">QsUiSmoke</ProjectName>
+        <ProjectName Condition="'$(ProjectName)'==''">OtUiSmoke</ProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Config)'=='Base' or '$(Base)'!=''">
         <Base>true</Base>
@@ -32,7 +32,7 @@
         <Base>true</Base>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base)'!=''">
-        <DCC_DependencyCheckOutputName>..\bin\Win64\QsUiSmoke.exe</DCC_DependencyCheckOutputName>
+        <DCC_DependencyCheckOutputName>..\bin\Win64\OtUiSmoke.exe</DCC_DependencyCheckOutputName>
         <DCC_Namespace>System;Winapi;Vcl;System.Win;$(DCC_Namespace)</DCC_Namespace>
         <DCC_UnitSearchPath>..\src\ui;..\src\engine;..\src\core;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
         <DCC_ExeOutput>..\bin\Win64</DCC_ExeOutput>
@@ -47,8 +47,8 @@
         <DCC_MapFile>0</DCC_MapFile>
         <DCC_GenerateStackFrames>false</DCC_GenerateStackFrames>
         <DCC_MinimumOSVersion>6.1</DCC_MinimumOSVersion>
-        <Manifest_File>..\resources\qstorrent.manifest</Manifest_File>
-        <SanitizedProjectName>QsUiSmoke</SanitizedProjectName>
+        <Manifest_File>..\resources\otorrent.manifest</Manifest_File>
+        <SanitizedProjectName>OtUiSmoke</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <BT_BuildType>Debug</BT_BuildType>
@@ -60,31 +60,31 @@
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
-        <DCCReference Include="..\src\core\Qs.Profile.pas"/>
-        <DCCReference Include="..\src\core\Qs.Sqlite.pas"/>
-        <DCCReference Include="..\src\core\Qs.TaskStore.pas"/>
-        <DCCReference Include="..\src\core\Qs.Localization.pas"/>
-        <DCCReference Include="..\src\ui\Qs.FormLocalization.pas"/>
-        <DCCReference Include="..\src\core\Qs.Types.pas"/>
-        <DCCReference Include="..\src\core\Qs.BlockMap.pas"/>
-        <DCCReference Include="..\src\core\Qs.TaskOptions.pas"/>
-        <DCCReference Include="..\src\core\Qs.TransferMath.pas"/>
-        <DCCReference Include="..\src\engine\Qs.BridgeApi.pas"/>
+        <DCCReference Include="..\src\core\Ot.Profile.pas"/>
+        <DCCReference Include="..\src\core\Ot.Sqlite.pas"/>
+        <DCCReference Include="..\src\core\Ot.TaskStore.pas"/>
+        <DCCReference Include="..\src\core\Ot.Localization.pas"/>
+        <DCCReference Include="..\src\ui\Ot.FormLocalization.pas"/>
+        <DCCReference Include="..\src\core\Ot.Types.pas"/>
+        <DCCReference Include="..\src\core\Ot.BlockMap.pas"/>
+        <DCCReference Include="..\src\core\Ot.TaskOptions.pas"/>
+        <DCCReference Include="..\src\core\Ot.TransferMath.pas"/>
+        <DCCReference Include="..\src\engine\Ot.BridgeApi.pas"/>
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="..\src\ui\Qs.MainForm.pas">
+        <DCCReference Include="..\src\ui\Ot.MainForm.pas">
             <Form>FormMain</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="..\src\engine\Qs.Engine.pas"/>
-        <DCCReference Include="..\src\ui\Qs.Settings.pas"/>
-        <DCCReference Include="..\src\ui\Qs.Appearance.pas"/>
-        <DCCReference Include="..\src\ui\Qs.AddTorrentForm.pas">
+        <DCCReference Include="..\src\engine\Ot.Engine.pas"/>
+        <DCCReference Include="..\src\ui\Ot.Settings.pas"/>
+        <DCCReference Include="..\src\ui\Ot.Appearance.pas"/>
+        <DCCReference Include="..\src\ui\Ot.AddTorrentForm.pas">
             <Form>FormAddTorrent</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="..\src\ui\Qs.PreferencesForm.pas">
+        <DCCReference Include="..\src\ui\Ot.PreferencesForm.pas">
             <Form>FormPreferences</Form>
             <FormType>dfm</FormType>
         </DCCReference>
@@ -110,7 +110,7 @@
         <BorlandProject>
             <Delphi.Personality>
                 <Source>
-                    <Source Name="MainSource">QsUiSmoke.dpr</Source>
+                    <Source Name="MainSource">OtUiSmoke.dpr</Source>
                 </Source>
             </Delphi.Personality>
             <Platforms>

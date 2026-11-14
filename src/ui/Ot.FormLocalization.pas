@@ -1,4 +1,4 @@
-﻿unit Qs.FormLocalization;
+﻿unit Ot.FormLocalization;
 
 interface
 
@@ -8,7 +8,7 @@ procedure TranslateForm(Root: TComponent);
 
 implementation
 
-uses System.TypInfo, System.SysUtils, Vcl.ComCtrls, Qs.Localization;
+uses System.TypInfo, System.SysUtils, Vcl.ComCtrls, Ot.Localization;
 
 procedure TranslateForm(Root: TComponent);
 var Component: TComponent; I: Integer;

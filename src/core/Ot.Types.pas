@@ -1,34 +1,34 @@
-﻿unit Qs.Types;
+﻿unit Ot.Types;
 
 interface
 
 uses System.SysUtils;
 
 type
-  TQsBlockMap = record
+  TOtBlockMap = record
     Verified, Received, Requested: TBytes;
     TotalBlocks: Int64;
     BlockSize: Integer;
   end;
-  TQsAddOptions = record
+  TOtAddOptions = record
     Subfolder, Trackers: string;
     Start, Sequential: Boolean;
     DownloadKiB, UploadKiB: Integer;
   end;
-  TQsMetaFile = record
+  TOtMetaFile = record
     Size: Int64;
     Path: string;
   end;
-  TQsMetadata = class
+  TOtMetadata = class
   public
     Name, Comment, Creator, Publisher, PublisherURL, InfoHash, WebSeeds: string;
     CreatedUTC: Int64;
     Pieces, PieceLength: Integer;
     TotalBytes: Int64;
-    Files: TArray<TQsMetaFile>;
+    Files: TArray<TOtMetaFile>;
     Trackers: TArray<string>;
   end;
-  TQsSnapshot = record
+  TOtSnapshot = record
     TotalBytes: Int64;
     DoneBytes: Int64;
     DownloadRate: Integer;
@@ -40,30 +40,30 @@ type
     Name: array[0..511] of AnsiChar; // UTF-8
     Error: array[0..511] of AnsiChar;
   end;
-  TQsSessionOptions = record
+  TOtSessionOptions = record
     Size: Cardinal;
     Port, DownloadBytes, UploadBytes, Connections: Integer;
     DiscoveryFlags, StopTrackerTimeout, Reserved: Integer;
   end;
-  TQsPartialBlock = record
+  TOtPartialBlock = record
     Piece, Block, State, Reserved: Integer;
   end;
-  TQsPieceHeader = record
+  TOtPieceHeader = record
     TotalBytes: Int64;
     PieceLength, PieceCount, BlockSize, PartialCount, IsSeed, HaveBytes: Integer;
   end;
-  TQsPieceState = record
+  TOtPieceState = record
     TotalBytes: Int64;
     PieceLength, PieceCount, BlockSize: Integer;
     IsSeeding: Boolean;
     HavePieces: TBytes; // MSB-first bitfield
-    PartialBlocks: TArray<TQsPartialBlock>;
+    PartialBlocks: TArray<TOtPartialBlock>;
   end;
-  TQsPreparedTask = record
+  TOtPreparedTask = record
     Paths, Trackers: TArray<string>;
     DownloadBytes, UploadBytes: Integer;
   end;
-  TQsSelectionSummary = record
+  TOtSelectionSummary = record
     Count: Integer;
     Bytes: Int64;
     Counts, Selected: array[0..3] of Integer;

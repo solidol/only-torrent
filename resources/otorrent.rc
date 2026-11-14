@@ -1,5 +1,5 @@
-1 24 "resources\\qstorrent.manifest"
-MAINICON ICON "resources\\qstorrent.ico"
+1 24 "resources\\otorrent.manifest"
+MAINICON ICON "resources\\otorrent.ico"
 1 VERSIONINFO
 FILEVERSION 0,1,0,0
 PRODUCTVERSION 0,1,0,0
@@ -13,12 +13,12 @@ BEGIN
   BEGIN
     BLOCK "040904E4"
     BEGIN
-      VALUE "CompanyName", "qsTorrent contributors\0"
-      VALUE "FileDescription", "Quick Start Torrent\0"
+      VALUE "CompanyName", "Only Torrent contributors\0"
+      VALUE "FileDescription", "Only Torrent\0"
       VALUE "FileVersion", "0.1.0.0\0"
-      VALUE "InternalName", "qstorrent\0"
-      VALUE "OriginalFilename", "qstorrent.exe\0"
-      VALUE "ProductName", "Quick Start Torrent\0"
+      VALUE "InternalName", "otorrent\0"
+      VALUE "OriginalFilename", "otorrent.exe\0"
+      VALUE "ProductName", "Only Torrent\0"
       VALUE "ProductVersion", "0.1.0.0\0"
     END
   END

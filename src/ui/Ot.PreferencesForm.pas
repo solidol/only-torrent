@@ -1,9 +1,9 @@
-﻿unit Qs.PreferencesForm;
+﻿unit Ot.PreferencesForm;
 
 interface
 
 uses System.Classes, Vcl.Forms, Vcl.Controls, Vcl.StdCtrls, Vcl.ExtCtrls,
-  Vcl.ComCtrls, Qs.Settings;
+  Vcl.ComCtrls, Ot.Settings;
 
 type
   TFormPreferences = class(TForm)
@@ -56,15 +56,15 @@ type
   private
     function ApplyChanges: Boolean;
   public
-    Value: TQsSettings;
+    Value: TOtSettings;
     OnApply: TNotifyEvent;
-    procedure LoadValue(const Settings: TQsSettings);
+    procedure LoadValue(const Settings: TOtSettings);
   end;
 
 implementation
 
-uses System.SysUtils, System.UITypes, Vcl.Dialogs, Vcl.FileCtrl, Qs.Appearance,
-  Qs.Localization, Qs.FormLocalization;
+uses System.SysUtils, System.UITypes, Vcl.Dialogs, Vcl.FileCtrl, Ot.Appearance,
+  Ot.Localization, Ot.FormLocalization;
 
 {$R *.dfm}
 
@@ -81,7 +81,7 @@ begin
   TranslateForm(Self);
 end;
 
-procedure TFormPreferences.LoadValue(const Settings: TQsSettings);
+procedure TFormPreferences.LoadValue(const Settings: TOtSettings);
 begin
   Value := Settings;
   CheckBoxSystemTheme.Checked := Value.SystemTheme;
@@ -124,7 +124,7 @@ begin
 end;
 
 function TFormPreferences.ApplyChanges: Boolean;
-var NewValue: TQsSettings; I: Integer;
+var NewValue: TOtSettings; I: Integer;
 begin
   Result := False;
   try

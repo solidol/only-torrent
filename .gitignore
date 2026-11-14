@@ -11,6 +11,7 @@ __recovery/
 
 __pycache__/
 *.err
+*.dialogs.log
 
 # The pinned DLL bundle is part of the source distribution.
 !/third_party/bin/Win64/*.dll

@@ -10,15 +10,15 @@ import sys
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = Path(os.environ.get('QS_ENGINE_DIR', ROOT / 'build/persistence-candidate')).resolve()
+PACKAGE = Path(os.environ.get('OT_ENGINE_DIR', ROOT / 'build/persistence-candidate')).resolve()
 PROFILE = Path((ROOT / 'build/persistence-profile.path').read_text(encoding='utf-8-sig'))
 
 def run(profile, mode):
-    env = dict(os.environ, QS_PROFILE_DIR=str(profile))
+    env = dict(os.environ, OT_PROFILE_DIR=str(profile))
     flags = subprocess.STARTUPINFO()
     flags.dwFlags = subprocess.STARTF_USESHOWWINDOW
     flags.wShowWindow = 0
-    result = subprocess.run([str(PACKAGE / 'QsUiSmoke.exe'), mode], cwd=ROOT / 'tests',
+    result = subprocess.run([str(PACKAGE / 'OtUiSmoke.exe'), mode], cwd=ROOT / 'tests',
                             env=env, startupinfo=flags, timeout=45)
     assert result.returncode == 0, (mode, (ROOT / 'build/ui-smoke.txt').read_text(encoding='utf-8-sig'))
     with sqlite3.connect(profile / 'tasks.db') as db:

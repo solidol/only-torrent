@@ -32,7 +32,7 @@ def pe_tables(path):
             imports.append(text(struct.unpack_from('<I',data,p+12)[0]).lower());p+=20
     return exports,imports
 
-root=Path(os.environ.get('QS_ENGINE_DIR', 'bin/Win64'))
+root=Path(os.environ.get('OT_ENGINE_DIR', 'bin/Win64'))
 vendor_exports,vendor_imports=pe_tables(root/'torrent-rasterbar.dll')
 bridge_exports,bridge_imports=pe_tables(root/'qsbridge.dll')
 assert not any(n.startswith('qs_') for n in vendor_exports)

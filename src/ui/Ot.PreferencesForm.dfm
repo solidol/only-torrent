@@ -1,5 +1,5 @@
 ﻿object FormPreferences: TFormPreferences
-  Caption = 'Налаштування — qsTorrent'
+  Caption = 'Налаштування — Only Torrent'
   ClientHeight = 450
   ClientWidth = 700
   BorderStyle = bsDialog

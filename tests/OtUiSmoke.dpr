@@ -1,23 +1,23 @@
-﻿program QsUiSmoke;
+﻿program OtUiSmoke;
 
 uses
-  Qs.Profile in '..\src\core\Qs.Profile.pas',
-  Qs.Sqlite in '..\src\core\Qs.Sqlite.pas',
-  Qs.TaskStore in '..\src\core\Qs.TaskStore.pas',
-  Qs.Localization in '..\src\core\Qs.Localization.pas',
-  Qs.FormLocalization in '..\src\ui\Qs.FormLocalization.pas',
+  Ot.Profile in '..\src\core\Ot.Profile.pas',
+  Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
+  Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
+  Ot.Localization in '..\src\core\Ot.Localization.pas',
+  Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
-  Vcl.ComCtrls, Vcl.Imaging.pngimage, Qs.MainForm in '..\src\ui\Qs.MainForm.pas',
-  Qs.Engine in '..\src\engine\Qs.Engine.pas',
-  Qs.Settings in '..\src\ui\Qs.Settings.pas',
-  Qs.Appearance in '..\src\ui\Qs.Appearance.pas',
-  Qs.AddTorrentForm in '..\src\ui\Qs.AddTorrentForm.pas',
-  Qs.PreferencesForm in '..\src\ui\Qs.PreferencesForm.pas',
-  Qs.Types in '..\src\core\Qs.Types.pas',
-  Qs.BlockMap in '..\src\core\Qs.BlockMap.pas',
-  Qs.TaskOptions in '..\src\core\Qs.TaskOptions.pas',
-  Qs.TransferMath in '..\src\core\Qs.TransferMath.pas',
-  Qs.BridgeApi in '..\src\engine\Qs.BridgeApi.pas';
+  Vcl.ComCtrls, Vcl.Imaging.pngimage, Ot.MainForm in '..\src\ui\Ot.MainForm.pas',
+  Ot.Engine in '..\src\engine\Ot.Engine.pas',
+  Ot.Settings in '..\src\ui\Ot.Settings.pas',
+  Ot.Appearance in '..\src\ui\Ot.Appearance.pas',
+  Ot.AddTorrentForm in '..\src\ui\Ot.AddTorrentForm.pas',
+  Ot.PreferencesForm in '..\src\ui\Ot.PreferencesForm.pas',
+  Ot.Types in '..\src\core\Ot.Types.pas',
+  Ot.BlockMap in '..\src\core\Ot.BlockMap.pas',
+  Ot.TaskOptions in '..\src\core\Ot.TaskOptions.pas',
+  Ot.TransferMath in '..\src\core\Ot.TransferMath.pas',
+  Ot.BridgeApi in '..\src\engine\Ot.BridgeApi.pas';
 
 {$R *.res}
 
@@ -49,7 +49,7 @@ begin
   end;
 end;
 
-procedure CaptureFence(const Map: TQsBlockMap);
+procedure CaptureFence(const Map: TOtBlockMap);
 var Bitmap: TBitmap; Png: TPngImage;
 begin
   Bitmap := TBitmap.Create;
@@ -64,15 +64,15 @@ begin
 end;
 
 var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TFormPreferences;
-  Entry: TTorrentEntry; Item: TListItem; Settings: TQsSettings;
-  InspectEngine: TQsEngine; TorrentMetadata: TQsMetadata;
+  Entry: TTorrentEntry; Item: TListItem; Settings: TOtSettings;
+  InspectEngine: TOtEngine; TorrentMetadata: TOtMetadata;
   I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
 begin
   Output := TStringList.Create;
   try
     try
       if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') then
-        SetEnvironmentVariable('QS_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
+        SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
@@ -109,7 +109,7 @@ begin
       try
         Entry.Id := 1;
         Entry.Folder := 'C:\Downloads';
-        Entry.Metadata := TQsMetadata.Create;
+        Entry.Metadata := TOtMetadata.Create;
         Entry.Metadata.Name := 'Example Linux distribution';
         Entry.Metadata.Comment := 'UI test fixture: no network transfer';
         Entry.Metadata.TotalBytes := 2147483648;
@@ -158,7 +158,7 @@ begin
         FormPreferences := TFormPreferences.Create(nil);
         try
           FormPreferences.LoadValue(Settings);
-          Require(FormPreferences.Caption = 'Налаштування — qsTorrent', 'Preferences UTF-8');
+          Require(FormPreferences.Caption = 'Налаштування — Only Torrent', 'Preferences UTF-8');
           Require(FormPreferences.CheckBoxSystemTheme.Checked, 'System theme default');
           LoadLanguage('en-US');
           TranslateForm(FormPreferences);
@@ -178,7 +178,7 @@ begin
           Require(FormAddTorrent.ButtonDownloadNow.Caption = 'Download now', 'English add dialog');
           LoadLanguage('uk-UA');
           FormAddTorrent.Prepare(Entry.Metadata, Settings);
-          Require(FormAddTorrent.Caption = 'Створити нове завдання BitTorrent — qsTorrent', 'Add dialog UTF-8');
+          Require(FormAddTorrent.Caption = 'Створити нове завдання BitTorrent — Only Torrent', 'Add dialog UTF-8');
           Require(FormAddTorrent.ComboBoxFolder.Text = Settings.DownloadFolder, 'Save location');
           Require(StateText(3) = 'Завантаження', 'Pascal UTF-8');
           Require(FormAddTorrent.ListViewFiles.Items.Count = 2, 'Metadata file count');
@@ -197,7 +197,7 @@ begin
           Capture(FormAddTorrent, 'ui-add-torrent');
           if ParamCount > 0 then
           begin
-            InspectEngine := TQsEngine.Create;
+            InspectEngine := TOtEngine.Create;
             try
               TorrentMetadata := InspectEngine.Inspect(ParamStr(1));
               try

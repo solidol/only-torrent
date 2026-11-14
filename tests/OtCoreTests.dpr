@@ -1,18 +1,18 @@
-﻿program QsCoreTests;
+﻿program OtCoreTests;
 {$APPTYPE CONSOLE}
 uses
-  Qs.Profile in '..\src\core\Qs.Profile.pas',
-  Qs.Sqlite in '..\src\core\Qs.Sqlite.pas',
-  Qs.TaskStore in '..\src\core\Qs.TaskStore.pas',
-  Qs.Localization in '..\src\core\Qs.Localization.pas',
+  Ot.Profile in '..\src\core\Ot.Profile.pas',
+  Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
+  Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
+  Ot.Localization in '..\src\core\Ot.Localization.pas',
   System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
-  Qs.Settings in '..\src\ui\Qs.Settings.pas',
-  Qs.Types in '..\src\core\Qs.Types.pas',
-  Qs.BlockMap in '..\src\core\Qs.BlockMap.pas',
-  Qs.TaskOptions in '..\src\core\Qs.TaskOptions.pas',
-  Qs.TransferMath in '..\src\core\Qs.TransferMath.pas',
-  Qs.BridgeApi in '..\src\engine\Qs.BridgeApi.pas',
-  Qs.Engine in '..\src\engine\Qs.Engine.pas';
+  Ot.Settings in '..\src\ui\Ot.Settings.pas',
+  Ot.Types in '..\src\core\Ot.Types.pas',
+  Ot.BlockMap in '..\src\core\Ot.BlockMap.pas',
+  Ot.TaskOptions in '..\src\core\Ot.TaskOptions.pas',
+  Ot.TransferMath in '..\src\core\Ot.TransferMath.pas',
+  Ot.BridgeApi in '..\src\engine\Ot.BridgeApi.pas',
+  Ot.Engine in '..\src\engine\Ot.Engine.pas';
 
 procedure Require(Value: Boolean; const Text: string);
 begin
@@ -20,11 +20,11 @@ begin
 end;
 
 procedure CoreCalculations;
-var State: TQsPieceState; Map, Resized: TQsBlockMap; Options: TQsAddOptions;
-  Metadata: TQsMetadata; Prepared: TQsPreparedTask; Selected: TArray<Boolean>;
-  Summary: TQsSelectionSummary; Failed: Boolean;
+var State: TOtPieceState; Map, Resized: TOtBlockMap; Options: TOtAddOptions;
+  Metadata: TOtMetadata; Prepared: TOtPreparedTask; Selected: TArray<Boolean>;
+  Summary: TOtSelectionSummary; Failed: Boolean;
 begin
-  State := Default(TQsPieceState);
+  State := Default(TOtPieceState);
   State.TotalBytes := 65536; State.PieceLength := 16384;
   State.PieceCount := 4; State.BlockSize := 16384;
   State.HavePieces := TBytes.Create($A0); // verified, hole, verified, hole
@@ -69,12 +69,12 @@ begin
   except on E: EArgumentException do Failed := True; end;
   Require(Failed, 'Connection policy validated in application');
   Require(FileKind('song.FLAC') = 1, 'Media classification');
-  Metadata := TQsMetadata.Create;
+  Metadata := TOtMetadata.Create;
   try
     SetLength(Metadata.Files, 2);
     Metadata.Files[0].Path := 'original\a.bin'; Metadata.Files[0].Size := 16384;
     Metadata.Files[1].Path := 'original\song.mp3'; Metadata.Files[1].Size := 32768;
-    Options := Default(TQsAddOptions); Options.Subfolder := 'renamed';
+    Options := Default(TOtAddOptions); Options.Subfolder := 'renamed';
     Options.Trackers := '  http://127.0.0.1/announce  ' + #13#10 + 'udp://localhost:9';
     Prepared := PrepareTask(Metadata, 'C:\Downloads', TArray<Integer>.Create(4, 0), Options);
     Require(Prepared.Paths[0] = 'renamed\a.bin', 'Prepared file rename');
@@ -95,13 +95,13 @@ begin
 end;
 
 procedure EngineIntegration;
-var Engine: TQsEngine; Metadata: TQsMetadata; Id, ReplyId, ReplyStatus, I: Integer;
-  Options: TQsAddOptions; Map: TQsBlockMap; State: TQsSnapshot; Clock: TStopwatch;
+var Engine: TOtEngine; Metadata: TOtMetadata; Id, ReplyId, ReplyStatus, I: Integer;
+  Options: TOtAddOptions; Map: TOtBlockMap; State: TOtSnapshot; Clock: TStopwatch;
   FileName, Folder: string; Reply: TBytes;
 begin
   FileName := ExpandFileName('..\build\core-fixture\state.torrent');
   Folder := ExpandFileName('..\build\core-fixture\data');
-  Engine := TQsEngine.Create;
+  Engine := TOtEngine.Create;
   try
     Require(Pos('1.2.', Engine.LibraryVersion) = 1, 'Runtime library version');
     ReplyId := -1; ReplyStatus := -1; Reply := TBytes.Create(1);
@@ -112,7 +112,7 @@ begin
       for I := 1 to 5 do
         Require(not Engine.PollResume(ReplyId, ReplyStatus, Reply), 'Metadata-only inspection tolerates repeated timer polls');
       Require(Length(Metadata.InfoHash) = 40, 'Application SHA-1 formatting');
-      Options := Default(TQsAddOptions); Options.Subfolder := 'custom'; Options.Start := True;
+      Options := Default(TOtAddOptions); Options.Subfolder := 'custom'; Options.Start := True;
       Engine.Configure(6884, 0, 0, 200);
       Id := Engine.AddOptions(FileName, Folder, TArray<Integer>.Create(4, 0, 4, 0), Options, Metadata);
       Clock := TStopwatch.StartNew;
@@ -135,16 +135,16 @@ begin
 end;
 
 procedure PersistenceIntegration;
-var Store: TQsTaskStore; Task: TQsStoredTask; Tasks: TArray<TQsStoredTask>;
-  Engine: TQsEngine; Metadata, Restored: TQsMetadata; Settings, Reloaded: TQsSettings;
-  Options: TQsAddOptions; Priorities: TArray<Integer>; Snapshot: TQsSnapshot;
+var Store: TOtTaskStore; Task: TOtStoredTask; Tasks, ClearedTasks: TArray<TOtStoredTask>;
+  Engine: TOtEngine; Metadata, Restored: TOtMetadata; Settings, Reloaded: TOtSettings;
+  Options: TOtAddOptions; Priorities: TArray<Integer>; Snapshot: TOtSnapshot;
   Profile, ManagedFile, InputFile, DataFolder: string; Token: TGUID;
   Id, ReplyId, Status: Integer; Bytes: TBytes; Clock: TStopwatch; Failed: Boolean;
 begin
   CreateGUID(Token);
   Profile := ExpandFileName('..\build\persistence-' + GUIDToString(Token));
   ForceDirectories(Profile);
-  SetEnvironmentVariable('QS_PROFILE_DIR', PChar(Profile));
+  SetEnvironmentVariable('OT_PROFILE_DIR', PChar(Profile));
   Settings.Load; Settings.Language := 'en-US';
   Settings.TorrentFolder := TPath.Combine(Profile, 'TorrentCopies');
   Settings.DownloadKiB := 19; Settings.Save;
@@ -164,13 +164,13 @@ begin
   InputFile := TPath.Combine(Profile, 'source.torrent');
   TFile.Copy('..\build\core-fixture\state.torrent', InputFile);
   DataFolder := ExpandFileName('..\build\core-fixture\data');
-  Engine := TQsEngine.Create; Metadata := nil; Restored := nil; Store := nil;
+  Engine := TOtEngine.Create; Metadata := nil; Restored := nil; Store := nil;
   try
     Metadata := Engine.Inspect(InputFile);
     ManagedFile := ImportTorrent(InputFile, Settings.TorrentFolder, Metadata.InfoHash);
     TFile.Delete(InputFile);
     Require(TFile.Exists(ManagedFile), 'Managed copy survives original deletion');
-    Options := Default(TQsAddOptions); Options.Start := True; Options.Subfolder := 'custom';
+    Options := Default(TOtAddOptions); Options.Start := True; Options.Subfolder := 'custom';
     Options.Sequential := True; Options.DownloadKiB := 21;
     Priorities := TArray<Integer>.Create(4, 0, 4, 0);
     Id := Engine.AddOptions(ManagedFile, DataFolder, Priorities, Options, Metadata);
@@ -181,13 +181,14 @@ begin
       Sleep(10);
     until Clock.ElapsedMilliseconds > 10000;
     Require(Snapshot.DoneBytes = 32768, 'Selected files verified before save');
-    Store := TQsTaskStore.Create(Profile);
+    Store := TOtTaskStore.Create(Profile);
     Failed := False;
-    try TQsTaskStore.Create(Profile).Free;
+    try TOtTaskStore.Create(Profile).Free;
     except on E: Exception do Failed := True; end;
     Require(Failed, 'Profile has a single writer');
-    Task := Default(TQsStoredTask);
+    Task := Default(TOtStoredTask);
     Task.InfoHash := Metadata.InfoHash; Task.Name := Metadata.Name;
+    Task.Name := 'Перевірка Unicode — Only Torrent  ';
     Task.TorrentFile := ManagedFile; Task.SavePath := DataFolder;
     Task.Running := False; Task.Details := TaskDetails(Metadata, Priorities, Options);
     Store.Save(Task);
@@ -203,14 +204,21 @@ begin
     Store.SaveResume(Task.Id, Bytes); Store.Flush;
     Require(Store.TakeError = '', 'Async writer succeeded');
     FreeAndNil(Store); FreeAndNil(Engine);
-    Store := TQsTaskStore.Create(Profile); Tasks := Store.Load;
+    Store := TOtTaskStore.Create(Profile); Tasks := Store.Load;
     Require((Length(Tasks) = 1) and (Tasks[0].Id = Task.Id) and not Tasks[0].Running and
       (Length(Tasks[0].Resume) > 0), 'SQLite close and reopen with resume BLOB and desired pause');
-    Restored := TQsMetadata.Create;
+    Require(Tasks[0].Name = Task.Name, 'Unicode text and trailing spaces survive storage');
+    Require((Length(Tasks[0].Resume) = Length(Bytes)) and
+      CompareMem(@Tasks[0].Resume[0], @Bytes[0], Length(Bytes)), 'Resume BLOB remains byte-exact');
+    Store.SaveResume(Task.Id, nil); Store.Flush;
+    ClearedTasks := Store.Load;
+    Require((Length(ClearedTasks) = 1) and (Length(ClearedTasks[0].Resume) = 0), 'Empty resume binds as NULL');
+    Store.SaveResume(Task.Id, Bytes); Store.Flush;
+    Restored := TOtMetadata.Create;
     ReadTaskDetails(Tasks[0].Details, Restored, Priorities, Options);
     Require((Restored.Files[0].Path = 'custom\0.bin') and (Priorities[1] = 0) and
       Options.Sequential and (Options.DownloadKiB = 21), 'Paths, priorities and limits restored');
-    Engine := TQsEngine.Create; Options.Start := False;
+    Engine := TOtEngine.Create; Options.Start := False;
     Id := Engine.AddOptions(ManagedFile, DataFolder, Priorities, Options, Restored, Tasks[0].Resume, True);
     Sleep(100);
     Require(Engine.Snapshot(Id).State = 8, 'Desired pause wins over resume flags');
@@ -223,7 +231,7 @@ begin
     until Clock.ElapsedMilliseconds > 10000;
     Require(Snapshot.DoneBytes = 32768, 'Resume continues with selected verified files');
     Engine.Command(Id, 2); FreeAndNil(Engine);
-    Engine := TQsEngine.Create;
+    Engine := TOtEngine.Create;
     Options.Start := True;
     Id := Engine.AddOptions(ManagedFile, DataFolder, Priorities, Options, Restored,
       TEncoding.UTF8.GetBytes('corrupt resume'), True);

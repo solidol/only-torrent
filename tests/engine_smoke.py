@@ -7,7 +7,7 @@ with tempfile.TemporaryDirectory(prefix='qs-') as tmp:
         root=Path(tmp)
         assert dll.qs_add(s,str(root/'missing.torrent').encode(),str(root).encode())==-1
         assert dll.qs_error()
-        data=b'qsTorrent test payload\n'*1024
+        data=b'Only Torrent test payload\n'*1024
         info={b'name':b'payload.bin',b'length':len(data),b'piece length':16384,
               b'pieces':b''.join(hashlib.sha1(data[i:i+16384]).digest() for i in range(0,len(data),16384))}
         file=root/'test.torrent'; file.write_bytes(bencode({b'info':info}))

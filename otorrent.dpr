@@ -1,24 +1,24 @@
-﻿program qstorrent;
+﻿program otorrent;
 
 uses
   Winapi.Windows, Winapi.Messages,
-  Qs.Profile in 'src\core\Qs.Profile.pas',
-  Qs.Sqlite in 'src\core\Qs.Sqlite.pas',
-  Qs.TaskStore in 'src\core\Qs.TaskStore.pas',
-  Qs.Localization in 'src\core\Qs.Localization.pas',
-  Qs.FormLocalization in 'src\ui\Qs.FormLocalization.pas',
+  Ot.Profile in 'src\core\Ot.Profile.pas',
+  Ot.Sqlite in 'src\core\Ot.Sqlite.pas',
+  Ot.TaskStore in 'src\core\Ot.TaskStore.pas',
+  Ot.Localization in 'src\core\Ot.Localization.pas',
+  Ot.FormLocalization in 'src\ui\Ot.FormLocalization.pas',
   Vcl.Forms,
-  Qs.MainForm in 'src\ui\Qs.MainForm.pas' {FormMain},
-  Qs.Engine in 'src\engine\Qs.Engine.pas',
-  Qs.Settings in 'src\ui\Qs.Settings.pas',
-  Qs.Appearance in 'src\ui\Qs.Appearance.pas',
-  Qs.PreferencesForm in 'src\ui\Qs.PreferencesForm.pas' {FormPreferences},
-  Qs.AddTorrentForm in 'src\ui\Qs.AddTorrentForm.pas' {FormAddTorrent},
-  Qs.Types in 'src\core\Qs.Types.pas',
-  Qs.BlockMap in 'src\core\Qs.BlockMap.pas',
-  Qs.TaskOptions in 'src\core\Qs.TaskOptions.pas',
-  Qs.TransferMath in 'src\core\Qs.TransferMath.pas',
-  Qs.BridgeApi in 'src\engine\Qs.BridgeApi.pas';
+  Ot.MainForm in 'src\ui\Ot.MainForm.pas' {FormMain},
+  Ot.Engine in 'src\engine\Ot.Engine.pas',
+  Ot.Settings in 'src\ui\Ot.Settings.pas',
+  Ot.Appearance in 'src\ui\Ot.Appearance.pas',
+  Ot.PreferencesForm in 'src\ui\Ot.PreferencesForm.pas' {FormPreferences},
+  Ot.AddTorrentForm in 'src\ui\Ot.AddTorrentForm.pas' {FormAddTorrent},
+  Ot.Types in 'src\core\Ot.Types.pas',
+  Ot.BlockMap in 'src\core\Ot.BlockMap.pas',
+  Ot.TaskOptions in 'src\core\Ot.TaskOptions.pas',
+  Ot.TransferMath in 'src\core\Ot.TransferMath.pas',
+  Ot.BridgeApi in 'src\engine\Ot.BridgeApi.pas';
 
 {$R *.res}
 
@@ -38,7 +38,7 @@ end;
 begin
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
-  Application.Title := 'Quick Start Torrent';
+  Application.Title := 'Only Torrent';
   Application.Icon.LoadFromResourceName(HInstance, 'MAINICON');
   Application.CreateForm(TFormMain, FormMain);
   FormMain.Icon.Assign(Application.Icon);
