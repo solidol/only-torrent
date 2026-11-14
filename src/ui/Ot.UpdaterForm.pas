@@ -12,27 +12,18 @@ type
     LabelNotice: TLabel;
     LabelStatus: TLabel;
     ProgressBarUpdate: TProgressBar;
-    ButtonCheck: TButton;
-    ButtonDownload: TButton;
-    ButtonInstall: TButton;
-    ButtonOpenFolder: TButton;
-    ButtonCancel: TButton;
-    ButtonClose: TButton;
+    ButtonUpdate: TButton;
     TimerUpdate: TTimer;
-    procedure CheckClick(Sender: TObject);
-    procedure DownloadClick(Sender: TObject);
-    procedure InstallClick(Sender: TObject);
-    procedure OpenFolderClick(Sender: TObject);
-    procedure CancelClick(Sender: TObject);
-    procedure CloseClick(Sender: TObject);
+    procedure UpdateClick(Sender: TObject);
+    procedure FormShow(Sender: TObject);
     procedure UpdateTimer(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormDestroy(Sender: TObject);
   private
     FWorker: TOtUpdateWorker;
     FRelease: TOtUpdateRelease;
-    FTarget, FCurrent, FStage, FWork: string;
-    FAvailable, FInstalled, FClosing: Boolean;
+    FTarget, FCurrent, FStage: string;
+    FAvailable, FInstalled, FClosing, FCheckStarted: Boolean;
     procedure StartAction(Action: TOtUpdateAction);
     procedure UpdateButtons;
   public
@@ -44,7 +35,7 @@ var FormUpdater: TFormUpdater;
 implementation
 
 uses System.SysUtils, System.IOUtils, System.SyncObjs, System.UITypes,
-  Winapi.Windows, Winapi.ShellAPI, Vcl.Dialogs, Ot.Localization, Ot.FormLocalization;
+  Vcl.Dialogs, Ot.Localization, Ot.FormLocalization;
 
 {$R *.dfm}
 
@@ -56,18 +47,20 @@ begin
   TranslateForm(Self);
   LabelCurrent.Caption := LF('update.current', 'Встановлено: %s', [FCurrent]);
   LabelAvailable.Caption := '';
-  LabelStatus.Caption := L('update.manual', 'Натисніть «Перевірити». Автоматичних перевірок немає.');
+  LabelStatus.Caption := L('update.waitCheck', 'Перевірка розпочнеться після відкриття вікна.');
   UpdateButtons;
 end;
 
 procedure TFormUpdater.UpdateButtons;
 begin
-  ButtonCheck.Enabled := (FWorker = nil) and not FInstalled;
-  ButtonDownload.Enabled := (FWorker = nil) and FAvailable and not FInstalled;
-  ButtonInstall.Enabled := (FWorker = nil) and (FStage <> '') and not FInstalled;
-  ButtonOpenFolder.Enabled := FWork <> '';
-  ButtonCancel.Enabled := (FWorker <> nil) and (FWorker.Action <> uaInstall);
-  ButtonClose.Enabled := (FWorker = nil) or (FWorker.Action <> uaInstall);
+  ButtonUpdate.Enabled := (FWorker = nil) and FAvailable and not FInstalled and not FClosing;
+end;
+
+procedure TFormUpdater.FormShow(Sender: TObject);
+begin
+  if FCheckStarted then Exit;
+  FCheckStarted := True;
+  StartAction(uaCheck);
 end;
 
 procedure TFormUpdater.StartAction(Action: TOtUpdateAction);
@@ -96,40 +89,11 @@ begin
   UpdateButtons;
 end;
 
-procedure TFormUpdater.CheckClick(Sender: TObject);
+procedure TFormUpdater.UpdateClick(Sender: TObject);
 begin
-  FAvailable := False; FStage := '';
-  StartAction(uaCheck);
-end;
-
-procedure TFormUpdater.DownloadClick(Sender: TObject);
-begin
-  if FAvailable then StartAction(uaDownload);
-end;
-
-procedure TFormUpdater.InstallClick(Sender: TObject);
-begin
-  if FStage = '' then Exit;
-  if MessageDlg(L('update.confirmInstall', 'Закрийте Only Torrent. Встановити завантажене оновлення? Резервні копії старих файлів буде збережено.'),
-    mtConfirmation, [mbYes, mbNo], 0, mbNo) = mrYes then StartAction(uaInstall);
-end;
-
-procedure TFormUpdater.OpenFolderClick(Sender: TObject);
-begin
-  if FWork <> '' then ShellExecute(Handle, 'open', PChar(FWork), nil, nil, SW_SHOWNORMAL);
-end;
-
-procedure TFormUpdater.CancelClick(Sender: TObject);
-begin
-  if (FWorker = nil) or (FWorker.Action = uaInstall) then Exit;
-  FWorker.Terminate;
-  LabelStatus.Caption := L('update.cancelling', 'Скасування запиту…');
-  ButtonCancel.Enabled := False;
-end;
-
-procedure TFormUpdater.CloseClick(Sender: TObject);
-begin
-  Close;
+  if (FWorker <> nil) or not FAvailable or FInstalled or FClosing then Exit;
+  if FStage <> '' then StartAction(uaInstall)
+  else StartAction(uaDownload);
 end;
 
 procedure TFormUpdater.UpdateTimer(Sender: TObject);
@@ -145,14 +109,13 @@ begin
   if FWorker.Done.WaitFor(0) <> wrSignaled then Exit;
   Error := FWorker.Error;
   Action := FWorker.Action;
-  if FWorker.WorkFolder <> '' then FWork := FWorker.WorkFolder;
   if Error = '' then
     case Action of
       uaCheck: begin
         FRelease := FWorker.Release;
         LabelAvailable.Caption := LF('update.available', 'Останній реліз: %s', [FRelease.Version]);
         FAvailable := CompareVersions(FRelease.Version, FCurrent) > 0;
-        if FAvailable then LabelStatus.Caption := L('update.found', 'Доступне оновлення. Натисніть «Завантажити».')
+        if FAvailable then LabelStatus.Caption := L('update.found', 'Доступне оновлення. Натисніть «Оновити».')
         else LabelStatus.Caption := L('update.currentLatest', 'Новішої версії немає.');
       end;
       uaDownload: begin
@@ -176,7 +139,8 @@ begin
     if not FClosing then MessageDlg(Error, mtError, [mbOK], 0);
   end;
   UpdateButtons;
-  if FClosing then Close;
+  if FClosing then Close
+  else if (Error = '') and (Action = uaDownload) then StartAction(uaInstall);
 end;
 
 procedure TFormUpdater.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
@@ -185,7 +149,9 @@ begin
   if CanClose then Exit;
   if FWorker.Action = uaInstall then Exit;
   FClosing := True;
-  CancelClick(nil);
+  FWorker.Terminate;
+  LabelStatus.Caption := L('update.cancelling', 'Скасування запиту…');
+  UpdateButtons;
 end;
 
 procedure TFormUpdater.FormDestroy(Sender: TObject);

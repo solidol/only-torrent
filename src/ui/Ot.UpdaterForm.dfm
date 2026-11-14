@@ -1,6 +1,6 @@
 ﻿object FormUpdater: TFormUpdater
   Caption = 'Оновлення — Only Torrent'
-  ClientHeight = 340
+  ClientHeight = 272
   ClientWidth = 620
   BorderStyle = bsDialog
   Position = poScreenCenter
@@ -9,6 +9,7 @@
   Font.Height = -12
   OnCloseQuery = FormCloseQuery
   OnDestroy = FormDestroy
+  OnShow = FormShow
   object LabelCurrent: TLabel
     Left = 16
     Top = 16
@@ -26,82 +27,34 @@
     Height = 54
     AutoSize = False
     WordWrap = True
-    Caption = 'Перевірка, завантаження та встановлення запускаються лише кнопками. Використовуються стабільні релізи GitHub для Windows x64. Профіль і завантажені торренти не змінюються.'
+    Caption = 'Після відкриття перевіряється наявність нової версії. Закрийте Only Torrent і натисніть «Оновити» — пакет буде завантажено та встановлено.'
   end
-  object ButtonCheck: TButton
-    Left = 16
-    Top = 136
+  object ButtonUpdate: TButton
+    Left = 416
+    Top = 224
     Width = 188
     Height = 32
-    Caption = 'Перевірити'
-    TabOrder = 0
-    OnClick = CheckClick
-  end
-  object ButtonDownload: TButton
-    Left = 216
-    Top = 136
-    Width = 188
-    Height = 32
-    Caption = 'Завантажити'
+    Caption = 'Оновити'
+    Default = True
     Enabled = False
     TabOrder = 1
-    OnClick = DownloadClick
-  end
-  object ButtonInstall: TButton
-    Left = 416
-    Top = 136
-    Width = 188
-    Height = 32
-    Caption = 'Встановити'
-    Enabled = False
-    TabOrder = 2
-    OnClick = InstallClick
+    OnClick = UpdateClick
   end
   object ProgressBarUpdate: TProgressBar
     Left = 16
-    Top = 184
+    Top = 136
     Width = 588
     Height = 18
-    TabOrder = 3
+    TabOrder = 0
   end
   object LabelStatus: TLabel
     Left = 16
-    Top = 216
+    Top = 166
     Width = 588
-    Height = 66
+    Height = 48
     AutoSize = False
     WordWrap = True
-    Caption = 'Натисніть «Перевірити».'
-  end
-  object ButtonOpenFolder: TButton
-    Left = 16
-    Top = 296
-    Width = 188
-    Height = 28
-    Caption = 'Відкрити папку пакета'
-    Enabled = False
-    TabOrder = 4
-    OnClick = OpenFolderClick
-  end
-  object ButtonCancel: TButton
-    Left = 216
-    Top = 296
-    Width = 188
-    Height = 28
-    Caption = 'Скасувати запит'
-    Enabled = False
-    TabOrder = 5
-    OnClick = CancelClick
-  end
-  object ButtonClose: TButton
-    Left = 416
-    Top = 296
-    Width = 188
-    Height = 28
-    Caption = 'Закрити'
-    Cancel = True
-    TabOrder = 6
-    OnClick = CloseClick
+    Caption = 'Перевірка оновлень…'
   end
   object TimerUpdate: TTimer
     Enabled = False

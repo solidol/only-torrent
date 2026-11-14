@@ -301,9 +301,10 @@ begin
         try
           LoadLanguage('en-US');
           FormUpdater.Prepare(ExpandFileName('..\bin\Win64'));
-          Require(FormUpdater.ButtonCheck.Caption = 'Check', 'English updater');
-          Require(not FormUpdater.TimerUpdate.Enabled, 'No automatic update check');
-          Require(not FormUpdater.ButtonDownload.Enabled and not FormUpdater.ButtonInstall.Enabled, 'Update actions require explicit check/download');
+          Require(FormUpdater.ButtonUpdate.Caption = 'Update', 'English updater');
+          Require(not FormUpdater.TimerUpdate.Enabled, 'Prepare does not start a request before showing the updater');
+          Require(not FormUpdater.ButtonUpdate.Enabled, 'Update is disabled before a newer version is confirmed');
+          FormUpdater.OnShow := nil; // Screenshots must not access GitHub.
           LoadLanguage('uk-UA'); TranslateForm(FormUpdater);
           Capture(FormUpdater, 'ui-updater');
         finally FormUpdater.Free; end;
