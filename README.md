@@ -108,3 +108,9 @@ python tests/persistence_restart.py
 Окремий bin/Win64/OtUiSmoke.exe перевіряє всі DFM-форми, оформлення, навігацію налаштувань і вибір файлів. Запускати з робочою папкою tests. Тестові знімки в build містять синтетичні дані, а не справжнє завантаження. Результати: [docs/VALIDATION.md](docs/VALIDATION.md).
 
 Код: src/ui — форми, оформлення й налаштування; src/core — моделі й обчислення; src/engine — Delphi-адаптер і C ABI; native — тонкий міст і конфігурація залежностей; tests — перевірки; docs — план і дослідження. Перед поширенням див. THIRD_PARTY.md.
+# Збирання релізу
+
+Пакування для GitHub і правила версій: [docs/RELEASE.md](docs/RELEASE.md).
+`tools/build-release.ps1` готує Release/Win64 ZIP; `-NextRelease` явно збільшує
+номер релізу. Публікація підготовленого draft виконується окремо.
+

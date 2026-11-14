@@ -68,7 +68,10 @@ Write-Output "Built: $binaryPath"
     }
   } finally {
     try {
-      if ($null -ne $previousProject) { [IO.File]::WriteAllBytes($projectPath, $previousProject) }
+      if ($null -ne $previousProject) {
+        [IO.File]::WriteAllBytes($projectPath, $previousProject)
+        if (-not $UiTests -and -not $CoreTests) { & (Join-Path $PSScriptRoot 'version.ps1') }
+      }
     } finally {
       if ($ownsBuild) { $buildMutex.ReleaseMutex() }
       $buildMutex.Dispose()

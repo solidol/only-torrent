@@ -53,10 +53,10 @@
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_MajorVer>0</VerInfo_MajorVer>
         <VerInfo_MinorVer>1</VerInfo_MinorVer>
-        <VerInfo_Release>0</VerInfo_Release>
+        <VerInfo_Release>10</VerInfo_Release>
         <VerInfo_Build>0</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.1.0.0;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.1.0.0</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.1.10.0;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.1.10.0</VerInfo_Keys>
         <SanitizedProjectName>otorrent</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
@@ -122,6 +122,7 @@
         </BuildConfiguration>
     </ItemGroup>
     <Target Name="GenerateManifest" BeforeTargets="CoreCompile">
+        <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\version.ps1&quot; -NextBuild"/>
         <Exec Command="&quot;$(BDS)\Bin\brcc32.exe&quot; -footorrent.res resources\otorrent.rc"/>
     </Target>
     <PropertyGroup>
