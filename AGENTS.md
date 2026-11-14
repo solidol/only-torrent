@@ -24,7 +24,7 @@
 
 ## Високопріоритетний план зберігання та локалізації
 
-- Поточний доступ SQLite — FireDAC із динамічною `sqlite3.dll`; не додавати `FireDAC.Phys.SQLiteWrapper.Stat` або runtime packages. `FDManager` активувати перед потоками; з’єднання й запити належать лише потоку сховища. Текст — Unicode, JSON — WideMemo, resume — BLOB-потік без текстового перекодування. Схема БД збережена. Реєстраційні модулі `FireDAC.Stan.Def`, `FireDAC.Stan.Async`, `FireDAC.DApt`, `FireDAC.Phys.SQLiteDef` підключати явно. Збирання та запис/читання SQLite перевірено імпортом BitComet в ізольований профіль; повний набір тестів сховища після переходу ще не запускався: `docs/FIREDAC-ANALYSIS.md`.
+- Поточний доступ SQLite — FireDAC із динамічною `sqlite3.dll`; не додавати `FireDAC.Phys.SQLiteWrapper.Stat` або runtime packages. `FDManager` активувати перед потоками; з’єднання й запити належать лише потоку сховища. Текст — Unicode, JSON — WideMemo, resume — BLOB-потік без текстового перекодування. Схема БД збережена. Реєстраційні модулі `FireDAC.Stan.Def`, `FireDAC.Stan.Async`, `FireDAC.DApt`, `FireDAC.Phys.SQLiteDef` підключати явно. Збирання, імпорт BitComet, OtCoreTests і тести відновлення після перезапуску пройдено в ізольованих профілях 14.11.2026: `docs/VALIDATION.md`.
 
 Етап P0 реалізовано й перевірено: `docs/STORAGE.md`. Надалі зберігати цей поділ даних. SQLite-з’єднання належить лише потоку `TOtStoreWorker`; запускати його після завершення конструктора об’єкта (Delphi 13 `TThread.AfterConstruction`). Єдиний диспетчер alerts має зберігати resume-відповіді. Тести виконувати в ізольованому `OT_PROFILE_DIR`, не у робочому профілі користувача. AutoBuild IDE запускати через серіалізований `tools/build-ide.ps1`.
 

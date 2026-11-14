@@ -6,7 +6,8 @@ procedure ImportModels;
 
 implementation
 
-uses System.SysUtils, System.Classes, Ot.Types, Ot.Bencode, Ot.TaskImport;
+uses System.SysUtils, System.Classes, System.JSON, Ot.Types, Ot.Bencode,
+  Ot.TaskImport, Ot.TaskStore;
 
 procedure Require(Value: Boolean; const Message: string);
 begin
@@ -16,6 +17,7 @@ end;
 procedure ImportModels;
 var Node: TOtBencode; Failed: Boolean; Task: TOtImportTask; Metadata: TOtMetadata;
   Folder: string; Priorities: TArray<Integer>; Options: TOtAddOptions;
+  Restored: TOtMetadata; Reloaded: TOtAddOptions; Json: TJSONObject;
 begin
   Node := TOtBencode.Decode(TEncoding.UTF8.GetBytes('d1:xi42e1:y3:abce'));
   try
@@ -52,6 +54,21 @@ begin
       'Strip only the original torrent root');
     Require((Priorities[0] = 4) and (Priorities[1] = 0) and not Options.Start,
       'Preserve selection and import paused');
+    Require(Options.NeedsVerification, 'Imported state requires explicit verification');
+    Restored := TOtMetadata.Create;
+    try
+      ReadTaskDetails(TaskDetails(Metadata, Priorities, Options), Restored, Priorities, Reloaded);
+      Require(Reloaded.NeedsVerification, 'Unconfirmed state survives persistence');
+      Options.NeedsVerification := False;
+      ReadTaskDetails(TaskDetails(Metadata, Priorities, Options), Restored, Priorities, Reloaded);
+      Require(not Reloaded.NeedsVerification, 'Confirmed state survives persistence');
+      Json := TJSONObject.ParseJSONValue(TaskDetails(Metadata, Priorities, Options)) as TJSONObject;
+      try
+        Json.RemovePair('needsVerification').Free;
+        ReadTaskDetails(Json.ToJSON, Restored, Priorities, Reloaded);
+        Require(Reloaded.NeedsVerification, 'Legacy records are conservatively unconfirmed');
+      finally Json.Free; end;
+    finally Restored.Free; end;
     Task.Source := isBitComet;
     Task.Paths := TArray<string>.Create('renamed\a.bin', 'b.bin');
     Task.Sizes := TArray<Int64>.Create(10, 20);

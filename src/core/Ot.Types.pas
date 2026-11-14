@@ -13,6 +13,7 @@ type
   TOtAddOptions = record
     Subfolder, Trackers: string;
     Start, Sequential: Boolean;
+    NeedsVerification: Boolean;
     DownloadKiB, UploadKiB: Integer;
   end;
   TOtMetaFile = record

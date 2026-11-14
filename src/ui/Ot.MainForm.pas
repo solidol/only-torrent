@@ -112,13 +112,17 @@ type
     FLastResumeTick, FCloseDeadline: UInt64;
     FClosing, FAllowClose, FFinalResume: Boolean;
     procedure RestoreTasks;
-    procedure StartStored(Entry: TTorrentEntry);
+    procedure StartStored(Entry: TTorrentEntry; AllowStart: Boolean = True);
+    procedure BeginVerification(Entry: TTorrentEntry; StartAfter: Boolean);
     procedure DrainResume;
     procedure DrainRemovals;
     procedure Checkpoint(Flush: Boolean);
     procedure ContinueClosing;
     function EnsureEngine: Boolean;
     function SelectedEntry: TTorrentEntry;
+    function SelectedEntries: TArray<TTorrentEntry>;
+    procedure EntryCommand(Entry: TTorrentEntry; Value: Integer);
+    procedure ForgetEntry(Entry: TTorrentEntry);
     function Matches(Entry: TTorrentEntry; Filter: Integer): Boolean;
     procedure SelectedCommand(Value: Integer);
     procedure UpdateButtons;
@@ -128,7 +132,8 @@ type
     procedure UpdateBlocks;
     procedure OptionsApplied(Sender: TObject);
     procedure Log(const Text: string);
-    function ImportTask(const Task: TOtImportTask; out Added: Boolean): string;
+    function ImportTask(const Task: TOtImportTask; CheckNow, AutoStart: Boolean;
+      out Added: Boolean): string;
   end;
 
 var FormMain: TFormMain;
@@ -261,8 +266,8 @@ begin
   FreeAndNil(FStore);
 end;
 
-procedure TFormMain.StartStored(Entry: TTorrentEntry);
-var Original: TOtMetadata; I: Integer;
+procedure TFormMain.StartStored(Entry: TTorrentEntry; AllowStart: Boolean);
+var Original: TOtMetadata; I: Integer; WantsStart: Boolean; Resume: TBytes;
 begin
   if not DirectoryExists(Entry.Folder) then
     raise Exception.Create(L('message.674241440297', 'Папка завантаження недоступна: ') + Entry.Folder);
@@ -284,11 +289,15 @@ begin
     Entry.Metadata.Pieces := Original.Pieces;
     Entry.Metadata.PieceLength := Original.PieceLength;
   finally Original.Free; end;
-  Entry.Options.Start := Entry.Stored.Running;
+  WantsStart := Entry.Stored.Running and AllowStart;
+  Entry.Options.Start := WantsStart and not Entry.Options.NeedsVerification;
+  Resume := Entry.Stored.Resume;
+  if Entry.Options.NeedsVerification then Resume := nil;
   Entry.Id := FEngine.AddOptions(Entry.FileName, Entry.Folder, Entry.Priorities,
-    Entry.Options, Entry.Metadata, Entry.Stored.Resume, True);
+    Entry.Options, Entry.Metadata, Resume, True);
   Entry.Stored.Resume := nil;
   Entry.LastError := '';
+  if WantsStart and Entry.Options.NeedsVerification then BeginVerification(Entry, True);
 end;
 
 procedure TFormMain.RestoreTasks;
@@ -369,10 +378,7 @@ begin
           if ErrorText <> '' then raise Exception.Create(ErrorText);
           FStore.Remove(Entry.Stored.Id);
           Log(L('delete.done', 'Видалено задачу та її файли: ') + Entry.Metadata.Name);
-          FRebuilding := True;
-          try ListViewTorrents.Items.Clear; finally FRebuilding := False; end;
-          FEntries.Remove(Entry);
-          FNeedsRebuild := True;
+          ForgetEntry(Entry);
         except
           on E: Exception do
           begin
@@ -561,6 +567,8 @@ end;
 function TFormMain.SelectedEntry: TTorrentEntry;
 begin
   Result := nil;
+  if (ListViewTorrents.ItemFocused <> nil) and ListViewTorrents.ItemFocused.Selected then
+    Exit(TTorrentEntry(ListViewTorrents.ItemFocused.Data));
   if ListViewTorrents.Selected <> nil then Result := TTorrentEntry(ListViewTorrents.Selected.Data);
 end;
 
@@ -577,8 +585,9 @@ begin
   end;
 end;
 
-function TFormMain.ImportTask(const Task: TOtImportTask; out Added: Boolean): string;
-var Entry, Existing: TTorrentEntry; Metadata, Copied: TOtMetadata;
+function TFormMain.ImportTask(const Task: TOtImportTask; CheckNow, AutoStart: Boolean;
+  out Added: Boolean): string;
+var Entry, Existing, ImportedEntry: TTorrentEntry; Metadata, Copied: TOtMetadata;
   Folder, ManagedFile: string; Priorities: TArray<Integer>; Options: TOtAddOptions;
 begin
   Added := False;
@@ -616,156 +625,227 @@ begin
     Entry.Stored.Details := TaskDetails(Entry.Metadata, Priorities, Options);
     if FEntries.Capacity = FEntries.Count then FEntries.Capacity := Max(4, FEntries.Count * 2);
     FStore.Save(Entry.Stored);
-    // No engine handle yet: importing never starts a download or reads payload.
+    // Optional verification is scheduled only after the paused row is durable.
     FEntries.Add(Entry);
+    ImportedEntry := Entry;
     Entry := nil;
     Added := True;
     FNeedsRebuild := True;
     Log(L('import.added', 'Імпортовано призупинену задачу: ') + Task.Name);
     Result := L('import.paused', 'Імпортовано; призупинено, потрібна перевірка даних.');
+    try
+      if CheckNow or AutoStart then
+      begin
+        BeginVerification(ImportedEntry, AutoStart);
+        Result := L('import.verifying', 'Імпортовано; перевірка файлів.');
+      end;
+    except
+      on E: Exception do
+      begin
+        // The import succeeded even if verification could not be scheduled.
+        ImportedEntry.LastError := E.Message;
+        ImportedEntry.Snapshot.State := 9;
+        Log(E.Message);
+        Result := L('import.verifyFailed', 'Імпортовано, перевірку не розпочато: ') + E.Message;
+      end;
+    end;
   finally
     Entry.Free;
     Metadata.Free;
   end;
 end;
 
-procedure TFormMain.RecheckClick(Sender: TObject);
-var Entry: TTorrentEntry;
+procedure TFormMain.BeginVerification(Entry: TTorrentEntry; StartAfter: Boolean);
 begin
-  Entry := SelectedEntry;
-  if (Entry = nil) or FClosing or (FStore = nil) or Entry.Stored.Running or Entry.Checking or (Entry.DeletingId <> 0) then Exit;
+  if Entry.Checking or (Entry.DeletingId <> 0) then Exit;
+  if not EnsureEngine then raise Exception.Create(L('message.f0bd0106fef6', 'Рушій недоступний'));
+  if not FEngine.CanRecheck then
+    raise Exception.Create(L('import.recheckDll', 'Потрібна оновлена ltbridge.dll з підтримкою перевірки даних.'));
+  Entry.Options.NeedsVerification := True;
+  Entry.Options.Start := False;
+  Entry.Stored.Running := StartAfter;
+  Entry.Stored.Details := TaskDetails(Entry.Metadata, Entry.Priorities, Entry.Options);
+  FStore.Save(Entry.Stored);
   try
-    if not EnsureEngine then Exit;
-    if not FEngine.CanRecheck then
-      raise Exception.Create(L('import.recheckDll', 'Потрібна оновлена ltbridge.dll з підтримкою перевірки даних.'));
-    if Entry.Id = 0 then StartStored(Entry);
+    if Entry.Id = 0 then StartStored(Entry, False);
+    FEngine.Command(Entry.Id, 0);
     DrainResume;
     Entry.Checking := True;
     Entry.DiscardResume := Entry.ResumePending;
-    try
-      Entry.Stored.Resume := nil;
-      FStore.SaveResume(Entry.Stored.Id, nil);
-      FStore.Flush;
-      FEngine.RecheckPaused(Entry.Id);
-    except
-      Entry.Checking := False;
-      raise;
-    end;
+    Entry.Stored.Resume := nil;
+    FStore.SaveResume(Entry.Stored.Id, nil);
+    FStore.Flush;
+    FEngine.RecheckPaused(Entry.Id);
     Log(L('import.recheckStarted', 'Перевірка даних: ') + Entry.Metadata.Name);
-    RefreshTimerTimer(nil);
   except
-    on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0);
+    Entry.Checking := False;
+    Entry.Stored.Running := False;
+    FStore.Save(Entry.Stored);
+    raise;
   end;
+end;
+
+function TFormMain.SelectedEntries: TArray<TTorrentEntry>;
+var Item: TListItem; Entries: TList<TTorrentEntry>;
+begin
+  Entries := TList<TTorrentEntry>.Create;
+  try
+    for Item in ListViewTorrents.Items do
+      if Item.Selected and (Item.Data <> nil) then Entries.Add(TTorrentEntry(Item.Data));
+    Result := Entries.ToArray;
+  finally Entries.Free; end;
+end;
+
+procedure TFormMain.RecheckClick(Sender: TObject);
+var Entry: TTorrentEntry; Entries: TArray<TTorrentEntry>; Errors: TStringList;
+begin
+  if FClosing or (FStore = nil) then Exit;
+  Entries := SelectedEntries;
+  Errors := TStringList.Create;
+  try
+    for Entry in Entries do
+      if FEntries.Contains(Entry) and not Entry.Stored.Running and not Entry.Checking and (Entry.DeletingId = 0) then
+        try BeginVerification(Entry, False);
+        except on E: Exception do Errors.Add(Entry.Metadata.Name + ': ' + E.Message); end;
+    RefreshTimerTimer(nil);
+    if Errors.Count > 0 then
+    begin
+      Log(Errors.Text);
+      MessageDlg(LF('batch.errors', 'Не вдалося обробити задач: %d. Подробиці в журналі.',
+        [Errors.Count]), mtError, [mbOK], 0);
+    end;
+  finally Errors.Free; end;
 end;
 
 procedure TFormMain.UpdateButtons;
-var HasItem: Boolean;
+var Entry: TTorrentEntry; CanStart, CanPause, CanRemove, CanCheck: Boolean;
 begin
-  HasItem := SelectedEntry <> nil;
-  ToolButtonStart.Enabled := HasItem;
-  ToolButtonPause.Enabled := HasItem;
-  ToolButtonRemove.Enabled := HasItem;
-  ToolButtonRemoveFiles.Enabled := HasItem;
-  MenuItemStart.Enabled := HasItem;
-  MenuItemPause.Enabled := HasItem;
-  MenuItemRemove.Enabled := HasItem;
-  MenuItemRemoveFiles.Enabled := HasItem;
-  MenuItemFolder.Enabled := HasItem;
-  MenuItemRecheck.Enabled := HasItem;
-  if HasItem then
-  begin
-    MenuItemRecheck.Enabled := not SelectedEntry.Stored.Running and not SelectedEntry.Checking;
-    ToolButtonStart.Enabled := not SelectedEntry.Checking;
-    MenuItemStart.Enabled := ToolButtonStart.Enabled;
-    if SelectedEntry.DeletingId <> 0 then
+  CanStart := False; CanPause := False; CanRemove := False; CanCheck := False;
+  for Entry in SelectedEntries do
+    if Entry.DeletingId = 0 then
     begin
-      ToolButtonStart.Enabled := False;
-      ToolButtonPause.Enabled := False;
-      ToolButtonRemove.Enabled := False;
-      ToolButtonRemoveFiles.Enabled := False;
-      MenuItemStart.Enabled := False;
-      MenuItemPause.Enabled := False;
-      MenuItemRemove.Enabled := False;
-      MenuItemRemoveFiles.Enabled := False;
-      MenuItemRecheck.Enabled := False;
+      CanRemove := True;
+      CanPause := True;
+      CanStart := CanStart or not Entry.Checking;
+      CanCheck := CanCheck or (not Entry.Stored.Running and not Entry.Checking);
     end;
-  end;
+  ToolButtonStart.Enabled := CanStart;
+  MenuItemStart.Enabled := CanStart;
+  ToolButtonPause.Enabled := CanPause;
+  MenuItemPause.Enabled := CanPause;
+  ToolButtonRemove.Enabled := CanRemove;
+  ToolButtonRemoveFiles.Enabled := CanRemove;
+  MenuItemRemove.Enabled := CanRemove;
+  MenuItemRemoveFiles.Enabled := CanRemove;
+  MenuItemRecheck.Enabled := CanCheck;
+  MenuItemFolder.Enabled := SelectedEntry <> nil;
 end;
 
 procedure TFormMain.SelectedCommand(Value: Integer);
-var Entry: TTorrentEntry; Prompt: string;
+var Entries: TArray<TTorrentEntry>; Entry: TTorrentEntry;
+  Prompt: string; Errors: TStringList; Eligible, ConfirmationResult: Integer;
 begin
-  Entry := SelectedEntry;
-  if (Entry = nil) or (FStore = nil) or FClosing then Exit;
-  if Entry.DeletingId <> 0 then Exit;
-  if Entry.Checking and (Value = 1) then Exit;
+  if (FStore = nil) or FClosing then Exit;
+  Entries := SelectedEntries;
+  Eligible := 0;
+  for Entry in Entries do
+    if (Entry.DeletingId = 0) and not (Entry.Checking and (Value = 1)) then Inc(Eligible);
+  if Eligible = 0 then Exit;
   if Value in [2, 3] then
   begin
     if Value = 2 then
-      Prompt := LF('delete.confirmTask', 'Видалити задачу «%s» зі списку? Файли на диску залишаться.', [Entry.Metadata.Name])
-    else
-      Prompt := LF('delete.confirmFiles', 'Видалити задачу «%s» та всі її файли з диска?%sПапка даних: %s%sФайли буде видалено без переміщення до Кошика.',
-        [Entry.Metadata.Name, sLineBreak, Entry.Folder, sLineBreak]);
-    if MessageDlg(Prompt, mtConfirmation, [mbYes, mbNo], 0, mbNo) <> mrYes then Exit;
+      Prompt := LF('batch.removeTasks', 'Видалити вибрані задачі (%d)? Файли на диску залишаться.', [Eligible])
+    else Prompt := LF('batch.removeFiles', 'Видалити вибрані задачі (%d) та всі їхні файли з диска? Файли буде видалено без переміщення до Кошика.', [Eligible]);
+    ConfirmationResult := MessageDlg(Prompt, mtConfirmation, [mbYes, mbNo], 0, mbNo);
+    if ConfirmationResult <> mrYes then Exit;
   end;
+  Errors := TStringList.Create;
   try
-    if Value = 3 then
-    begin
-      if not EnsureEngine then Exit;
-      if not FEngine.CanRemoveFiles then raise Exception.Create(L('delete.dll',
-        'Потрібна оновлена ltbridge.dll з підтримкою видалення файлів.'));
-      // Keep the paused database row until libtorrent confirms disk deletion.
-      Entry.Stored.Running := False;
-      Entry.Options.Start := False;
-      FStore.Save(Entry.Stored);
-      if Entry.Id = 0 then StartStored(Entry);
-      FStore.SaveResume(Entry.Stored.Id, nil);
-      FStore.Flush;
-      FEngine.Command(Entry.Id, 3);
-      Entry.DeletingId := Entry.Id;
-      Entry.Id := 0;
-      Entry.Checking := False;
-      Entry.ResumePending := False;
-      Entry.DiscardResume := False;
-      Entry.Snapshot.DownloadRate := 0;
-      Entry.Snapshot.UploadRate := 0;
-      Entry.Snapshot.State := 8;
-      Entry.Stored.Resume := nil;
-      Log(L('delete.pending', 'Видалення файлів задачі: ') + Entry.Metadata.Name);
-    end
-    else if Value = 2 then
-    begin
-      FStore.Remove(Entry.Stored.Id);
-      if Entry.Id > 0 then
-        try FEngine.Command(Entry.Id, Value);
-        except FStore.Save(Entry.Stored); raise; end;
-    end
-    else
-    begin
-      Entry.Stored.Running := Value = 1;
-      FStore.Save(Entry.Stored);
-      Entry.Options.Start := Entry.Stored.Running;
-      if Entry.Id > 0 then FEngine.Command(Entry.Id, Value)
-      else if Value = 1 then StartStored(Entry);
-      if Value = 0 then Entry.Checking := False;
-    end;
-    if Value = 2 then
-    begin
-      Log(L('text.a1a82bfde2a1', 'Прибрано зі списку, файли збережено: ') + Entry.Metadata.Name);
-      // Remove list pointers before destroying the owned model.
-      FRebuilding := True;
-      try ListViewTorrents.Items.Clear; finally FRebuilding := False; end;
-      // Keep the managed .torrent as a small orphan cache.
-      // A queued resume reply only UPDATEs existing rows and cannot recreate it.
-      FEntries.Remove(Entry);
-      FNeedsRebuild := True;
-    end;
+    // Snapshot the selection before commands rebuild or remove list items.
+    for Entry in Entries do
+      if FEntries.Contains(Entry) then
+        try EntryCommand(Entry, Value);
+        except on E: Exception do Errors.Add(Entry.Metadata.Name + ': ' + E.Message); end;
     RefreshTimerTimer(nil);
     UpdateDetails(True);
     UpdateButtons;
-  except
-    on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0);
+    if Errors.Count > 0 then
+    begin
+      Log(Errors.Text);
+      MessageDlg(LF('batch.errors', 'Не вдалося обробити задач: %d. Подробиці в журналі.',
+        [Errors.Count]), mtError, [mbOK], 0);
+    end;
+  finally Errors.Free; end;
+end;
+
+procedure TFormMain.EntryCommand(Entry: TTorrentEntry; Value: Integer);
+begin
+  if (Entry = nil) or (FStore = nil) or FClosing then Exit;
+  if Entry.DeletingId <> 0 then Exit;
+  if Entry.Checking and (Value = 1) then Exit;
+  if Value = 3 then
+  begin
+    if not EnsureEngine then Exit;
+    if not FEngine.CanRemoveFiles then raise Exception.Create(L('delete.dll',
+      'Потрібна оновлена ltbridge.dll з підтримкою видалення файлів.'));
+    // Keep the paused database row until libtorrent confirms disk deletion.
+    Entry.Stored.Running := False;
+    Entry.Options.Start := False;
+    Entry.Options.NeedsVerification := True;
+    Entry.Stored.Details := TaskDetails(Entry.Metadata, Entry.Priorities, Entry.Options);
+    FStore.Save(Entry.Stored);
+    if Entry.Id = 0 then StartStored(Entry, False);
+    FStore.SaveResume(Entry.Stored.Id, nil);
+    FStore.Flush;
+    FEngine.Command(Entry.Id, 3);
+    Entry.DeletingId := Entry.Id;
+    Entry.Id := 0;
+    Entry.Checking := False;
+    Entry.ResumePending := False;
+    Entry.DiscardResume := False;
+    Entry.Snapshot.DownloadRate := 0;
+    Entry.Snapshot.UploadRate := 0;
+    Entry.Snapshot.State := 8;
+    Entry.Stored.Resume := nil;
+    Log(L('delete.pending', 'Видалення файлів задачі: ') + Entry.Metadata.Name);
+  end
+  else if Value = 2 then
+  begin
+    FStore.Remove(Entry.Stored.Id);
+    if Entry.Id > 0 then
+      try FEngine.Command(Entry.Id, Value);
+      except FStore.Save(Entry.Stored); raise; end;
+  end
+  else
+  begin
+    Entry.Stored.Running := Value = 1;
+    FStore.Save(Entry.Stored);
+    Entry.Options.Start := Entry.Stored.Running;
+    if (Value = 1) and Entry.Options.NeedsVerification then BeginVerification(Entry, True)
+    else if Entry.Id > 0 then FEngine.Command(Entry.Id, Value)
+    else if Value = 1 then StartStored(Entry);
+    if Value = 0 then Entry.Checking := False;
   end;
+  if Value = 2 then
+  begin
+    Log(L('text.a1a82bfde2a1', 'Прибрано зі списку, файли збережено: ') + Entry.Metadata.Name);
+    // Remove list pointers before destroying the owned model.
+    // Keep the managed .torrent as a small orphan cache.
+    // A queued resume reply only UPDATEs existing rows and cannot recreate it.
+    ForgetEntry(Entry);
+  end;
+end;
+
+procedure TFormMain.ForgetEntry(Entry: TTorrentEntry);
+var I: Integer;
+begin
+  FRebuilding := True;
+  try
+    for I := ListViewTorrents.Items.Count - 1 downto 0 do
+      if ListViewTorrents.Items[I].Data = Entry then ListViewTorrents.Items[I].Delete;
+  finally FRebuilding := False; end;
+  FEntries.Remove(Entry);
+  FNeedsRebuild := True;
 end;
 
 procedure TFormMain.StartClick(Sender: TObject);
@@ -877,6 +957,7 @@ end;
 
 procedure TFormMain.UpdateRows;
 var Entry, Selected: TTorrentEntry; Item: TListItem; I, J, ImageIndex: Integer; Seconds: Int64;
+  Selection: TArray<TTorrentEntry>; SelectedItem: TTorrentEntry;
   Rebuild: Boolean;
   procedure SetSubItem(Index: Integer; const Value: string);
   begin
@@ -884,6 +965,7 @@ var Entry, Selected: TTorrentEntry; Item: TListItem; I, J, ImageIndex: Integer; 
   end;
 begin
   Selected := SelectedEntry;
+  if FNeedsRebuild then Selection := SelectedEntries;
   FRebuilding := True;
   Rebuild := FNeedsRebuild;
   if Rebuild then ListViewTorrents.Items.BeginUpdate;
@@ -897,7 +979,9 @@ begin
           Item := ListViewTorrents.Items.Add;
           Item.Data := Entry;
           for J := 1 to 9 do Item.SubItems.Add('');
-          if Entry = Selected then Item.Selected := True;
+          for SelectedItem in Selection do
+            if Entry = SelectedItem then Item.Selected := True;
+          if Entry = Selected then Item.Focused := True;
         end;
       FNeedsRebuild := False;
     end;
@@ -909,6 +993,8 @@ begin
       SetSubItem(0, SizeText(Entry.Snapshot.TotalBytes));
       SetSubItem(1, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
       SetSubItem(2, StateText(Entry.Snapshot.State));
+      if Entry.Options.NeedsVerification and not Entry.Checking and (Entry.Snapshot.State = 8) then
+        SetSubItem(2, L('batch.unverified', 'Призупинено; файли не перевірено'));
       if Entry.DeletingId <> 0 then SetSubItem(2, L('delete.state', 'Видалення файлів…'));
       SetSubItem(3, IntToStr(Entry.Snapshot.Seeds));
       SetSubItem(4, IntToStr(Entry.Snapshot.Peers));
@@ -1011,13 +1097,29 @@ begin
       if Entry.Checking and (Entry.Snapshot.State in [8, 9]) then
       begin
         Entry.Checking := False;
-        if not Entry.ResumePending then
-        begin
-          FEngine.RequestResume(Entry.Id, True);
-          Entry.ResumePending := True;
-        end;
         if Entry.Snapshot.State = 8 then
-          Log(L('import.recheckFinished', 'Перевірку завершено, задача призупинена: ') + Entry.Metadata.Name);
+        begin
+          Entry.Options.NeedsVerification := False;
+          Entry.Options.Start := Entry.Stored.Running;
+          Entry.Stored.Details := TaskDetails(Entry.Metadata, Entry.Priorities, Entry.Options);
+          FStore.Save(Entry.Stored);
+          if not Entry.ResumePending then
+          begin
+            FEngine.RequestResume(Entry.Id, True);
+            Entry.ResumePending := True;
+          end;
+          if Entry.Stored.Running then
+          begin
+            FEngine.Command(Entry.Id, 1);
+            Log(L('batch.startedVerified', 'Задачу запущено після перевірки: ') + Entry.Metadata.Name);
+          end
+          else Log(L('import.recheckFinished', 'Перевірку завершено, задача призупинена: ') + Entry.Metadata.Name);
+        end
+        else
+        begin
+          Entry.Stored.Running := False;
+          FStore.Save(Entry.Stored);
+        end;
       end;
     except
       on E: Exception do

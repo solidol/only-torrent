@@ -8,6 +8,7 @@ uses
   Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
   Ot.ImportTasksForm in '..\src\ui\Ot.ImportTasksForm.pas',
   Ot.BitCometImportTest in 'Ot.BitCometImportTest.pas',
+  Ot.BatchTests in 'Ot.BatchTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
@@ -77,11 +78,17 @@ begin
   try
     try
       if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') and
-        (ParamStr(1) <> '--bitcomet-import') then
+        (ParamStr(1) <> '--bitcomet-import') and (ParamStr(1) <> '--batch-test') then
         SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
+      if ParamStr(1) = '--batch-test' then
+      begin
+        try RunBatchScenario(FormMain, ParamStr(2), ParamStr(3), ParamStr(4));
+        finally FormMain.Free; end;
+        Exit;
+      end;
       if ParamStr(1) = '--bitcomet-import' then
       begin
         try
@@ -231,6 +238,9 @@ begin
           FormImportTasks.Prepare(True, nil);
           Require(FormImportTasks.ButtonRead.Caption = 'Read task list', 'English import dialog');
           Require(FormImportTasks.ProgressBarImport.Max = 1000, 'Import progress scale');
+          Require(not FormImportTasks.CheckBoxVerifyFiles.Checked and
+            not FormImportTasks.CheckBoxAutoStart.Checked, 'Import defaults remain paused and unverified');
+          Require(FormMain.ListViewTorrents.MultiSelect, 'Torrent list supports batch selection');
           Require(not FormImportTasks.TimerImport.Enabled, 'No automatic import');
           LoadLanguage('uk-UA');
           FormImportTasks.Prepare(True, nil);

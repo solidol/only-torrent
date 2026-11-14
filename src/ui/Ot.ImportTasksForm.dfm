@@ -71,14 +71,14 @@
     Height = 51
     Anchors = [akLeft, akTop, akRight]
     AutoSize = False
-    Caption = 'Закрийте вихідний клієнт перед імпортом. Виберіть Downloads.xml (BitComet) або resume.dat (µTorrent) у його профілі. Задачі додаються призупиненими; наявні дані перевіряються перед продовженням. Вихідний профіль і файли даних не змінюються.'
+    Caption = 'Закрийте вихідний клієнт перед імпортом. Виберіть Downloads.xml (BitComet) або resume.dat (µTorrent). За замовчуванням задачі додаються призупиненими. Автоматичний запуск відбувається після перевірки файлів. Профіль джерела не змінюється.'
     WordWrap = True
   end
   object ListViewTasks: TListView
     Left = 16
     Top = 148
     Width = 848
-    Height = 242
+    Height = 210
     Anchors = [akLeft, akTop, akRight, akBottom]
     Checkboxes = True
     Columns = <
@@ -92,6 +92,26 @@
     TabOrder = 4
     ViewStyle = vsReport
   end
+  object CheckBoxVerifyFiles: TCheckBox
+    Left = 16
+    Top = 370
+    Width = 280
+    Height = 21
+    Anchors = [akLeft, akBottom]
+    Caption = 'Перевірити файли одразу'
+    TabOrder = 5
+  end
+  object CheckBoxAutoStart: TCheckBox
+    Left = 320
+    Top = 370
+    Width = 400
+    Height = 21
+    Anchors = [akLeft, akBottom]
+    Caption = 'Автоматичний запуск задачі'
+    Hint = 'Непідтверджені файли буде перевірено перед запуском'
+    ShowHint = True
+    TabOrder = 6
+  end
   object ProgressBarImport: TProgressBar
     Left = 16
     Top = 404
@@ -99,7 +119,7 @@
     Height = 18
     Anchors = [akLeft, akRight, akBottom]
     Max = 1000
-    TabOrder = 5
+    TabOrder = 7
   end
   object LabelStatus: TLabel
     Left = 16
@@ -119,7 +139,7 @@
     Anchors = [akRight, akBottom]
     Caption = 'Імпортувати вибрані'
     Enabled = False
-    TabOrder = 6
+    TabOrder = 8
     OnClick = ImportClick
   end
   object ButtonClose: TButton
@@ -130,7 +150,7 @@
     Anchors = [akRight, akBottom]
     Cancel = True
     Caption = 'Закрити'
-    TabOrder = 7
+    TabOrder = 9
     OnClick = CloseClick
   end
   object OpenDialogSource: TOpenDialog

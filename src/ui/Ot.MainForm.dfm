@@ -349,6 +349,7 @@
       SmallImages = ImageListMain
       TabOrder = 0
       ViewStyle = vsReport
+      MultiSelect = True
       OnAdvancedCustomDrawSubItem = DrawSubItem
       OnSelectItem = TorrentSelect
     end

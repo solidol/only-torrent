@@ -281,6 +281,7 @@ begin
   end;
   if not Any then raise EReadError.Create(L('import.none', 'У задачі не вибрано жодного файлу.'));
   Options := Default(TOtAddOptions);
+  Options.NeedsVerification := True;
   Options.Start := False;
   Options.Trackers := Task.Trackers;
   if Options.Trackers = '' then Options.Trackers := string.Join(sLineBreak, Metadata.Trackers);

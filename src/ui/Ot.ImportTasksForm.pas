@@ -6,7 +6,8 @@ uses System.Classes, System.SysUtils, System.SyncObjs, Vcl.Forms, Vcl.Controls,
   Vcl.StdCtrls, Vcl.ComCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Ot.TaskImport;
 
 type
-  TOtImportHandler = function(const Task: TOtImportTask; out Added: Boolean): string of object;
+  TOtImportHandler = function(const Task: TOtImportTask; CheckNow, AutoStart: Boolean;
+    out Added: Boolean): string of object;
   TOtImportReader = class(TThread)
   private
     FSource: TOtImportSource;
@@ -33,6 +34,8 @@ type
     ListViewTasks: TListView;
     ProgressBarImport: TProgressBar;
     LabelStatus: TLabel;
+    CheckBoxVerifyFiles: TCheckBox;
+    CheckBoxAutoStart: TCheckBox;
     ButtonImport: TButton;
     ButtonClose: TButton;
     OpenDialogSource: TOpenDialog;
@@ -118,6 +121,8 @@ begin
   ButtonBrowse.Enabled := not Busy;
   ButtonRead.Enabled := not Busy;
   ListViewTasks.Enabled := not Busy;
+  CheckBoxVerifyFiles.Enabled := not Busy;
+  CheckBoxAutoStart.Enabled := not Busy;
   ButtonImport.Enabled := not Busy and (Length(FTasks) > 0);
   if Busy then ButtonClose.Caption := L('import.stop', 'Зупинити')
   else ButtonClose.Caption := L('import.close', 'Закрити');
@@ -226,7 +231,7 @@ begin
     Item := ListViewTasks.Items[I];
     if not Item.Checked or (FTasks[I].Error <> '') then Continue;
     try
-      Message := FHandler(FTasks[I], Added);
+      Message := FHandler(FTasks[I], CheckBoxVerifyFiles.Checked, CheckBoxAutoStart.Checked, Added);
       Item.SubItems[1] := Message;
       if Added then Inc(FImported) else Inc(FSkipped);
       Item.Checked := False;

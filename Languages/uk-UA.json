@@ -247,7 +247,7 @@
   "import.recheckFinished": "Перевірку завершено, задача призупинена: ",
   "FormImportTasks.LabelSource.Caption": "Клієнт:",
   "FormImportTasks.ButtonRead.Caption": "Прочитати список",
-  "FormImportTasks.LabelNotice.Caption": "Закрийте вихідний клієнт перед імпортом. Виберіть Downloads.xml (BitComet) або resume.dat (µTorrent) у його профілі. Задачі додаються призупиненими; наявні дані перевіряються перед продовженням. Вихідний профіль і файли даних не змінюються.",
+  "FormImportTasks.LabelNotice.Caption": "Закрийте вихідний клієнт перед імпортом. Виберіть Downloads.xml (BitComet) або resume.dat (µTorrent). За замовчуванням задачі додаються призупиненими. Автоматичний запуск відбувається після перевірки файлів. Профіль джерела не змінюється.",
   "FormImportTasks.ListViewTasks.Columns.0": "Задача",
   "FormImportTasks.ListViewTasks.Columns.1": "Розташування даних",
   "FormImportTasks.ListViewTasks.Columns.2": "Результат / помилка",
@@ -268,5 +268,15 @@
   "delete.state": "Видалення файлів…",
   "FormMain.MenuItemRemoveFiles.Caption": "Видалити задачу та файли з диска",
   "FormMain.ToolButtonRemoveFiles.Caption": "Видалити задачу та файли з диска",
-  "FormMain.ToolButtonRemoveFiles.Hint": "Видалити задачу та файли з диска"
+  "FormMain.ToolButtonRemoveFiles.Hint": "Видалити задачу та файли з диска",
+  "import.verifying": "Імпортовано; перевірка файлів.",
+  "import.verifyFailed": "Імпортовано, перевірку не розпочато: ",
+  "batch.errors": "Не вдалося обробити задач: %d. Подробиці в журналі.",
+  "batch.removeTasks": "Видалити вибрані задачі (%d)? Файли на диску залишаться.",
+  "batch.removeFiles": "Видалити вибрані задачі (%d) та всі їхні файли з диска? Файли буде видалено без переміщення до Кошика.",
+  "batch.unverified": "Призупинено; файли не перевірено",
+  "batch.startedVerified": "Задачу запущено після перевірки: ",
+  "FormImportTasks.CheckBoxVerifyFiles.Caption": "Перевірити файли одразу",
+  "FormImportTasks.CheckBoxAutoStart.Caption": "Автоматичний запуск задачі",
+  "FormImportTasks.CheckBoxAutoStart.Hint": "Непідтверджені файли буде перевірено перед запуском"
 }

@@ -247,7 +247,7 @@
   "import.recheckFinished": "Verification finished; task paused: ",
   "FormImportTasks.LabelSource.Caption": "Client:",
   "FormImportTasks.ButtonRead.Caption": "Read task list",
-  "FormImportTasks.LabelNotice.Caption": "Close the source client before importing. Select Downloads.xml (BitComet) or resume.dat (µTorrent) in its profile. Tasks are imported paused; existing data is verified before resuming. The source profile and data files are left unchanged.",
+  "FormImportTasks.LabelNotice.Caption": "Close the source client before importing. Select Downloads.xml (BitComet) or resume.dat (µTorrent). Tasks are imported paused by default. Automatic start follows file verification. The source profile is left unchanged.",
   "FormImportTasks.ListViewTasks.Columns.0": "Task",
   "FormImportTasks.ListViewTasks.Columns.1": "Data location",
   "FormImportTasks.ListViewTasks.Columns.2": "Result / error",
@@ -268,5 +268,15 @@
   "delete.state": "Deleting files…",
   "FormMain.MenuItemRemoveFiles.Caption": "Delete task and files from disk",
   "FormMain.ToolButtonRemoveFiles.Caption": "Delete task and files from disk",
-  "FormMain.ToolButtonRemoveFiles.Hint": "Delete task and files from disk"
+  "FormMain.ToolButtonRemoveFiles.Hint": "Delete task and files from disk",
+  "batch.errors": "Could not process %d task(s). See the log for details.",
+  "batch.removeTasks": "Remove the selected tasks (%d)? Files on disk will be kept.",
+  "batch.removeFiles": "Delete the selected tasks (%d) and all their files from disk? Files will be deleted without moving them to the Recycle Bin.",
+  "batch.startedVerified": "Task started after verification: ",
+  "batch.unverified": "Paused; files not verified",
+  "import.verifying": "Imported; verifying files.",
+  "import.verifyFailed": "Imported, verification could not start: ",
+  "FormImportTasks.CheckBoxVerifyFiles.Caption": "Verify files immediately",
+  "FormImportTasks.CheckBoxAutoStart.Caption": "Start tasks automatically",
+  "FormImportTasks.CheckBoxAutoStart.Hint": "Unconfirmed files will be verified before starting"
 }

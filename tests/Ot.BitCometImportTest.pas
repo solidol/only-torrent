@@ -4,7 +4,8 @@ interface
 
 uses Ot.MainForm;
 
-procedure RunBitCometImport(FormMain: TFormMain; const SourceFile, ReportFile: string);
+procedure RunBitCometImport(FormMain: TFormMain; const SourceFile, ReportFile: string;
+  VerifyNow: Boolean = False; AutoStart: Boolean = False);
 
 implementation
 
@@ -19,6 +20,7 @@ type
     Deadline: UInt64;
     Stage, Rows, Selected, Imported, Duplicates: Integer;
     Eligible: TArray<Boolean>;
+    VerifyNow, AutoStart: Boolean;
     procedure Tick(Sender: TObject);
     procedure SaveReport(FormDialog: TFormImportTasks);
   end;
@@ -63,6 +65,8 @@ begin
         FormDialog.ComboBoxSource.ItemIndex := 0;
         FormDialog.SourceChange(nil);
         FormDialog.EditSource.Text := SourceFile;
+        FormDialog.CheckBoxVerifyFiles.Checked := VerifyNow;
+        FormDialog.CheckBoxAutoStart.Checked := AutoStart;
         FormDialog.ReadClick(nil);
         Stage := 1;
       end;
@@ -116,13 +120,16 @@ begin
   end;
 end;
 
-procedure RunBitCometImport(FormMain: TFormMain; const SourceFile, ReportFile: string);
+procedure RunBitCometImport(FormMain: TFormMain; const SourceFile, ReportFile: string;
+  VerifyNow, AutoStart: Boolean);
 var Driver: TOtImportDriver;
 begin
   Driver := TOtImportDriver.Create;
   try
     Driver.SourceFile := SourceFile;
     Driver.ReportFile := ReportFile;
+    Driver.VerifyNow := VerifyNow;
+    Driver.AutoStart := AutoStart;
     Driver.Deadline := GetTickCount64 + 90000;
     Driver.TimerDriver := TTimer.Create(nil);
     Driver.TimerDriver.Interval := 50;

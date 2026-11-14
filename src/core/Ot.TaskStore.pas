@@ -76,6 +76,7 @@ begin
     Root.AddPair('version', TJSONNumber.Create(1));
     Root.AddPair('total', TJSONNumber.Create(Metadata.TotalBytes));
     Root.AddPair('sequential', TJSONBool.Create(Options.Sequential));
+    Root.AddPair('needsVerification', TJSONBool.Create(Options.NeedsVerification));
     Root.AddPair('downloadKiB', TJSONNumber.Create(Options.DownloadKiB));
     Root.AddPair('uploadKiB', TJSONNumber.Create(Options.UploadKiB));
     Files := TJSONArray.Create; Root.AddPair('files', Files);
@@ -105,6 +106,8 @@ begin
     if Root.GetValue<Integer>('version') <> 1 then raise Exception.Create(L('message.8a1fd9bc7759', 'Непідтримувана версія параметрів завдання'));
     Metadata.TotalBytes := Root.GetValue<Int64>('total');
     Options.Sequential := Root.GetValue<Boolean>('sequential');
+    // Old records have no explicit confirmation of their on-disk state.
+    Options.NeedsVerification := Root.GetValue<Boolean>('needsVerification', True);
     Options.DownloadKiB := Root.GetValue<Integer>('downloadKiB');
     Options.UploadKiB := Root.GetValue<Integer>('uploadKiB');
     Files := Root.GetValue<TJSONArray>('files');
