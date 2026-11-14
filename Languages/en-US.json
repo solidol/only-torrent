@@ -167,7 +167,7 @@
   "FormPreferences.GroupBoxAppearance.Caption": "Appearance",
   "FormPreferences.CheckBoxSystemTheme.Caption": "Use the Windows system theme",
   "FormPreferences.CheckBoxProgress.Caption": "Show progress bars in the torrent list",
-  "FormPreferences.LabelThemeNote.Caption": "The OS theme styles buttons, lists and indicators. Disable it for classic controls. System colors apply in both modes.",
+  "FormPreferences.LabelThemeNote.Caption": "System styling applies to the light theme; disable it for classic controls. Switch to the dark theme using the toolbar or the View menu.",
   "FormPreferences.GroupBoxAdd.Caption": "When adding a torrent",
   "FormPreferences.CheckBoxShowDialog.Caption": "Show folder and file selection before downloading",
   "FormPreferences.CheckBoxStart.Caption": "Start downloading after adding",
@@ -360,5 +360,8 @@
   "FormUpdater.FormUpdater.Caption": "Updates - Only Torrent",
   "update.pending": "A previous installation was interrupted. Restore the backup files and remove .ot-update.pending before continuing.",
   "update.busy": "The application is being updated. Wait for installation to finish.",
-  "update.badPath": "Disallowed file in the update package: %s"
+  "update.badPath": "Disallowed file in the update package: %s",
+  "theme.dark": "Dark theme",
+  "theme.switchLight": "Switch to light theme",
+  "theme.switchDark": "Switch to dark theme"
 }

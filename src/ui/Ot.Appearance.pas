@@ -7,17 +7,49 @@ uses Vcl.Controls, Vcl.Graphics, System.Types, Ot.Types;
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
 procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TOtBlockMap;
   Selected: Boolean; const Caption: string);
+procedure SetDarkTheme(Enabled: Boolean);
+function ThemeColor(Color: TColor): TColor;
 function SizeText(Value: Int64): string;
 function StateText(Value: Integer): string;
 
 implementation
 
 uses Ot.Localization, Winapi.Windows, Winapi.UxTheme, Winapi.CommCtrl, System.SysUtils,
-  System.Math, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes, Ot.BlockMap;
+  System.Math, System.Classes, Vcl.Styles, Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Themes,
+  Ot.BlockMap, Ot.DarkPalette;
+
+var
+  DarkStyle: TCustomStyleServices;
+
+procedure SetDarkTheme(Enabled: Boolean);
+var Stream: TResourceStream;
+begin
+  if Enabled then
+  begin
+    if DarkStyle = nil then
+    begin
+      Stream := TResourceStream.Create(HInstance, 'OT_DARK_THEME', RT_RCDATA);
+      try
+        DarkStyle := TCustomStyle.LoadFromStream(Stream);
+        ApplyDarkPalette(DarkStyle);
+        TStyleManager.RegisterStyle(DarkStyle);
+      finally Stream.Free; end;
+    end;
+    TStyleManager.SetStyle(DarkStyle);
+  end
+  else TStyleManager.SetStyle(TStyleManager.SystemStyle);
+end;
+
+function ThemeColor(Color: TColor): TColor;
+begin
+  Result := StyleServices.GetSystemColor(Color);
+end;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
 var I: Integer;
 begin
+  if not StyleServices.IsSystemStyle then
+    Exit; // VCL style hooks own themed controls, including newly opened dialogs.
   if SystemTheme then
   begin
     SetWindowTheme(Control.Handle, nil, nil);
@@ -46,12 +78,12 @@ var R, Plot, Bar, Fill, TextBounds: TRect; I, Count: Integer;
   end;
 begin
   R := Bounds;
-  Canvas.Brush.Color := clWindow;
-  Canvas.Font.Color := clWindowText;
+  Canvas.Brush.Color := ThemeColor(clWindow);
+  Canvas.Font.Color := ThemeColor(clWindowText);
   if Selected then
   begin
-    Canvas.Brush.Color := clHighlight;
-    Canvas.Font.Color := clHighlightText;
+    Canvas.Brush.Color := ThemeColor(clHighlight);
+    Canvas.Font.Color := ThemeColor(clHighlightText);
   end;
   Canvas.FillRect(R);
   Plot := R;
@@ -64,9 +96,9 @@ begin
   end;
   DisplayMap := ResizeBlockMap(Map, Max(0, Plot.Width div 3));
   Count := Length(DisplayMap.Verified);
-  Color := ColorToRGB(clHighlight);
-  VerifiedColor := clHighlight;
-  if Selected then VerifiedColor := clHighlightText;
+  Color := ColorToRGB(ThemeColor(clHighlight));
+  VerifiedColor := ThemeColor(clHighlight);
+  if Selected then VerifiedColor := ThemeColor(clHighlightText);
   ReceivedColor := RGB((GetRValue(Color) + 255) div 2,
     (GetGValue(Color) + 255) div 2, (GetBValue(Color) + 255) div 2);
   for I := 0 to Count - 1 do
@@ -74,9 +106,9 @@ begin
     Bar := Plot;
     Bar.Left := Plot.Left + MulDiv(Plot.Width, I, Count);
     Bar.Right := Plot.Left + MulDiv(Plot.Width, I + 1, Count) - 1;
-    Canvas.Brush.Color := clBtnFace;
+    Canvas.Brush.Color := ThemeColor(clBtnFace);
     Canvas.FillRect(Bar);
-    Layer(DisplayMap.Requested[I], clBtnShadow);
+    Layer(DisplayMap.Requested[I], ThemeColor(clBtnShadow));
     Layer(DisplayMap.Received[I], ReceivedColor);
     Layer(DisplayMap.Verified[I], VerifiedColor);
   end;

@@ -167,7 +167,7 @@
   "FormPreferences.GroupBoxAppearance.Caption": "Оформлення",
   "FormPreferences.CheckBoxSystemTheme.Caption": "Використовувати системну тему Windows",
   "FormPreferences.CheckBoxProgress.Caption": "Показувати прогресбари в списку торрентів",
-  "FormPreferences.LabelThemeNote.Caption": "Тема ОС оформлює кнопки, списки та індикатори. Вимкніть її для класичного вигляду стандартних контролів. Системні кольори зберігаються в обох режимах.",
+  "FormPreferences.LabelThemeNote.Caption": "Системне оформлення діє у світлій темі; вимкніть його для класичних контролів. Темну тему можна ввімкнути на панелі інструментів або в меню «Вигляд».",
   "FormPreferences.GroupBoxAdd.Caption": "Під час додавання торрента",
   "FormPreferences.CheckBoxShowDialog.Caption": "Показувати вибір папки та файлів перед завантаженням",
   "FormPreferences.CheckBoxStart.Caption": "Починати завантаження після додавання",
@@ -360,5 +360,8 @@
   "FormUpdater.FormUpdater.Caption": "Оновлення — Only Torrent",
   "update.pending": "Попереднє встановлення перервано. Відновіть файли з резервної папки та приберіть .ot-update.pending перед продовженням.",
   "update.busy": "Програма зараз оновлюється. Дочекайтеся завершення встановлення.",
-  "update.badPath": "Недозволений файл у пакеті оновлення: %s"
+  "update.badPath": "Недозволений файл у пакеті оновлення: %s",
+  "theme.dark": "Темна тема",
+  "theme.switchLight": "Увімкнути світлу тему",
+  "theme.switchDark": "Увімкнути темну тему"
 }

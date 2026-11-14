@@ -90,8 +90,17 @@
       Width = 10
       Style = tbsSeparator
     end
-    object ToolButtonPreferences: TToolButton
+    object ToolButtonTheme: TToolButton
       Left = 190
+      Top = 0
+      Caption = 'Темна тема'
+      Hint = 'Увімкнути темну тему'
+      ImageIndex = 7
+      Style = tbsCheck
+      OnClick = ThemeClick
+    end
+    object ToolButtonPreferences: TToolButton
+      Left = 224
       Top = 0
       Hint = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103' (Ctrl+P)'
       Caption = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103
@@ -392,6 +401,10 @@
     end
     object MenuItemView: TMenuItem
       Caption = #1042#1080#1075#1083#1103#1076
+      object MenuItemTheme: TMenuItem
+        Caption = 'Темна тема'
+        OnClick = ThemeClick
+      end
       object MenuItemToolbar: TMenuItem
         AutoCheck = True
         Caption = #1055#1072#1085#1077#1083#1100' '#1110#1085#1089#1090#1088#1091#1084#1077#1085#1090#1110#1074

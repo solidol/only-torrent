@@ -4,7 +4,7 @@ interface
 
 type
   TOtSettings = record
-    SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
+    DarkTheme, SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
     DownloadFolder, TorrentFolder, Language: string;
     WatchEnabled: Boolean;
     EnableDHT: Boolean;
@@ -28,6 +28,7 @@ var Ini: TMemIniFile;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
+    DarkTheme := Ini.ReadBool('Interface', 'DarkTheme', False);
     SystemTheme := Ini.ReadBool('Interface', 'SystemTheme', True);
     Language := Ini.ReadString('Interface', 'Language', 'uk-UA');
     TorrentFolder := ExpandFileName(Ini.ReadString('Storage', 'TorrentFolder',
@@ -59,6 +60,7 @@ var Ini: TMemIniFile; Lines: TStringList;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
+    Ini.WriteBool('Interface', 'DarkTheme', DarkTheme);
     Ini.WriteBool('Interface', 'SystemTheme', SystemTheme);
     Ini.WriteString('Interface', 'Language', Language);
     Ini.WriteString('Storage', 'TorrentFolder', TorrentFolder);

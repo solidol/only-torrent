@@ -30,6 +30,7 @@ uses
   Ot.BridgeApi in '..\src\engine\Ot.BridgeApi.pas';
 
 {$R *.res}
+{$R ..\build\Ot.Version.res}
 
 procedure Require(Value: Boolean; const Text: string);
 begin
@@ -197,6 +198,27 @@ begin
         Capture(FormMain, 'ui-main-system');
         ApplyAppearance(FormMain, False);
         Capture(FormMain, 'ui-main-classic');
+        FormMain.ThemeClick(FormMain.MenuItemTheme);
+        Require(FormMain.MenuItemTheme.Checked and FormMain.ToolButtonTheme.Down,
+          'Dark theme menu and toolbar are synchronized');
+        Require(ThemeColor(clWindow) = TColor(RGB(30, 30, 30)), 'Dark editor background');
+        Require(ThemeColor(clWindowText) = TColor(RGB(212, 212, 212)), 'Soft dark foreground');
+        Settings.Load;
+        Require(Settings.DarkTheme, 'Dark theme persisted in INI');
+        Capture(FormMain, 'ui-main-dark');
+        FormPreferences := TFormPreferences.Create(nil);
+        try
+          FormPreferences.LoadValue(Settings);
+          Require(not FormPreferences.CheckBoxSystemTheme.Enabled,
+            'Classic Windows controls option is disabled in dark theme');
+          Capture(FormPreferences, 'ui-preferences-dark');
+        finally FormPreferences.Free; end;
+        FormMain.ThemeClick(FormMain.ToolButtonTheme);
+        Require(not FormMain.MenuItemTheme.Checked and not FormMain.ToolButtonTheme.Down,
+          'Light theme menu and toolbar are synchronized');
+        Settings.Load;
+        Require(not Settings.DarkTheme, 'Light theme persisted in INI');
+        Capture(FormMain, 'ui-main-light-restored');
         FormPreferences := TFormPreferences.Create(nil);
         try
           FormPreferences.LoadValue(Settings);
@@ -290,7 +312,7 @@ begin
         Entry.Free;
         FormMain.Free;
       end;
-      Output.Add('PASS: all DFM forms load, system/classic appearance, preferences navigation, file checkboxes and progress rendering');
+      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and INI persistence, preferences navigation, file checkboxes and progress rendering');
     except
       on E: Exception do
       begin

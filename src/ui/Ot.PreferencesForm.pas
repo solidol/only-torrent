@@ -103,6 +103,7 @@ procedure TFormPreferences.LoadValue(const Settings: TOtSettings);
 begin
   Value := Settings;
   CheckBoxSystemTheme.Checked := Value.SystemTheme;
+  CheckBoxSystemTheme.Enabled := not Value.DarkTheme;
   CheckBoxProgress.Checked := Value.ShowProgressBars;
   CheckBoxShowDialog.Checked := Value.ShowAddDialog;
   CheckBoxStart.Checked := Value.StartImmediately;

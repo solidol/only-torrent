@@ -56,10 +56,10 @@
         <PreBuildEventIgnoreExitCode>false</PreBuildEventIgnoreExitCode>
         <VerInfo_MajorVer>0</VerInfo_MajorVer>
         <VerInfo_MinorVer>2</VerInfo_MinorVer>
-        <VerInfo_Release>1</VerInfo_Release>
-        <VerInfo_Build>4</VerInfo_Build>
+        <VerInfo_Release>2</VerInfo_Release>
+        <VerInfo_Build>6</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.2.1.4;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.2.1.4</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.2.2.6;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.2.2.6</VerInfo_Keys>
         <SanitizedProjectName>otorrent</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">

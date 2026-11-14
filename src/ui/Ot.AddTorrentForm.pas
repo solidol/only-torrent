@@ -288,13 +288,13 @@ begin
   R := PaintBoxDisk.ClientRect;
   with PaintBoxDisk.Canvas do
   begin
-    Brush.Color := clWindow; FillRect(R);
+    Brush.Color := ThemeColor(clWindow); FillRect(R);
     Used := R;
     if FDiskTotal > 0 then
       Used.Right := Used.Left + DiskUsedPixels(FDiskTotal, FDiskFree, R.Width);
-    Brush.Color := clBtnFace; FillRect(Used);
-    Brush.Style := bsClear; Pen.Color := clBtnShadow; Rectangle(R);
-    Font.Assign(Self.Font); Font.Color := clWindowText;
+    Brush.Color := ThemeColor(clBtnFace); FillRect(Used);
+    Brush.Style := bsClear; Pen.Color := ThemeColor(clBtnShadow); Rectangle(R);
+    Font.Assign(Self.Font); Font.Color := ThemeColor(clWindowText);
     Text := L('text.49e75e5d70f6', 'Місце на диску: невідомо');
     if FDiskTotal > 0 then Text := L('text.7bc5f2e06c6f', 'Розмір диска: ') + SizeText(FDiskTotal) +
       L('text.5bfc3e6028a2', '       Вільне місце: ') + SizeText(FDiskFree);

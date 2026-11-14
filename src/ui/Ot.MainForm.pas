@@ -37,6 +37,7 @@ type
     MenuItemOptions: TMenuItem;
     MenuItemPreferences: TMenuItem;
     MenuItemUpdate: TMenuItem;
+    MenuItemTheme: TMenuItem;
     MenuItemView: TMenuItem;
     MenuItemToolbar: TMenuItem;
     MenuItemSidebar: TMenuItem;
@@ -49,6 +50,7 @@ type
     ToolButtonStart: TToolButton;
     ToolButtonPause: TToolButton;
     ToolButtonSeparatorSecond: TToolButton;
+    ToolButtonTheme: TToolButton;
     ToolButtonPreferences: TToolButton;
     ImageListMain: TImageList;
     TreeViewSidebar: TTreeView;
@@ -103,6 +105,7 @@ type
     procedure PreferencesClick(Sender: TObject);
     procedure UpdateClick(Sender: TObject);
     procedure CategoryChange(Sender: TObject; Node: TTreeNode);
+    procedure ThemeClick(Sender: TObject);
     procedure ViewClick(Sender: TObject);
     procedure OpenFolderClick(Sender: TObject);
     procedure DrawSubItem(Sender: TCustomListView; Item: TListItem;
@@ -148,6 +151,7 @@ type
     procedure UpdateRows;
     procedure UpdateDetails(RefreshFiles: Boolean);
     procedure BuildImages;
+    procedure UpdateThemeControls;
     procedure UpdateBlocks;
     procedure OptionsApplied(Sender: TObject);
     procedure Log(const Text: string);
@@ -178,7 +182,7 @@ begin
   try
     Bitmap.SetSize(20, 20);
     ImageListMain.Clear;
-    for I := 0 to 6 do
+    for I := 0 to 7 do
     begin
       with Bitmap.Canvas do
       begin
@@ -187,35 +191,42 @@ begin
         Pen.Width := 2;
         case I of
           0: begin
-            Pen.Color := clGrayText; Brush.Color := clWindow;
+            Pen.Color := ThemeColor(clGrayText); Brush.Color := ThemeColor(clWindow);
             Rectangle(3, 2, 14, 18);
-            Pen.Color := clGreen; Brush.Color := clGreen;
+            Pen.Color := ThemeColor(clGreen); Brush.Color := ThemeColor(clGreen);
             FillRect(Rect(10, 10, 19, 13)); FillRect(Rect(13, 7, 16, 17));
           end;
           1: begin
-            Pen.Color := clMaroon;
+            Pen.Color := ThemeColor(clMaroon);
             MoveTo(4, 4); LineTo(16, 16); MoveTo(16, 4); LineTo(4, 16);
           end;
           2: begin
-            Pen.Color := clGreen; Brush.Color := clGreen;
+            Pen.Color := ThemeColor(clGreen); Brush.Color := ThemeColor(clGreen);
             Polygon([Point(5, 3), Point(16, 10), Point(5, 17)]);
           end;
           3: begin
-            Brush.Color := clHotLight;
+            Brush.Color := ThemeColor(clHotLight);
             FillRect(Rect(4, 3, 8, 17)); FillRect(Rect(12, 3, 16, 17));
           end;
           4: begin
-            Pen.Color := clGrayText; Brush.Color := clBtnFace;
+            Pen.Color := ThemeColor(clGrayText); Brush.Color := ThemeColor(clBtnFace);
             Ellipse(2, 2, 18, 18); Ellipse(7, 7, 13, 13);
             MoveTo(10, 0); LineTo(10, 4); MoveTo(10, 16); LineTo(10, 20);
             MoveTo(0, 10); LineTo(4, 10); MoveTo(16, 10); LineTo(20, 10);
           end;
           5: begin
-            Pen.Color := clGrayText; Brush.Color := clInfoBk;
+            Pen.Color := ThemeColor(clGrayText); Brush.Color := ThemeColor(clInfoBk);
             Rectangle(2, 5, 10, 9); Rectangle(2, 8, 18, 17);
           end;
+          7: begin
+            Pen.Color := ThemeColor(clWindowText);
+            Brush.Color := ThemeColor(clHighlight);
+            Ellipse(2, 2, 18, 18);
+            Brush.Color := ThemeColor(clBtnFace);
+            Pie(2, 2, 18, 18, 10, 2, 10, 18);
+          end;
           6: begin
-            Pen.Color := clMaroon; Brush.Color := clWindow;
+            Pen.Color := ThemeColor(clMaroon); Brush.Color := ThemeColor(clWindow);
             Rectangle(4, 5, 16, 18);
             MoveTo(2, 3); LineTo(18, 3);
             MoveTo(7, 1); LineTo(13, 1);
@@ -238,6 +249,7 @@ begin
   TrayIconMain.Icon.Assign(Application.Icon);
   Application.OnMinimize := MinimizeToTray;
   FSettings.Load;
+  SetDarkTheme(FSettings.DarkTheme);
   LoadLanguage(FSettings.Language);
   Font.Assign(Screen.MenuFont);
   BuildImages;
@@ -258,6 +270,7 @@ begin
   StatusBarMain.Panels[2].Text := L('text.3222b3fd5803', 'Вгору: 0 KiB/с');
   Log(L('text.114738e16962', 'Only Torrent готовий до роботи.'));
   TranslateForm(Self);
+  UpdateThemeControls;
   if LanguageWarning <> '' then Log(LanguageWarning);
   try
     FStore := TOtTaskStore.Create(ProfileFolder);
@@ -1071,10 +1084,45 @@ begin
       FSettings.UploadKiB, FSettings.Connections, FSettings.EnableDHT);
   LoadLanguage(FSettings.Language);
   TranslateForm(Self);
+  UpdateThemeControls;
   ApplyAppearance(Self, FSettings.SystemTheme);
   ListViewTorrents.Invalidate;
   RefreshTimerTimer(nil);
   Log(L('text.590da7f80c60', 'Налаштування застосовано.'));
+end;
+
+procedure TFormMain.UpdateThemeControls;
+begin
+  MenuItemTheme.Caption := L('theme.dark', 'Темна тема');
+  MenuItemTheme.Checked := FSettings.DarkTheme;
+  ToolButtonTheme.Down := FSettings.DarkTheme;
+  ToolButtonTheme.Caption := MenuItemTheme.Caption;
+  if FSettings.DarkTheme then
+    ToolButtonTheme.Hint := L('theme.switchLight', 'Увімкнути світлу тему')
+  else ToolButtonTheme.Hint := L('theme.switchDark', 'Увімкнути темну тему');
+end;
+
+procedure TFormMain.ThemeClick(Sender: TObject);
+var NewSettings: TOtSettings;
+begin
+  NewSettings := FSettings;
+  NewSettings.DarkTheme := not FSettings.DarkTheme;
+  try
+    SetDarkTheme(NewSettings.DarkTheme);
+    NewSettings.Save;
+    FSettings := NewSettings;
+  except
+    SetDarkTheme(FSettings.DarkTheme);
+    UpdateThemeControls;
+    raise;
+  end;
+  ApplyAppearance(Self, FSettings.SystemTheme);
+  BuildImages;
+  UpdateThemeControls;
+  Invalidate;
+  ListViewTorrents.Invalidate;
+  PaintBoxBlocks.Invalidate;
+  PaintBoxSpeed.Invalidate;
 end;
 
 procedure TFormMain.ViewClick(Sender: TObject);
@@ -1418,29 +1466,29 @@ begin
   R := PaintBoxSpeed.ClientRect;
   with PaintBoxSpeed.Canvas do
   begin
-    Brush.Color := clWindow;
+    Brush.Color := ThemeColor(clWindow);
     FillRect(R);
     Font.Assign(Self.Font);
-    Font.Color := clWindowText;
+    Font.Color := ThemeColor(clWindowText);
     TextOut(12, 8, L('text.b1a781c53ed5', 'Останні 120 с: завантаження — синя лінія, віддача — сіра'));
     Peak := 1024;
     for I := 0 to High(FDownHistory) do Peak := Max(Peak, Max(FDownHistory[I], FUpHistory[I]));
     TextOut(12, 28, L('text.fec59001f074', 'Шкала: ') + SizeText(Peak) + L('text.a9208f0400fe', '/с'));
     GraphHeight := Max(1, R.Height - 64);
-    Pen.Color := clBtnFace;
+    Pen.Color := ThemeColor(clBtnFace);
     for I := 0 to 4 do
     begin
       Y := 54 + MulDiv(GraphHeight, I, 4);
       MoveTo(12, Y); LineTo(R.Right - 12, Y);
     end;
-    Pen.Color := clHotLight;
+    Pen.Color := ThemeColor(clHotLight);
     for I := 0 to High(FDownHistory) do
     begin
       X := 12 + MulDiv(Max(1, R.Width - 24), I, High(FDownHistory));
       Y := 54 + GraphHeight - Round(GraphHeight * (FDownHistory[I] / Peak));
       if I = 0 then MoveTo(X, Y) else LineTo(X, Y);
     end;
-    Pen.Color := clGrayText;
+    Pen.Color := ThemeColor(clGrayText);
     for I := 0 to High(FUpHistory) do
     begin
       X := 12 + MulDiv(Max(1, R.Width - 24), I, High(FUpHistory));
