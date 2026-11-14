@@ -36,6 +36,7 @@ type
     MenuItemExit: TMenuItem;
     MenuItemOptions: TMenuItem;
     MenuItemPreferences: TMenuItem;
+    MenuItemUpdate: TMenuItem;
     MenuItemView: TMenuItem;
     MenuItemToolbar: TMenuItem;
     MenuItemSidebar: TMenuItem;
@@ -100,6 +101,7 @@ type
     procedure RefreshTimerTimer(Sender: TObject);
     procedure TorrentSelect(Sender: TObject; Item: TListItem; Selected: Boolean);
     procedure PreferencesClick(Sender: TObject);
+    procedure UpdateClick(Sender: TObject);
     procedure CategoryChange(Sender: TObject; Node: TTreeNode);
     procedure ViewClick(Sender: TObject);
     procedure OpenFolderClick(Sender: TObject);
@@ -122,6 +124,8 @@ type
     FAddingTorrent: Boolean;
     FInTray: Boolean;
     FWatcher: TOtWatchFolder;
+    procedure OpenLink(const Link: string);
+    procedure ProcessActivation;
     procedure WMSysCommand(var Message: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMSize(var Message: TWMSize); message WM_SIZE;
     function AddTorrentFile(const FileName: string; ShowDialog, ReportErrors: Boolean;
@@ -157,7 +161,7 @@ implementation
 
 uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
   Vcl.Graphics, Ot.Appearance, Ot.AddTorrentForm, Ot.PreferencesForm, Ot.TransferMath, Ot.BlockMap, Ot.Profile, Ot.Localization, Ot.FormLocalization,
-  Ot.ImportTasksForm, Ot.AddLinkForm;
+  Ot.ImportTasksForm, Ot.AddLinkForm, Ot.Activation, Ot.UpdateLaunch;
 
 {$R *.dfm}
 
@@ -540,13 +544,41 @@ begin
     AddTorrentFile(OpenDialogTorrent.FileName, FSettings.ShowAddDialog, True);
 end;
 
+procedure TFormMain.UpdateClick(Sender: TObject);
+begin
+  if FClosing then Exit;
+  try LaunchUpdater(Handle, ExtractFilePath(ParamStr(0)), FSettings.Language);
+  except on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0); end;
+end;
+
 procedure TFormMain.AddLinkClick(Sender: TObject);
+begin
+  OpenLink('');
+end;
+
+procedure TFormMain.ProcessActivation;
+var Target: string;
+begin
+  if FClosing or FAddingTorrent or (Application.ModalLevel > 0) then Exit;
+  if not TakeActivation(Target) then Exit;
+  TrayClick(nil);
+  if Target = '' then Exit;
+  if StartsText('magnet:?', Target) then OpenLink(Target)
+  else AddTorrentFile(Target, True, True);
+end;
+
+procedure TFormMain.OpenLink(const Link: string);
 var FormDialog: TFormAddLink; Token: TGUID; Temporary, Magnet: string;
 begin
   if FClosing or FAddingTorrent or (FStore = nil) then Exit;
   FormDialog := TFormAddLink.Create(Self);
   try
     FormDialog.Prepare(FSettings.SystemTheme);
+    if Link <> '' then
+    begin
+      FormDialog.EditLink.Text := Link;
+      FormDialog.FetchClick(nil);
+    end;
     FAddingTorrent := True;
     try
       if FormDialog.ShowModal <> mrOk then Exit;
@@ -1306,6 +1338,7 @@ begin
     FUpHistory[High(FUpHistory)] := Up;
   end;
   if PageControlDetails.ActivePage = TabSheetSpeed then PaintBoxSpeed.Invalidate;
+  ProcessActivation;
 end;
 
 procedure TFormMain.DrawSubItem(Sender: TCustomListView; Item: TListItem;

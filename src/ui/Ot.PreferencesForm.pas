@@ -15,6 +15,13 @@ type
     TabSheetBandwidth: TTabSheet;
     TabSheetFuture: TTabSheet;
     TabSheetWatch: TTabSheet;
+    TabSheetAssociations: TTabSheet;
+    GroupBoxAssociations: TGroupBox;
+    CheckBoxAssociateTorrent: TCheckBox;
+    CheckBoxAssociateMagnet: TCheckBox;
+    ButtonRegisterAssociations: TButton;
+    ButtonDefaultApps: TButton;
+    LabelAssociationsNote: TLabel;
     GroupBoxWatch: TGroupBox;
     CheckBoxWatch: TCheckBox;
     EditWatchFolder: TEdit;
@@ -60,6 +67,8 @@ type
     procedure BrowseClick(Sender: TObject);
     procedure ApplyClick(Sender: TObject);
     procedure OkClick(Sender: TObject);
+    procedure RegisterAssociationsClick(Sender: TObject);
+    procedure DefaultAppsClick(Sender: TObject);
   private
     function ApplyChanges: Boolean;
   public
@@ -71,7 +80,7 @@ type
 implementation
 
 uses System.SysUtils, System.UITypes, Vcl.Dialogs, Vcl.FileCtrl, Ot.Appearance,
-  Ot.Localization, Ot.FormLocalization;
+  Ot.Localization, Ot.FormLocalization, Ot.ShellIntegration;
 
 {$R *.dfm}
 
@@ -85,6 +94,7 @@ begin
   TreeViewCategories.Items.Add(nil, L('text.d8c69ef04dda', 'Швидкість'));
   TreeViewCategories.Items.Add(nil, L('text.048483ff51ba', 'Наступні етапи'));
   TreeViewCategories.Items.Add(nil, L('source.watchCategory', 'Автопідхват'));
+  TreeViewCategories.Items.Add(nil, L('shell.category', 'Системні асоціації'));
   TreeViewCategories.Selected := TreeViewCategories.Items[0];
   TranslateForm(Self);
 end;
@@ -193,6 +203,21 @@ end;
 procedure TFormPreferences.OkClick(Sender: TObject);
 begin
   if ApplyChanges then ModalResult := mrOk;
+end;
+
+procedure TFormPreferences.RegisterAssociationsClick(Sender: TObject);
+begin
+  if not (CheckBoxAssociateTorrent.Checked or CheckBoxAssociateMagnet.Checked) then Exit;
+  try
+    RegisterAssociations(CheckBoxAssociateTorrent.Checked, CheckBoxAssociateMagnet.Checked);
+    MessageDlg(L('shell.registered', 'Only Torrent зареєстровано. Якщо Windows уже використовує іншу програму, виберіть Only Torrent у програмах за замовчуванням для .torrent і MAGNET.'), mtInformation, [mbOK], 0);
+  except on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0); end;
+end;
+
+procedure TFormPreferences.DefaultAppsClick(Sender: TObject);
+begin
+  try OpenDefaultApps(Handle);
+  except on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0); end;
 end;
 
 end.

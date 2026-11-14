@@ -2,6 +2,35 @@
 
 Поточна перевірка: 2026-11-14, після явного дозволу користувача.
 
+## Реліз 0.2.1
+
+Клієнт та окремий `otupdater.exe` зібрані через IDE AutoBuild, Release / Win64.
+Виправлено підключення `Winapi.ShlObj` і структуру DPROJ апдейтера, щоб IDE
+правильно вибирала Release та підставляла шлях проєкту в PreBuildEvent.
+
+- `tests/release_integration.py`: PASS. Версії та перехід minor/release; ZIP,
+  checksum, staging, відхилення traversal і пошкоджених файлів; заблокована ціль,
+  встановлення в синтетичну папку, відкат після часткової заміни, збереження
+  сторонніх файлів. Реальний каталог програми не оновлювався.
+- Реєстрація асоціацій перевірена через process-local `RegOverridePredefKey`:
+  справжні HKCU/HKCR користувача не змінювалися. Команди взято в лапки,
+  capabilities створені, наявні обробники й UserChoice збережені.
+- Справжній EXE: початковий torrent із Unicode-шляхом, передавання другим
+  екземпляром, черга під час модального діалогу, відновлення з трея, magnet
+  без зміни percent-encoding та скасування. Це перевірка команди системного
+  обробника; фактичний клік у браузері зі зміною користувацьких defaults не робився.
+- Меню запустило тимчасову копію апдейтера; до натискання кнопки worker не
+  активний. Ручна перевірка через справжній GitHub API пройшла. Встановлення
+  до завантаження недоступне. DFM апдейтера й обидві мови перевірені.
+- `OtCoreTests --update-download-live`: PASS. Попередній публічний ZIP та його
+  SHA-256 завантажено справжнім WinHTTP-клієнтом через HTTPS/CDN; checksum та
+  розпакований EXE перевірені. Старий формат без packageFiles відхилено до
+  встановлення. Виправлено нормалізацію розділювачів шляхів ZIP, які повертає RTL.
+- Повторно PASS: Core/UI, project_structure, languages, separation, engine_smoke,
+  batch_tasks, persistence_restart, tray_window, torrent_sources, network_transfer.
+
+Windows 7 та відновлення після фізичного знеструмлення не перевірялися.
+
 Only Torrent / `otorrent.exe`, FireDAC, готовий `ltbridge.dll`: основний застосунок,
 `OtCoreTests` і `OtUiSmoke` зібрано Release / Windows x64.
 

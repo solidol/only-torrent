@@ -13,6 +13,7 @@ uses
   Ot.BitCometImportTest in 'Ot.BitCometImportTest.pas',
   Ot.BatchTests in 'Ot.BatchTests.pas',
   Ot.SourceUiTests in 'Ot.SourceUiTests.pas',
+  Ot.UpdaterForm in '..\src\ui\Ot.UpdaterForm.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
@@ -75,6 +76,7 @@ end;
 var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TFormPreferences;
   FormImportTasks: TFormImportTasks;
   FormAddLink: TFormAddLink;
+  FormUpdater: TFormUpdater;
   Entry: TTorrentEntry; Item: TListItem; Settings: TOtSettings;
   InspectEngine: TOtEngine; TorrentMetadata: TOtMetadata;
   I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
@@ -273,6 +275,16 @@ begin
           FormAddLink.Prepare(True);
           Capture(FormAddLink, 'ui-add-link');
         finally FormAddLink.Free; end;
+        FormUpdater := TFormUpdater.Create(nil);
+        try
+          LoadLanguage('en-US');
+          FormUpdater.Prepare(ExpandFileName('..\bin\Win64'));
+          Require(FormUpdater.ButtonCheck.Caption = 'Check', 'English updater');
+          Require(not FormUpdater.TimerUpdate.Enabled, 'No automatic update check');
+          Require(not FormUpdater.ButtonDownload.Enabled and not FormUpdater.ButtonInstall.Enabled, 'Update actions require explicit check/download');
+          LoadLanguage('uk-UA'); TranslateForm(FormUpdater);
+          Capture(FormUpdater, 'ui-updater');
+        finally FormUpdater.Free; end;
         FormMain.ListViewTorrents.Items.Clear;
       finally
         Entry.Free;

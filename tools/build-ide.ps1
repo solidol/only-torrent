@@ -1,9 +1,10 @@
-﻿param([switch]$UiTests, [switch]$CoreTests, [string]$OutputDirectory)
+﻿param([switch]$UiTests, [switch]$CoreTests, [switch]$Updater, [string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path $PSScriptRoot -Parent
 $idePath = 'C:\Program Files (x86)\Embarcadero\Studio\37.0\bin64\bds.exe'
 . (Join-Path $PSScriptRoot 'wait-ide-build.ps1')
 if ($UiTests -and $CoreTests) { throw 'Choose UiTests or CoreTests' }
+if ($Updater -and ($UiTests -or $CoreTests)) { throw 'Choose Updater or a test project' }
 if ($CoreTests) {
   & python (Join-Path $workspacePath 'tests/prepare_core_fixture.py')
   if ($LASTEXITCODE -ne 0) { throw 'Cannot prepare synthetic test fixture' }
@@ -16,6 +17,11 @@ if ($CoreTests) {
   $mainSource = 'OtUiSmoke.dpr'
   $errorLog = Join-Path $workingPath 'OtUiSmoke.err'
   $binaryPath = Join-Path $workspacePath 'bin\Win64\OtUiSmoke.exe'
+} elseif ($Updater) {
+  $workingPath = $workspacePath
+  $mainSource = 'otupdater.dpr'
+  $errorLog = Join-Path $workingPath 'otupdater.err'
+  $binaryPath = Join-Path $workspacePath 'bin\Win64\otupdater.exe'
 } else {
   $workingPath = $workspacePath
   $mainSource = 'otorrent.dpr'
@@ -43,7 +49,7 @@ if ($OutputDirectory) {
   [IO.File]::WriteAllText($projectPath, $projectText, [Text.UTF8Encoding]::new($true))
   $binaryPath = Join-Path $destinationPath ([IO.Path]::ChangeExtension($mainSource, '.exe'))
 }
-& (Join-Path $PSScriptRoot 'copy-runtime.ps1') -VerifyOnly
+if (-not $Updater) { & (Join-Path $PSScriptRoot 'copy-runtime.ps1') -VerifyOnly }
 $buildStart = Get-Date
 # DPR first: verified with Delphi 13 CE's IDE AutoBuild.
 $ideProcess = Start-Process -FilePath $idePath -ArgumentList $mainSource,'-b','-ns' -WorkingDirectory $workingPath -WindowStyle Hidden -PassThru
@@ -58,7 +64,7 @@ if (-not (Test-Path -LiteralPath $binaryPath) -or (Get-Item -LiteralPath $binary
   throw "IDE did not produce a fresh executable. See $errorLog"
 }
 Write-Output "Built: $binaryPath"
-  & (Join-Path $PSScriptRoot 'copy-runtime.ps1') -Destination (Split-Path $binaryPath -Parent)
+  if (-not $Updater) { & (Join-Path $PSScriptRoot 'copy-runtime.ps1') -Destination (Split-Path $binaryPath -Parent) }
 } finally {
   try {
     if ($null -ne $ideProcess -and -not $ideProcess.HasExited) {
@@ -70,7 +76,7 @@ Write-Output "Built: $binaryPath"
     try {
       if ($null -ne $previousProject) {
         [IO.File]::WriteAllBytes($projectPath, $previousProject)
-        if (-not $UiTests -and -not $CoreTests) { & (Join-Path $PSScriptRoot 'version.ps1') }
+        if (-not $UiTests -and -not $CoreTests -and -not $Updater) { & (Join-Path $PSScriptRoot 'version.ps1') }
       }
     } finally {
       if ($ownsBuild) { $buildMutex.ReleaseMutex() }

@@ -10,6 +10,8 @@ uses
   Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
   Ot.ImportTests in 'Ot.ImportTests.pas',
   Ot.SourceModelTests in 'Ot.SourceModelTests.pas',
+  Ot.UpdateTests in 'Ot.UpdateTests.pas',
+  Ot.ShellIntegrationTests in 'Ot.ShellIntegrationTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
   Ot.Settings in '..\src\ui\Ot.Settings.pas',
@@ -263,6 +265,22 @@ begin
   Results := TStringList.Create;
   try
     try
+      if (ParamCount > 0) and (ParamStr(1) = '--update-download-live') then
+      begin
+        UpdateNetworkLegacyFixture;
+        Results.Add('PASS: real GitHub ZIP/checksum over HTTPS and CDN redirects; extraction; legacy package rejected before installation');
+        Results.SaveToFile('..\build\update-network-tests.txt', TEncoding.UTF8);
+        Exit;
+      end;
+      if (ParamCount > 0) and (ParamStr(1) = '--updates') then
+      begin
+        UpdateModels(ExpandFileName(ParamStr(2)));
+        ShellRegistrationModels;
+        Results.Add('PASS: update version comparison, download/hash/staging, traversal rejection, locked files, rollback, installation and profile preservation');
+        Results.Add('PASS: isolated registry registration, quoted commands, capabilities and preserved existing handlers/UserChoice');
+        Results.SaveToFile('..\build\update-tests.txt', TEncoding.UTF8);
+        Exit;
+      end;
       CoreCalculations;
       ImportModels;
       SourceModels;

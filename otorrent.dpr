@@ -1,7 +1,10 @@
 ﻿program otorrent;
 
 uses
-  Winapi.Windows, Winapi.Messages,
+  Winapi.Windows, Winapi.Messages, System.SysUtils,
+  Ot.Activation in 'src\core\Ot.Activation.pas',
+  Ot.UpdateLaunch in 'src\core\Ot.UpdateLaunch.pas',
+  Ot.ShellIntegration in 'src\core\Ot.ShellIntegration.pas',
   Ot.WatchFolder in 'src\core\Ot.WatchFolder.pas',
   Ot.TorrentSource in 'src\core\Ot.TorrentSource.pas',
   Ot.AddLinkForm in 'src\ui\Ot.AddLinkForm.pas' {FormAddLink},
@@ -43,6 +46,22 @@ begin
 end;
 
 begin
+  try
+    if not InitializeActivation then
+    begin
+      ShutdownActivation;
+      Exit;
+    end;
+  except
+    on E: Exception do
+    begin
+      MessageBox(0, PChar(E.Message), 'Only Torrent', MB_OK or MB_ICONERROR);
+      ShutdownActivation;
+      ExitCode := 1;
+      Exit;
+    end;
+  end;
+  try
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.Title := 'Only Torrent';
@@ -52,4 +71,5 @@ begin
   SetWindowBranding(Application.Handle);
   SetWindowBranding(FormMain.Handle);
   Application.Run;
+  finally ShutdownActivation; end;
 end.

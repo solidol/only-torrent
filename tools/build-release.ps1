@@ -5,16 +5,18 @@ Push-Location $root
 try {
   $untracked = & git -c "safe.directory=$root" ls-files --others --exclude-standard
   if ($LASTEXITCODE -ne 0 -or $untracked) { throw 'Add new source files to Git before building a release' }
-  # Reserve a release only on explicit request. Build numbers are reserved by the DPROJ target.
+  # Reserve a release only on explicit request. Main DPROJ PreBuildEvent reserves the build.
   if ($NextRelease) { & "$PSScriptRoot/version.ps1" -NextRelease }
   & "$PSScriptRoot/copy-runtime.ps1" -VerifyOnly
   $package = 'build/release-' + [Guid]::NewGuid().ToString('N')
   & "$PSScriptRoot/build-ide.ps1" -OutputDirectory $package
+  & "$PSScriptRoot/build-ide.ps1" -Updater -OutputDirectory $package
   $v = Get-Content -Raw version.json | ConvertFrom-Json
   $number = '{0}.{1}.{2}.{3}' -f $v.major,$v.minor,$v.release,$v.build
   $tag = 'v' + $number
   $exe = Join-Path $package 'otorrent.exe'
   if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root $exe)).FileVersion -ne $number) { throw 'Executable version differs from version.json' }
+  if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root "$package/otupdater.exe")).FileVersion -ne $number) { throw 'Updater version differs from version.json' }
   & "$PSScriptRoot/stage-client.ps1" -Folder $package -Executable $exe
   Copy-Item version.json (Join-Path $package 'version.json')
   foreach ($name in @('README.md','LICENSE')) {
@@ -26,7 +28,13 @@ try {
   $tracked = & git -c "safe.directory=$root" -c core.quotepath=false ls-files
   if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate source files' }
   foreach ($file in $tracked) { $sourceFiles[$file] = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant() }
-  @{version=$number; sourceCommit=$commit; sourceFiles=$sourceFiles; platform='Win64'; builtUtc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $package 'release.json')
+  $packageFiles = @{}
+  $packageRoot = [IO.Path]::GetFullPath((Join-Path $root $package)).TrimEnd('\')
+  foreach ($file in Get-ChildItem -LiteralPath $packageRoot -File -Recurse) {
+    $name = $file.FullName.Substring($packageRoot.Length + 1).Replace('\','/')
+    $packageFiles[$name] = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash.ToLowerInvariant()
+  }
+  @{version=$number; sourceCommit=$commit; sourceFiles=$sourceFiles; packageFiles=$packageFiles; platform='Win64'; builtUtc=[DateTime]::UtcNow.ToString('o')} | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $package 'release.json')
   $archive = Join-Path $root "build/Only-Torrent-$number-Win64.zip"
   if (Test-Path -LiteralPath $archive) { throw "Archive already exists: $archive" }
   Compress-Archive -Path "$package/*" -DestinationPath $archive

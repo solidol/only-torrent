@@ -55,11 +55,11 @@
         <PreBuildEventExecuteWhen>Always</PreBuildEventExecuteWhen>
         <PreBuildEventIgnoreExitCode>false</PreBuildEventIgnoreExitCode>
         <VerInfo_MajorVer>0</VerInfo_MajorVer>
-        <VerInfo_MinorVer>1</VerInfo_MinorVer>
-        <VerInfo_Release>10</VerInfo_Release>
-        <VerInfo_Build>1</VerInfo_Build>
+        <VerInfo_MinorVer>2</VerInfo_MinorVer>
+        <VerInfo_Release>1</VerInfo_Release>
+        <VerInfo_Build>4</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.1.10.1;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.1.10.1</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.2.1.4;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.2.1.4</VerInfo_Keys>
         <SanitizedProjectName>otorrent</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
@@ -72,6 +72,9 @@
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
+        <DCCReference Include="src\core\Ot.Activation.pas"/>
+        <DCCReference Include="src\core\Ot.UpdateLaunch.pas"/>
+        <DCCReference Include="src\core\Ot.ShellIntegration.pas"/>
         <DCCReference Include="src\core\Ot.WatchFolder.pas"/>
         <DCCReference Include="src\core\Ot.TorrentSource.pas"/>
         <DCCReference Include="src\ui\Ot.AddLinkForm.pas">

@@ -361,5 +361,63 @@
         end
       end
     end
+    object TabSheetAssociations: TTabSheet
+      Caption = 'Системні асоціації'
+      object GroupBoxAssociations: TGroupBox
+        Left = 12
+        Top = 12
+        Width = 496
+        Height = 350
+        Caption = 'Відкриття файлів і посилань'
+        TabOrder = 0
+        object CheckBoxAssociateTorrent: TCheckBox
+          Left = 16
+          Top = 28
+          Width = 460
+          Height = 25
+          Caption = 'Зареєструвати відкриття .torrent'
+          Checked = True
+          State = cbChecked
+          TabOrder = 0
+        end
+        object CheckBoxAssociateMagnet: TCheckBox
+          Left = 16
+          Top = 60
+          Width = 460
+          Height = 25
+          Caption = 'Зареєструвати magnet-посилання з браузера'
+          Checked = True
+          State = cbChecked
+          TabOrder = 1
+        end
+        object ButtonRegisterAssociations: TButton
+          Left = 16
+          Top = 104
+          Width = 460
+          Height = 32
+          Caption = 'Зареєструвати вибрані типи'
+          TabOrder = 2
+          OnClick = RegisterAssociationsClick
+        end
+        object ButtonDefaultApps: TButton
+          Left = 16
+          Top = 148
+          Width = 460
+          Height = 32
+          Caption = 'Програми за замовчуванням Windows'
+          TabOrder = 3
+          OnClick = DefaultAppsClick
+        end
+        object LabelAssociationsNote: TLabel
+          Left = 16
+          Top = 200
+          Width = 460
+          Height = 130
+          AutoSize = False
+          WordWrap = True
+          Caption = 'Реєстрація лише для поточного користувача, без прав адміністратора. Натисніть «Зареєструвати», потім виберіть Only Torrent у Windows для .torrent і MAGNET. Чинний вибір іншого клієнта не змінюється. Посилання з браузера відкриває діалог метаданих, а потім вибір файлів. Після переміщення EXE повторіть реєстрацію.'
+        end
+      end
+    end
   end
 end
