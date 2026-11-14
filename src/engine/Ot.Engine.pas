@@ -7,6 +7,9 @@ uses Winapi.Windows, System.SysUtils, Ot.Types, Ot.BridgeApi;
 const OT_ABI_VERSION = Ot.BridgeApi.OT_ABI_VERSION;
 
 type
+  TOtRecheckPaused = function(Session: Pointer; Id: Integer): Integer; cdecl;
+  TOtRemovePoll = function(Session: Pointer; out Id: Integer; Error: PAnsiChar;
+    Capacity: Integer): Integer; cdecl;
   // Public application models stay independent of libtorrent and its C++ ABI.
   TOtBlockMap = Ot.Types.TOtBlockMap;
   TOtAddOptions = Ot.Types.TOtAddOptions;
@@ -45,6 +48,8 @@ type
     FBlobCopy: TOtBlobCopy;
     FBlobClose: TOtBlobClose;
     FAddPreparedResume: TOtAddPreparedResume;
+    FRecheckPaused: TOtRecheckPaused;
+    FRemovePoll: TOtRemovePoll;
     function Resolve(const Name: AnsiString): Pointer;
     procedure Check(ResultCode: Integer);
     procedure EnsureSession;
@@ -65,7 +70,11 @@ type
     function Blocks(Id, Columns: Integer): TOtBlockMap;
     function LibraryVersion: string;
     function Snapshot(Id: Integer): TOtSnapshot;
-    procedure Command(Id, Value: Integer); // 0 pause, 1 resume, 2 remove (keep data)
+    function CanRecheck: Boolean;
+    procedure RecheckPaused(Id: Integer);
+    function CanRemoveFiles: Boolean;
+    function PollRemoval(out Id: Integer; out ErrorText: string): Boolean;
+    procedure Command(Id, Value: Integer); // 0 pause, 1 resume, 2 remove, 3 remove with data
   end;
 
 implementation
@@ -76,7 +85,7 @@ function TOtEngine.Resolve(const Name: AnsiString): Pointer;
 begin
   Result := GetProcAddress(FLibrary, PAnsiChar(Name));
   if Result = nil then
-    raise Exception.Create(L('text.b47da4b9a701', 'Несумісна qsbridge.dll: ') + string(Name));
+    raise Exception.Create(L('text.b47da4b9a701', 'Несумісна ltbridge.dll: ') + string(Name));
 end;
 
 constructor TOtEngine.Create;
@@ -90,39 +99,42 @@ begin
   if (SizeOf(TOtSessionOptions) <> 32) or (SizeOf(TOtPieceHeader) <> 32) or
     (SizeOf(TOtPartialBlock) <> 16) then raise Exception.Create(L('text.c76046369240', 'Помилка ABI моста'));
   // Absolute path and altered search path: never load an engine from the CWD.
-  FLibrary := LoadLibraryEx(PChar(ExtractFilePath(ParamStr(0)) + 'qsbridge.dll'),
+  FLibrary := LoadLibraryEx(PChar(ExtractFilePath(ParamStr(0)) + 'ltbridge.dll'),
     0, LOAD_WITH_ALTERED_SEARCH_PATH);
   if FLibrary = 0 then
-    raise Exception.Create(L('text.d991fa9a1c50', 'Не вдалося завантажити qsbridge.dll. Код Windows: ') +
+    raise Exception.Create(L('text.d991fa9a1c50', 'Не вдалося завантажити ltbridge.dll. Код Windows: ') +
       IntToStr(GetLastError) + L('text.28e0baeb9110', '. Див. README.md.'));
-  Version := TOtVersion(Resolve('qs_version'));
+  Version := TOtVersion(Resolve('lt_version'));
   if Version() <> OT_ABI_VERSION then
-    raise Exception.Create(L('text.894c87b0336b', 'Непідтримувана версія qsbridge.dll'));
-  FDestroy := TOtDestroy(Resolve('qs_destroy'));
-  FAdd := TOtAdd(Resolve('qs_add'));
-  FSnapshot := TOtSnapshotProc(Resolve('qs_snapshot'));
-  FCommand := TOtCommand(Resolve('qs_command'));
-  FError := TOtError(Resolve('qs_error'));
-  FCreate := TOtCreate(Resolve('qs_create'));
-  FMetaOpen := TOtMetaOpen(Resolve('qs_meta_open'));
-  FMetaClose := TOtMetaClose(Resolve('qs_meta_close'));
-  FMetaInfo := TOtMetaInfoProc(Resolve('qs_meta_info'));
-  FMetaFile := TOtMetaFileProc(Resolve('qs_meta_file'));
-  FMetaTracker := TOtMetaTracker(Resolve('qs_meta_tracker'));
-  FAddSelected := TOtAddSelected(Resolve('qs_add_selected'));
-  FConfigure := TOtConfigure(Resolve('qs_configure'));
-  FMetaExtra := TOtMetaExtraProc(Resolve('qs_meta_extra'));
-  FPieceOpen := TOtPieceOpen(Resolve('qs_piece_open'));
-  FPieceBits := TOtPieceBits(Resolve('qs_piece_bits'));
-  FPieceBlocks := TOtPieceBlocks(Resolve('qs_piece_blocks'));
-  FPieceClose := TOtPieceClose(Resolve('qs_piece_close'));
-  FAddPrepared := TOtAddPrepared(Resolve('qs_add_prepared'));
-  FLibraryVersion := TOtLibraryVersion(Resolve('qs_libtorrent_version'));
-  FResumeRequest := TOtResumeRequest(Resolve('qs_resume_request'));
-  FResumePoll := TOtResumePoll(Resolve('qs_resume_poll'));
-  FBlobCopy := TOtBlobCopy(Resolve('qs_blob_copy'));
-  FBlobClose := TOtBlobClose(Resolve('qs_blob_close'));
-  FAddPreparedResume := TOtAddPreparedResume(Resolve('qs_add_prepared_resume'));
+    raise Exception.Create(L('text.894c87b0336b', 'Непідтримувана версія ltbridge.dll'));
+  FDestroy := TOtDestroy(Resolve('lt_destroy'));
+  FAdd := TOtAdd(Resolve('lt_add'));
+  FSnapshot := TOtSnapshotProc(Resolve('lt_snapshot'));
+  FCommand := TOtCommand(Resolve('lt_command'));
+  // Optional extension: older ABI 2 bundles continue to load normally.
+  FRecheckPaused := TOtRecheckPaused(GetProcAddress(FLibrary, 'lt_recheck_paused'));
+  FRemovePoll := TOtRemovePoll(GetProcAddress(FLibrary, 'lt_remove_poll'));
+  FError := TOtError(Resolve('lt_error'));
+  FCreate := TOtCreate(Resolve('lt_create'));
+  FMetaOpen := TOtMetaOpen(Resolve('lt_meta_open'));
+  FMetaClose := TOtMetaClose(Resolve('lt_meta_close'));
+  FMetaInfo := TOtMetaInfoProc(Resolve('lt_meta_info'));
+  FMetaFile := TOtMetaFileProc(Resolve('lt_meta_file'));
+  FMetaTracker := TOtMetaTracker(Resolve('lt_meta_tracker'));
+  FAddSelected := TOtAddSelected(Resolve('lt_add_selected'));
+  FConfigure := TOtConfigure(Resolve('lt_configure'));
+  FMetaExtra := TOtMetaExtraProc(Resolve('lt_meta_extra'));
+  FPieceOpen := TOtPieceOpen(Resolve('lt_piece_open'));
+  FPieceBits := TOtPieceBits(Resolve('lt_piece_bits'));
+  FPieceBlocks := TOtPieceBlocks(Resolve('lt_piece_blocks'));
+  FPieceClose := TOtPieceClose(Resolve('lt_piece_close'));
+  FAddPrepared := TOtAddPrepared(Resolve('lt_add_prepared'));
+  FLibraryVersion := TOtLibraryVersion(Resolve('lt_libtorrent_version'));
+  FResumeRequest := TOtResumeRequest(Resolve('lt_resume_request'));
+  FResumePoll := TOtResumePoll(Resolve('lt_resume_poll'));
+  FBlobCopy := TOtBlobCopy(Resolve('lt_blob_copy'));
+  FBlobClose := TOtBlobClose(Resolve('lt_blob_close'));
+  FAddPreparedResume := TOtAddPreparedResume(Resolve('lt_add_prepared_resume'));
 end;
 
 procedure TOtEngine.EnsureSession;
@@ -357,7 +369,42 @@ end;
 
 procedure TOtEngine.Command(Id, Value: Integer);
 begin
+  if (Value = 3) and not CanRemoveFiles then raise Exception.Create(L('delete.dll',
+    'Потрібна оновлена ltbridge.dll з підтримкою видалення файлів.'));
   Check(FCommand(FSession, Id, Value));
+end;
+
+function TOtEngine.CanRemoveFiles: Boolean;
+begin
+  Result := Assigned(FRemovePoll);
+end;
+
+function TOtEngine.PollRemoval(out Id: Integer; out ErrorText: string): Boolean;
+var Code: Integer; Buffer: array[0..2047] of AnsiChar;
+begin
+  Id := 0;
+  ErrorText := '';
+  if (FSession = nil) or not CanRemoveFiles then Exit(False);
+  Code := FRemovePoll(FSession, Id, @Buffer[0], Length(Buffer));
+  Check(Code);
+  Result := Code <> 0;
+  if Code = 2 then
+  begin
+    ErrorText := UTF8ToString(PAnsiChar(@Buffer[0]));
+    if ErrorText = '' then ErrorText := L('delete.failed', 'Не вдалося видалити файли задачі.');
+  end;
+end;
+
+function TOtEngine.CanRecheck: Boolean;
+begin
+  Result := Assigned(FRecheckPaused);
+end;
+
+procedure TOtEngine.RecheckPaused(Id: Integer);
+begin
+  if not CanRecheck then raise Exception.Create(L('import.recheckDll',
+    'Потрібна оновлена ltbridge.dll з підтримкою перевірки даних.'));
+  Check(FRecheckPaused(FSession, Id));
 end;
 
 end.

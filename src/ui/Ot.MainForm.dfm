@@ -49,19 +49,27 @@
     object ToolButtonRemove: TToolButton
       Left = 34
       Top = 0
-      Hint = #1055#1088#1080#1073#1088#1072#1090#1080' '#1079#1110' '#1089#1087#1080#1089#1082#1091', '#1079#1072#1083#1080#1096#1080#1074#1096#1080' '#1092#1072#1081#1083#1080
-      Caption = #1055#1088#1080#1073#1088#1072#1090#1080
+      Hint = 'Видалити задачу; файли залишити'
+      Caption = 'Видалити задачу'
       ImageIndex = 1
       OnClick = RemoveClick
     end
-    object ToolButtonSeparatorFirst: TToolButton
+    object ToolButtonRemoveFiles: TToolButton
       Left = 68
+      Top = 0
+      Hint = 'Видалити задачу та файли з диска'
+      Caption = 'Видалити задачу та файли з диска'
+      ImageIndex = 6
+      OnClick = RemoveFilesClick
+    end
+    object ToolButtonSeparatorFirst: TToolButton
+      Left = 102
       Top = 0
       Width = 10
       Style = tbsSeparator
     end
     object ToolButtonStart: TToolButton
-      Left = 78
+      Left = 112
       Top = 0
       Hint = #1055#1086#1095#1072#1090#1080' / '#1087#1088#1086#1076#1086#1074#1078#1080#1090#1080
       Caption = #1055#1091#1089#1082
@@ -69,7 +77,7 @@
       OnClick = StartClick
     end
     object ToolButtonPause: TToolButton
-      Left = 112
+      Left = 146
       Top = 0
       Hint = #1055#1088#1080#1079#1091#1087#1080#1085#1080#1090#1080
       Caption = #1055#1072#1091#1079#1072
@@ -77,13 +85,13 @@
       OnClick = PauseClick
     end
     object ToolButtonSeparatorSecond: TToolButton
-      Left = 146
+      Left = 180
       Top = 0
       Width = 10
       Style = tbsSeparator
     end
     object ToolButtonPreferences: TToolButton
-      Left = 156
+      Left = 190
       Top = 0
       Hint = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103' (Ctrl+P)'
       Caption = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103
@@ -355,6 +363,10 @@
         ShortCut = 16463
         OnClick = AddClick
       end
+      object MenuItemImport: TMenuItem
+        Caption = 'Імпорт задач з BitComet / µTorrent...'
+        OnClick = ImportClick
+      end
       object MenuItemExit: TMenuItem
         Caption = #1042#1080#1093#1110#1076
         OnClick = ExitClick
@@ -419,9 +431,17 @@
       Caption = #1055#1088#1080#1079#1091#1087#1080#1085#1080#1090#1080
       OnClick = PauseClick
     end
+    object MenuItemRecheck: TMenuItem
+      Caption = 'Примусово перевірити дані'
+      OnClick = RecheckClick
+    end
     object MenuItemRemove: TMenuItem
-      Caption = #1055#1088#1080#1073#1088#1072#1090#1080' '#1079#1110' '#1089#1087#1080#1089#1082#1091' ('#1079#1072#1083#1080#1096#1080#1090#1080' '#1092#1072#1081#1083#1080')'
+      Caption = 'Видалити задачу'
       OnClick = RemoveClick
+    end
+    object MenuItemRemoveFiles: TMenuItem
+      Caption = 'Видалити задачу та файли з диска'
+      OnClick = RemoveFilesClick
     end
     object MenuItemFolder: TMenuItem
       Caption = #1042#1110#1076#1082#1088#1080#1090#1080' '#1087#1072#1087#1082#1091' '#1079#1072#1074#1072#1085#1090#1072#1078#1077#1085#1085#1103

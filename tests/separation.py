@@ -34,16 +34,16 @@ def pe_tables(path):
 
 root=Path(os.environ.get('OT_ENGINE_DIR', 'bin/Win64'))
 vendor_exports,vendor_imports=pe_tables(root/'torrent-rasterbar.dll')
-bridge_exports,bridge_imports=pe_tables(root/'qsbridge.dll')
-assert not any(n.startswith('qs_') for n in vendor_exports)
+bridge_exports,bridge_imports=pe_tables(root/'ltbridge.dll')
+assert not any(n.startswith('lt_') for n in vendor_exports)
 assert 'torrent-rasterbar.dll' in bridge_imports,bridge_imports
-assert 'qs_piece_open' in bridge_exports and 'qs_add_prepared' in bridge_exports
-assert 'qs_blocks' not in bridge_exports and 'qs_add_options' not in bridge_exports
+assert 'lt_piece_open' in bridge_exports and 'lt_add_prepared' in bridge_exports
+assert 'lt_blocks' not in bridge_exports and 'lt_add_options' not in bridge_exports
 assert 'msvcp140.dll' in bridge_imports and 'msvcp140.dll' in vendor_imports
-assert dll.qs_version()==2
-dll.qs_libtorrent_version.restype=c.c_char_p
-version=dll.qs_libtorrent_version().decode()
+assert dll.lt_version()==2
+dll.lt_libtorrent_version.restype=c.c_char_p
+version=dll.lt_libtorrent_version().decode()
 manifest=json.loads(Path('third_party/bin/Win64/runtime.json').read_text(encoding='utf-8-sig'))
 assert hashlib.sha256((root/'torrent-rasterbar.dll').read_bytes()).hexdigest()==manifest['files']['torrent-rasterbar.dll']
 assert version.startswith(manifest['versions']['libtorrent'])
-print('PASS: original upstream DLL has no qs_* exports; qsbridge dynamically imports it; shared CRT; ABI 2; runtime libtorrent',version)
+print('PASS: original upstream DLL has no lt_* exports; ltbridge dynamically imports it; shared CRT; ABI 2; runtime libtorrent',version)

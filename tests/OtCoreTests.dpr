@@ -4,6 +4,9 @@ uses
   Ot.Profile in '..\src\core\Ot.Profile.pas',
   Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
   Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
+  Ot.Bencode in '..\src\core\Ot.Bencode.pas',
+  Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
+  Ot.ImportTests in 'Ot.ImportTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
   Ot.Settings in '..\src\ui\Ot.Settings.pas',
@@ -258,9 +261,11 @@ begin
   try
     try
       CoreCalculations;
+      ImportModels;
+      Results.Add('PASS: bounded bencode parsing, import paths, file selection, BitComet offsets, info-hash mismatch');
       Results.Add('PASS: pure Delphi aggregation, holes, partial blocks, resampling, ETA, disk usage, paths, rates, trackers, selection');
       EngineIntegration;
-      Results.Add('PASS: original libtorrent DLL -> qsbridge -> application calculations with real verified files');
+      Results.Add('PASS: original libtorrent DLL -> ltbridge -> application calculations with real verified files');
       PersistenceIntegration;
       Results.Add('PASS: INI, SQLite worker, stable IDs, JSON fallback, managed torrent copy, fast-resume, desired pause, corrupt resume fallback, late replies after removal');
     except

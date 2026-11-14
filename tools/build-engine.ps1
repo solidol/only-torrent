@@ -22,7 +22,7 @@ $packagePath = Join-Path $workspacePath ('build/engine-package/' + $config.libto
 New-Item -ItemType Directory -Force $packagePath | Out-Null
 $vendorDll = Join-Path $SdkPath 'bin/torrent-rasterbar.dll'
 if (-not (Test-Path -LiteralPath $vendorDll)) { throw "Missing original DLL: $vendorDll" }
-Copy-Item -LiteralPath build/bridge/package/qsbridge.dll -Destination (Join-Path $packagePath 'qsbridge.dll')
+Copy-Item -LiteralPath build/bridge/package/ltbridge.dll -Destination (Join-Path $packagePath 'ltbridge.dll')
 Copy-Item -LiteralPath $vendorDll -Destination (Join-Path $packagePath 'torrent-rasterbar.dll')
 $licensePath = Join-Path $packagePath 'licenses'
 New-Item -ItemType Directory -Force $licensePath | Out-Null
@@ -40,7 +40,7 @@ $manifest = @{
   platform = 'Win64'
   files = @{}
 }
-foreach ($fileName in @('qsbridge.dll','torrent-rasterbar.dll')) {
+foreach ($fileName in @('ltbridge.dll','torrent-rasterbar.dll')) {
   $manifest.files[$fileName] = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $packagePath $fileName)).Hash.ToLowerInvariant()
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $packagePath 'engine-build.json')
@@ -50,7 +50,7 @@ if (-not $NoDeploy) {
   $runningClient = Get-Process -Name otorrent -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $clientPath }
   if ($runningClient) { throw "Close Only Torrent before replacing engine DLLs. Package is ready at $packagePath" }
   New-Item -ItemType Directory -Force bin/Win64/licenses | Out-Null
-  foreach ($fileName in @('qsbridge.dll','torrent-rasterbar.dll','engine-build.json')) {
+  foreach ($fileName in @('ltbridge.dll','torrent-rasterbar.dll','engine-build.json')) {
     Copy-Item -LiteralPath (Join-Path $packagePath $fileName) -Destination (Join-Path 'bin/Win64' $fileName)
   }
   Get-ChildItem -LiteralPath $licensePath -File | Copy-Item -Destination bin/Win64/licenses

@@ -5,7 +5,7 @@ $runtimePath = [IO.Path]::GetFullPath((Join-Path $workspacePath 'third_party/bin
 $manifestPath = Join-Path $runtimePath 'runtime.json'
 $manifest = Get-Content -Raw -Encoding UTF8 $manifestPath | ConvertFrom-Json
 if ($manifest.format -ne 1 -or $manifest.platform -ne 'Win64' -or $manifest.bridgeAbi -ne 2) { throw 'Unsupported bundled runtime' }
-foreach ($required in @('qsbridge.dll','torrent-rasterbar.dll','sqlite3.dll','engine-build.json','licenses/libtorrent-LICENSE.txt','licenses/boost-LICENSE.txt','licenses/THIRD_PARTY.md')) {
+foreach ($required in @('ltbridge.dll','torrent-rasterbar.dll','sqlite3.dll','engine-build.json','licenses/libtorrent-LICENSE.txt','licenses/boost-LICENSE.txt','licenses/THIRD_PARTY.md')) {
   if ($null -eq $manifest.files.PSObject.Properties[$required]) { throw "Missing runtime manifest entry: $required" }
 }
 # Validate the COMPLETE bundle before copying any file. No source trees, SDKs,

@@ -58,7 +58,7 @@ tracker=ThreadingHTTPServer(('127.0.0.1',0),Tracker)
 threading.Thread(target=tracker.serve_forever,daemon=True).start()
 threading.Thread(target=serve_seed,daemon=True).start()
 s=create_session()
-assert s,dll.qs_error()
+assert s,dll.lt_error()
 try:
     with tempfile.TemporaryDirectory(prefix='qs-network-') as tmp:
         root=Path(tmp)
@@ -66,17 +66,17 @@ try:
         file.write_bytes(bencode({b'announce':b'http://127.0.0.1:1/original',b'info':info}))
         edited_tracker=f'http://127.0.0.1:{tracker.server_port}/announce'.encode()
         tid=add_prepared(s,str(file).encode(),str(root).encode(),[4],trackers=[edited_tracker])
-        assert tid>0,dll.qs_error()
+        assert tid>0,dll.lt_error()
         snap=Snapshot(); deadline=time.monotonic()+45
         while time.monotonic()<deadline:
-            assert dll.qs_snapshot(s,tid,c.byref(snap))==0,dll.qs_error()
+            assert dll.lt_snapshot(s,tid,c.byref(snap))==0,dll.lt_error()
             if snap.state==5: break
             time.sleep(0.1)
         assert snap.state==5,(snap.state,snap.done,snap.error,errors)
         assert (root/'network.bin').read_bytes()==payload
         assert not errors,errors
-        dll.qs_command(s,tid,2)
+        dll.lt_command(s,tid,2)
 finally:
-    dll.qs_destroy(s)
+    dll.lt_destroy(s)
     tracker.shutdown(); tracker.server_close(); seed.close()
 print('PASS: HTTP announce, peer discovery, TCP handshake, piece requests, download, hash verification, seeding')

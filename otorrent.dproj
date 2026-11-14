@@ -72,6 +72,12 @@
         <DCCReference Include="src\core\Ot.Profile.pas"/>
         <DCCReference Include="src\core\Ot.Sqlite.pas"/>
         <DCCReference Include="src\core\Ot.TaskStore.pas"/>
+        <DCCReference Include="src\core\Ot.Bencode.pas"/>
+        <DCCReference Include="src\core\Ot.TaskImport.pas"/>
+        <DCCReference Include="src\ui\Ot.ImportTasksForm.pas">
+            <Form>FormImportTasks</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
         <DCCReference Include="src\core\Ot.Localization.pas"/>
         <DCCReference Include="src\ui\Ot.FormLocalization.pas"/>
         <DCCReference Include="src\core\Ot.Types.pas"/>

@@ -2,7 +2,7 @@
 
 `bin/Win64` — комплект для звичайного Delphi-збирання:
 
-- `qsbridge.dll`: наш C-міст, ABI 2 із resume-розширенням;
+- `ltbridge.dll`: наш C-міст, ABI 2 із resume-розширенням;
 - `torrent-rasterbar.dll`: оригінальний libtorrent 1.2.19;
 - `sqlite3.dll`: оригінальний SQLite 3.54.1 x64;
 - `runtime.json`: версії, платформа, параметри компілятора й SHA-256 усіх файлів;

@@ -1,12 +1,12 @@
 # Відокремлення libtorrent
 
-Залежності виконання: `otorrent.exe → qsbridge.dll → torrent-rasterbar.dll`.
+Залежності виконання: `otorrent.exe → ltbridge.dll → torrent-rasterbar.dll`.
 
 Готовий runtime зафіксовано в `third_party/bin/Win64` разом із SQLite, ліцензіями та SHA-256. Звичайне збирання Delphi не використовує джерела, SDK або CMake. Наведені нижче команди стосуються необов’язкового перезбирання залежностей. Публікація перевіреного пакета: [third_party/README.md](../third_party/README.md).
 
 `torrent-rasterbar.dll` збирається штатним CMake із незміненого libtorrent 1.2.19. Наших функцій у ній немає. Версії, адреси архівів і SHA-256 зафіксовані в `native/dependencies.json`. `tests/upstream_integrity.py` порівнює джерела з архівом; зараз збігаються всі 932 файли.
 
-`qsbridge.dll` містить лише адаптацію типів, керування непрозорими дескрипторами, перехоплення винятків та виклики API libtorrent. Delphi завантажує її динамічно. Контракт C ABI 2 описаний у `native/qsbridge.h` і `src/engine/Ot.BridgeApi.pas`: cdecl, UTF-8, фіксовані POD-структури, без STL і звільнення чужої пам’яті через межу Delphi/C++.
+`ltbridge.dll` містить лише адаптацію типів, керування непрозорими дескрипторами, перехоплення винятків та виклики API libtorrent. Delphi завантажує її динамічно. Контракт C ABI 2 описаний у `native/ltbridge.h` і `src/engine/Ot.BridgeApi.pas`: cdecl, UTF-8, фіксовані POD-структури, без STL і звільнення чужої пам’яті через межу Delphi/C++.
 
 Обчислення належать основному застосунку: `src/core/Ot.BlockMap.pas` групує блоки та визначає заповнення смужок; `Ot.TaskOptions.pas` готує шляхи, трекери, вибір файлів і ліміти; `Ot.TransferMath.pas` обчислює ETA й використання диска. Спільні моделі — `Ot.Types.pas`. Додаткових DLL для цих обчислень немає. Мережа, перевірка хешів і робота з даними залишаються в libtorrent.
 

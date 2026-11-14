@@ -1,4 +1,4 @@
-﻿#include "qsbridge.h"
+﻿#include "ltbridge.h"
 #include <libtorrent/version.hpp>
 #include <windows.h>
 #include <libtorrent/session.hpp>
@@ -27,9 +27,9 @@ static_assert(sizeof(snapshot) == 1064, "snapshot ABI mismatch");
 static_assert(sizeof(metadata_info) == 1552, "metadata ABI mismatch");
 static_assert(sizeof(metadata_file) == 4104, "file ABI mismatch");
 static_assert(sizeof(metadata_extra) == 7216, "extra metadata ABI mismatch");
-static_assert(sizeof(qs_session_options) == 32, "session ABI mismatch");
-static_assert(sizeof(qs_piece_header) == 32, "piece header ABI mismatch");
-static_assert(sizeof(qs_partial_block) == 16, "partial block ABI mismatch");
+static_assert(sizeof(lt_session_options) == 32, "session ABI mismatch");
+static_assert(sizeof(lt_piece_header) == 32, "piece header ABI mismatch");
+static_assert(sizeof(lt_partial_block) == 16, "partial block ABI mismatch");
 struct engine {
     lt::session session;
     std::map<int, lt::torrent_handle> torrents;
@@ -37,6 +37,9 @@ struct engine {
     struct resume_result { int id, status; std::vector<char> bytes; };
     std::deque<resume_result> ready;
     std::set<int> pending;
+    std::map<int, lt::sha1_hash> deleting;
+    struct delete_result { int id, status; std::string error; };
+    std::deque<delete_result> deleted;
     explicit engine(lt::settings_pack const& p) : session(p) {}
 };
 thread_local std::string last_error;
@@ -52,11 +55,24 @@ static void copy(char* dst, size_t capacity, std::string const& value) {
     dst[n] = 0;
 }
 // All alert consumers use this dispatcher. Resume replies must never be discarded
-// by a status query; ownership is transferred to the caller by qs_resume_poll.
+// by a status query; ownership is transferred to the caller by lt_resume_poll.
 static void dispatch(engine& e) {
     std::vector<lt::alert*> alerts;
     e.session.pop_alerts(&alerts);
     for (auto* alert : alerts) {
+        auto* removed = lt::alert_cast<lt::torrent_deleted_alert>(alert);
+        auto* remove_failed = lt::alert_cast<lt::torrent_delete_failed_alert>(alert);
+        if (removed || remove_failed) {
+            auto hash = removed ? removed->info_hash : remove_failed->info_hash;
+            for (auto it = e.deleting.begin(); it != e.deleting.end(); ++it) {
+                if (it->second != hash) continue;
+                e.deleted.push_back({it->first, remove_failed ? 2 : 1,
+                    remove_failed ? remove_failed->error.message() : std::string{}});
+                e.deleting.erase(it);
+                break;
+            }
+            continue;
+        }
         auto* saved = lt::alert_cast<lt::save_resume_data_alert>(alert);
         auto* failed = lt::alert_cast<lt::save_resume_data_failed_alert>(alert);
         if (!saved && !failed) continue;
@@ -71,13 +87,15 @@ static void dispatch(engine& e) {
         }
     }
 }
-QS_API int qs_version() noexcept { return 2; }
-QS_API char const* qs_libtorrent_version() noexcept { return lt::version(); }
-QS_API char const* qs_error() noexcept { return last_error.c_str(); }
-QS_API void* qs_create(qs_session_options const* options, char const* user_agent) noexcept {
+LT_API int lt_version() noexcept { return 2; }
+LT_API char const* lt_libtorrent_version() noexcept { return lt::version(); }
+LT_API char const* lt_error() noexcept { return last_error.c_str(); }
+LT_API void* lt_create(lt_session_options const* options, char const* user_agent) noexcept {
     try {
-        if (!options || options->size != sizeof(qs_session_options)) throw std::runtime_error("Invalid session options ABI");
+        if (!options || options->size != sizeof(lt_session_options)) throw std::runtime_error("Invalid session options ABI");
         lt::settings_pack p;
+        p.set_int(lt::settings_pack::alert_mask,
+            static_cast<int>(lt::alert_category::error | lt::alert_category::storage | lt::alert_category::status));
         p.set_bool(lt::settings_pack::enable_dht, (options->discovery_flags & 1) != 0);
         p.set_bool(lt::settings_pack::enable_lsd, (options->discovery_flags & 2) != 0);
         p.set_bool(lt::settings_pack::enable_upnp, (options->discovery_flags & 4) != 0);
@@ -93,10 +111,10 @@ QS_API void* qs_create(qs_session_options const* options, char const* user_agent
     } catch (std::exception const& e) { last_error = e.what(); return nullptr; }
       catch (...) { last_error = "Engine initialization error"; return nullptr; }
 }
-QS_API void qs_destroy(void* p) noexcept {
+LT_API void lt_destroy(void* p) noexcept {
     try { delete static_cast<engine*>(p); } catch (...) {}
 }
-QS_API int qs_add(void* p, char const* file, char const* path) noexcept {
+LT_API int lt_add(void* p, char const* file, char const* path) noexcept {
     try {
         auto& e = get(p);
         if (!file || !path || !*path) throw std::runtime_error("Missing torrent or save path");
@@ -136,7 +154,7 @@ static int protocol_state(lt::torrent_status::state_t state) {
     }
 }
 #pragma warning(pop)
-QS_API int qs_snapshot(void* p, int id, snapshot* out) noexcept {
+LT_API int lt_snapshot(void* p, int id, snapshot* out) noexcept {
     try {
         if (!out) throw std::runtime_error("Missing output buffer");
         auto& e = get(p);
@@ -159,14 +177,20 @@ QS_API int qs_snapshot(void* p, int id, snapshot* out) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Unknown snapshot error"; return -1; }
 }
-QS_API int qs_command(void* p, int id, int command) noexcept {
+LT_API int lt_command(void* p, int id, int command) noexcept {
     try {
         auto& e = get(p);
         auto h = e.torrents.at(id);
         switch (command) {
-        case 0: h.pause(); break;
-        case 1: h.resume(); break;
+        case 0: h.pause(); h.unset_flags(lt::torrent_flags::stop_when_ready); break;
+        case 1: h.unset_flags(lt::torrent_flags::stop_when_ready); h.resume(); break;
         case 2: e.session.remove_torrent(h); e.torrents.erase(id); e.pending.erase(id); break;
+        case 3:
+            e.deleting.emplace(id, h.info_hash());
+            try { e.session.remove_torrent(h, lt::session::delete_files); }
+            catch (...) { e.deleting.erase(id); throw; }
+            e.torrents.erase(id); e.pending.erase(id);
+            break;
         default: throw std::runtime_error("Unknown command");
         }
         return 0;
@@ -174,7 +198,38 @@ QS_API int qs_command(void* p, int id, int command) noexcept {
       catch (...) { last_error = "Unknown command error"; return -1; }
 }
 
-QS_API int qs_meta_extra(void* p, unsigned char const* data, int length, metadata_extra* out) noexcept {
+LT_API int lt_remove_poll(void* p, int* id, char* error, int capacity) noexcept {
+    try {
+        if (!id || !error || capacity < 1) throw std::runtime_error("Invalid removal output");
+        *id = 0; error[0] = 0;
+        auto& e = get(p); dispatch(e);
+        if (e.deleted.empty()) return 0;
+        auto const& reply = e.deleted.front();
+        *id = reply.id;
+        copy(error, static_cast<size_t>(capacity), reply.error);
+        int status = reply.status;
+        e.deleted.pop_front();
+        return status;
+    } catch (std::exception const& e) { last_error = e.what(); return -1; }
+      catch (...) { last_error = "Unknown removal poll error"; return -1; }
+}
+
+LT_API int lt_recheck_paused(void* p, int id) noexcept {
+    try {
+        auto h = get(p).torrents.at(id);
+        if (!(h.flags() & lt::torrent_flags::paused))
+            throw std::runtime_error("Pause the torrent before verifying data");
+        h.unset_flags(lt::torrent_flags::auto_managed);
+        // Order matters: leave the ready state before arming stop_when_ready.
+        h.force_recheck();
+        h.set_flags(lt::torrent_flags::stop_when_ready);
+        h.resume();
+        return 0;
+    } catch (std::exception const& e) { last_error = e.what(); return -1; }
+      catch (...) { last_error = "Unknown recheck error"; return -1; }
+}
+
+LT_API int lt_meta_extra(void* p, unsigned char const* data, int length, metadata_extra* out) noexcept {
     try {
         if (!p || !data || length <= 0 || !out) throw std::runtime_error("Invalid metadata buffer");
         auto& t = *static_cast<lt::torrent_info*>(p);
@@ -199,9 +254,9 @@ QS_API int qs_meta_extra(void* p, unsigned char const* data, int length, metadat
 
 struct piece_data {
     std::vector<unsigned char> have;
-    std::vector<qs_partial_block> partial;
+    std::vector<lt_partial_block> partial;
 };
-QS_API void* qs_piece_open(void* p, int id, qs_piece_header* out) noexcept {
+LT_API void* lt_piece_open(void* p, int id, lt_piece_header* out) noexcept {
     try {
         if (!out) throw std::runtime_error("Missing piece header");
         auto h = get(p).torrents.at(id);
@@ -237,7 +292,7 @@ QS_API void* qs_piece_open(void* p, int id, qs_piece_header* out) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return nullptr; }
       catch (...) { last_error = "Piece snapshot error"; return nullptr; }
 }
-QS_API int qs_piece_bits(void* p, unsigned char* buffer, int capacity) noexcept {
+LT_API int lt_piece_bits(void* p, unsigned char* buffer, int capacity) noexcept {
     try {
         if (!p) throw std::runtime_error("Invalid piece snapshot");
         auto const& bytes = static_cast<piece_data*>(p)->have;
@@ -247,18 +302,18 @@ QS_API int qs_piece_bits(void* p, unsigned char* buffer, int capacity) noexcept 
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Piece copy error"; return -1; }
 }
-QS_API int qs_piece_blocks(void* p, qs_partial_block* buffer, int capacity) noexcept {
+LT_API int lt_piece_blocks(void* p, lt_partial_block* buffer, int capacity) noexcept {
     try {
         if (!p) throw std::runtime_error("Invalid piece snapshot");
         auto const& blocks = static_cast<piece_data*>(p)->partial;
         if (capacity < static_cast<int>(blocks.size()) || (!buffer && !blocks.empty())) throw std::runtime_error("Block buffer is too small");
-        if (!blocks.empty()) std::memcpy(buffer, blocks.data(), blocks.size() * sizeof(qs_partial_block));
+        if (!blocks.empty()) std::memcpy(buffer, blocks.data(), blocks.size() * sizeof(lt_partial_block));
         return static_cast<int>(blocks.size());
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Block copy error"; return -1; }
 }
-QS_API void qs_piece_close(void* p) noexcept { delete static_cast<piece_data*>(p); }
-QS_API int qs_add_prepared_resume(void* p, char const* file, char const* path,
+LT_API void lt_piece_close(void* p) noexcept { delete static_cast<piece_data*>(p); }
+LT_API int lt_add_prepared_resume(void* p, char const* file, char const* path,
     int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
     char const* const* paths, char const* const* trackers, int tracker_count, unsigned char const* resume, int resume_length, int* resume_used) noexcept {
     try {
@@ -303,13 +358,13 @@ QS_API int qs_add_prepared_resume(void* p, char const* file, char const* path,
       catch (...) { last_error = "Prepared add error"; return -1; }
 }
 
-QS_API int qs_add_prepared(void* p, char const* file, char const* path,
+LT_API int lt_add_prepared(void* p, char const* file, char const* path,
     int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
     char const* const* paths, char const* const* trackers, int tracker_count) noexcept {
-    return qs_add_prepared_resume(p, file, path, priorities, count, start, sequential,
+    return lt_add_prepared_resume(p, file, path, priorities, count, start, sequential,
         download_bytes, upload_bytes, paths, trackers, tracker_count, nullptr, 0, nullptr);
 }
-QS_API int qs_resume_request(void* p, int id, int flush) noexcept {
+LT_API int lt_resume_request(void* p, int id, int flush) noexcept {
     try {
         auto& e = get(p); dispatch(e);
         auto h = e.torrents.at(id);
@@ -324,7 +379,7 @@ QS_API int qs_resume_request(void* p, int id, int flush) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Resume request error"; return -1; }
 }
-QS_API void* qs_resume_poll(void* p, int* id, int* status, int* length) noexcept {
+LT_API void* lt_resume_poll(void* p, int* id, int* status, int* length) noexcept {
     try {
         if (!id || !status || !length) throw std::runtime_error("Missing resume output");
         *id = 0; *status = 0; *length = 0;
@@ -338,7 +393,7 @@ QS_API void* qs_resume_poll(void* p, int* id, int* status, int* length) noexcept
     } catch (std::exception const& e) { last_error = e.what(); if (status) *status = -2; return nullptr; }
       catch (...) { last_error = "Resume poll error"; if (status) *status = -2; return nullptr; }
 }
-QS_API int qs_blob_copy(void* p, unsigned char* buffer, int capacity) noexcept {
+LT_API int lt_blob_copy(void* p, unsigned char* buffer, int capacity) noexcept {
     try {
         if (!p) throw std::runtime_error("Invalid blob");
         auto const& bytes = *static_cast<std::vector<char>*>(p);
@@ -348,9 +403,9 @@ QS_API int qs_blob_copy(void* p, unsigned char* buffer, int capacity) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Blob copy error"; return -1; }
 }
-QS_API void qs_blob_close(void* p) noexcept { delete static_cast<std::vector<char>*>(p); }
+LT_API void lt_blob_close(void* p) noexcept { delete static_cast<std::vector<char>*>(p); }
 
-QS_API void* qs_meta_open(char const* file) noexcept {
+LT_API void* lt_meta_open(char const* file) noexcept {
     try {
         if (!file) throw std::runtime_error("Missing torrent file");
         lt::error_code ec;
@@ -360,8 +415,8 @@ QS_API void* qs_meta_open(char const* file) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return nullptr; }
       catch (...) { last_error = "Metadata error"; return nullptr; }
 }
-QS_API void qs_meta_close(void* p) noexcept { delete static_cast<lt::torrent_info*>(p); }
-QS_API int qs_meta_info(void* p, metadata_info* out) noexcept {
+LT_API void lt_meta_close(void* p) noexcept { delete static_cast<lt::torrent_info*>(p); }
+LT_API int lt_meta_info(void* p, metadata_info* out) noexcept {
     try {
         if (!p || !out) throw std::runtime_error("Invalid metadata buffer");
         auto& t = *static_cast<lt::torrent_info*>(p);
@@ -374,7 +429,7 @@ QS_API int qs_meta_info(void* p, metadata_info* out) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Metadata error"; return -1; }
 }
-QS_API int qs_meta_file(void* p, int index, metadata_file* out) noexcept {
+LT_API int lt_meta_file(void* p, int index, metadata_file* out) noexcept {
     try {
         if (!p || !out) throw std::runtime_error("Invalid metadata buffer");
         auto& t = *static_cast<lt::torrent_info*>(p);
@@ -387,7 +442,7 @@ QS_API int qs_meta_file(void* p, int index, metadata_file* out) noexcept {
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Metadata error"; return -1; }
 }
-QS_API int qs_meta_tracker(void* p, int index, char* buffer, int capacity) noexcept {
+LT_API int lt_meta_tracker(void* p, int index, char* buffer, int capacity) noexcept {
     try {
         if (!p || !buffer || capacity < 1) throw std::runtime_error("Invalid tracker buffer");
         auto& t = *static_cast<lt::torrent_info*>(p);
@@ -397,7 +452,7 @@ QS_API int qs_meta_tracker(void* p, int index, char* buffer, int capacity) noexc
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Metadata error"; return -1; }
 }
-QS_API int qs_add_selected(void* p, char const* file, char const* path,
+LT_API int lt_add_selected(void* p, char const* file, char const* path,
     int const* priorities, int count, int start) noexcept {
     try {
         auto& e = get(p);
@@ -424,7 +479,7 @@ QS_API int qs_add_selected(void* p, char const* file, char const* path,
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Add options error"; return -1; }
 }
-QS_API int qs_configure(void* p, int port, int download_bytes, int upload_bytes, int connections) noexcept {
+LT_API int lt_configure(void* p, int port, int download_bytes, int upload_bytes, int connections) noexcept {
     try {
         auto& e = get(p);
         lt::settings_pack settings;

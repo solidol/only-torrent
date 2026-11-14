@@ -8,7 +8,7 @@
 
 ## Збирання
 
-- qsbridge.dll та оригінальна torrent-rasterbar.dll: Visual Studio 2022, Release / x64, спільний CRT `/MD`.
+- ltbridge.dll та оригінальна torrent-rasterbar.dll: Visual Studio 2022, Release / x64, спільний CRT `/MD`.
 - EXE й DLL зібрані для AMD64. На етапі відокремлення після перезбирання моста SHA-256 EXE та оригінальної DLL залишилися незмінними; тодішні DFM і PNG карти блоків збігалися з початковими. Доказ цього етапу: build/separation-proof.txt. На етапі P0 додано мову та папку метаданих у налаштуваннях; візуальний дизайн решти форм збережено.
 - У фінальному EXE перевірено вбудований manifest Common Controls v6 / Windows 7. Прихований запуск досяг GUI message loop без помилки.
 - otorrent.exe: Delphi 13 Community Edition, Release / Windows 64-bit, через IDE AutoBuild. Командний dcc64 у CE недоступний; штатне `bds.exe otorrent.dpr -b -ns` працює.
@@ -22,7 +22,7 @@
 |---|---|---|
 | tests/project_structure.py | PASS | XML, усі DFM-компоненти, префікси типів у назвах, відповідність класів форм, прив’язки подій, кодування DFM |
 | tests/upstream_integrity.py | PASS | Усі 932 файли оригінального libtorrent збігаються з архівом із зафіксованим SHA-256 |
-| tests/separation.py | PASS | В оригінальній DLL немає qs_*; міст динамічно імпортує її; спільний CRT, ABI 2, справжня версія 1.2.19.0 |
+| tests/separation.py | PASS | В оригінальній DLL немає lt_*; міст динамічно імпортує її; спільний CRT, ABI 2, справжня версія 1.2.19.0 |
 | tests/OtCoreTests.dpr | PASS | Delphi: групування блоків, непослідовні частини, часткові блоки, масштабування, ETA, диск, шляхи, ліміти, трекери, вибір; інтеграція з обома DLL |
 | tests/engine_smoke.py | PASS | ABI, невалідний файл, дублікати, SHA-1, роздача, pause/resume, збереження даних після remove |
 | tests/network_transfer.py | PASS | Новий шлях додавання з параметрами, заміна трекера з діалогу, compact peers, TCP handshake, завантаження 128 KiB, перевірка всіх байтів |

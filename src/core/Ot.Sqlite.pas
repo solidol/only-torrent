@@ -23,7 +23,8 @@ type
 implementation
 
 uses FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param,
-  FireDAC.Phys.SQLiteWrapper, FireDAC.ConsoleUI.Wait;
+  FireDAC.Stan.Def, FireDAC.Stan.Async, FireDAC.DApt,
+  FireDAC.Phys.SQLiteDef, FireDAC.Phys.SQLiteWrapper, FireDAC.ConsoleUI.Wait;
 
 class procedure TOtSqlite.Initialize;
 begin

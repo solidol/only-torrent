@@ -14,7 +14,7 @@ if ($executablePath -ne $clientPath) { Copy-Item -LiteralPath $executablePath -D
 & (Join-Path $PSScriptRoot 'copy-runtime.ps1') -Destination $destinationPath
 $runtime = Get-Content -Raw -Encoding UTF8 (Join-Path $destinationPath 'runtime.json') | ConvertFrom-Json
 $manifest = @{ bridgeAbi = 2; storageSchema = 1; sqlite = $runtime.versions.sqlite; files = @{} }
-foreach ($fileName in @('otorrent.exe','qsbridge.dll','torrent-rasterbar.dll','sqlite3.dll','Languages/uk-UA.json','Languages/en-US.json')) {
+foreach ($fileName in @('otorrent.exe','ltbridge.dll','torrent-rasterbar.dll','sqlite3.dll','Languages/uk-UA.json','Languages/en-US.json')) {
   $manifest.files[$fileName] = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $destinationPath $fileName)).Hash.ToLowerInvariant()
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $destinationPath 'client-build.json')

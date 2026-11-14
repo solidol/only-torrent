@@ -4,6 +4,10 @@ uses
   Ot.Profile in '..\src\core\Ot.Profile.pas',
   Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
   Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
+  Ot.Bencode in '..\src\core\Ot.Bencode.pas',
+  Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
+  Ot.ImportTasksForm in '..\src\ui\Ot.ImportTasksForm.pas',
+  Ot.BitCometImportTest in 'Ot.BitCometImportTest.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
@@ -64,6 +68,7 @@ begin
 end;
 
 var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TFormPreferences;
+  FormImportTasks: TFormImportTasks;
   Entry: TTorrentEntry; Item: TListItem; Settings: TOtSettings;
   InspectEngine: TOtEngine; TorrentMetadata: TOtMetadata;
   I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
@@ -71,11 +76,22 @@ begin
   Output := TStringList.Create;
   try
     try
-      if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') then
+      if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') and
+        (ParamStr(1) <> '--bitcomet-import') then
         SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
+      if ParamStr(1) = '--bitcomet-import' then
+      begin
+        try
+          Require(GetEnvironmentVariable('OT_PROFILE_DIR') <> '', 'Isolated import profile required');
+          RunBitCometImport(FormMain, ParamStr(2), ParamStr(3));
+          Output.Add('PASS: real BitComet profile -> import dialog -> paused SQLite tasks, progress and duplicate prevention');
+        finally FormMain.Free; end;
+        Output.SaveToFile('..\build\bitcomet-import-test.txt', TEncoding.UTF8);
+        Exit;
+      end;
       if (ParamStr(1) = '--restore-test') or (ParamStr(1) = '--restore-unavailable') then
       begin
         try
@@ -209,6 +225,17 @@ begin
             finally InspectEngine.Free; end;
           end;
         finally FormAddTorrent.Free; end;
+        FormImportTasks := TFormImportTasks.Create(nil);
+        try
+          LoadLanguage('en-US');
+          FormImportTasks.Prepare(True, nil);
+          Require(FormImportTasks.ButtonRead.Caption = 'Read task list', 'English import dialog');
+          Require(FormImportTasks.ProgressBarImport.Max = 1000, 'Import progress scale');
+          Require(not FormImportTasks.TimerImport.Enabled, 'No automatic import');
+          LoadLanguage('uk-UA');
+          FormImportTasks.Prepare(True, nil);
+          Capture(FormImportTasks, 'ui-import-tasks');
+        finally FormImportTasks.Free; end;
         FormMain.ListViewTorrents.Items.Clear;
       finally
         Entry.Free;

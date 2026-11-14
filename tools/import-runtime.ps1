@@ -9,14 +9,14 @@ $sourcePath = [IO.Path]::GetFullPath((Join-Path $workspacePath $EnginePackage))
 $sqlitePath = [IO.Path]::GetFullPath((Join-Path $workspacePath $SqliteDll))
 $engineManifest = Get-Content -Raw -Encoding UTF8 (Join-Path $sourcePath 'engine-build.json') | ConvertFrom-Json
 if ($engineManifest.platform -ne 'Win64' -or $engineManifest.bridgeAbi -ne 2) { throw 'Unsupported runtime ABI/platform' }
-foreach ($fileName in @('qsbridge.dll','torrent-rasterbar.dll')) {
+foreach ($fileName in @('ltbridge.dll','torrent-rasterbar.dll')) {
   $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $sourcePath $fileName)).Hash.ToLowerInvariant()
   if ($actual -ne $engineManifest.files.$fileName) { throw "Engine package checksum mismatch: $fileName" }
 }
 if (-not (Test-Path -LiteralPath $sqlitePath)) { throw "Missing SQLite DLL: $sqlitePath" }
 $runtimePath = Join-Path $workspacePath 'third_party/bin/Win64'
 New-Item -ItemType Directory -Force $runtimePath,(Join-Path $runtimePath 'licenses') | Out-Null
-foreach ($fileName in @('qsbridge.dll','torrent-rasterbar.dll','engine-build.json')) {
+foreach ($fileName in @('ltbridge.dll','torrent-rasterbar.dll','engine-build.json')) {
   Copy-Item -LiteralPath (Join-Path $sourcePath $fileName) -Destination (Join-Path $runtimePath $fileName)
 }
 Copy-Item -LiteralPath $sqlitePath -Destination (Join-Path $runtimePath 'sqlite3.dll')
