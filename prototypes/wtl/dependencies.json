@@ -1,0 +1,9 @@
+{
+  "wtl": {
+    "version": "10.01 + upstream fix",
+    "repository": "https://git.code.sf.net/p/wtl/git",
+    "commit": "011be908a1122e7bc9fd1106ecc48f22f5f86f00",
+    "cache": "deps/wtl-10.01",
+    "license": "MS-PL"
+  }
+}
