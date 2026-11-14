@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/branding">
+    <file alias="otorrent.ico">../../../resources/otorrent.ico</file>
+  </qresource>
+</RCC>
