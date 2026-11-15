@@ -27,11 +27,18 @@ begin
   A := TPath.Combine(Root, 'A\AppData\Roaming\Only Torrent');
   B := TPath.Combine(Root, 'B\AppData\Roaming\Only Torrent');
   ForceDirectories(TPath.Combine(A, 'Torrents')); ForceDirectories(B);
-  TFile.WriteAllText(TPath.Combine(A, 'settings.ini'), '[Interface]', TEncoding.UTF8);
-  TFile.WriteAllText(TPath.Combine(A, 'tasks.db'), 'metadata', TEncoding.UTF8);
-  TFile.WriteAllText(TPath.Combine(B, 'settings.ini'), 'other user', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'settings.json'), '[Interface]', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'settings.json.bak'), 'metadata', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(B, 'settings.json'), 'other user', TEncoding.UTF8);
   TFile.WriteAllText(TPath.Combine(A, 'Torrents\' + StringOfChar('a',40) + '.torrent'), 'managed', TEncoding.UTF8);
   TFile.WriteAllText(TPath.Combine(A, 'Torrents\downloaded.torrent'), 'unowned', TEncoding.UTF8);
+  ForceDirectories(TPath.Combine(A, 'Tasks')); ForceDirectories(TPath.Combine(A, 'Resume'));
+  TFile.WriteAllText(TPath.Combine(A, 'Tasks\123.json'), '{}', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'Tasks\123.json.bak'), '{}', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'Tasks\456.json.deleted'), '', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'Tasks\notes.txt'), 'keep', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'Resume\123.{12345678-1234-1234-1234-123456789ABC}.resume'), 'binary', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(A, 'Resume\123.download.resume'), 'keep', TEncoding.UTF8);
   ForceDirectories(TPath.Combine(A, 'Downloads'));
   TFile.WriteAllText(TPath.Combine(A, 'Downloads\movie.bin'), 'downloaded data', TEncoding.UTF8);
   SandboxPath := 'Software\OnlyTorrentTests\' + GUIDToString(Token);
@@ -57,7 +64,7 @@ begin
       Current := DiscoverUserProfiles(SID1, prCurrent);
       Require((Length(Current) = 1) and (Current[0].Folder = ''), 'Redirect into another user profile must be refused');
       Require(RemoveProfilesAfterSuccess(0, Current) = 0, 'Unsafe redirected profile is never cleaned');
-      Require(FileExists(TPath.Combine(B, 'settings.ini')), 'Redirected target user remains untouched');
+      Require(FileExists(TPath.Combine(B, 'settings.json')), 'Redirected target user remains untouched');
       Require(Registry.OpenKey(SID1 + '\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders', True), 'Restore mock roaming setting');
       Registry.WriteString('AppData', '%USERPROFILE%\AppData\Roaming'); Registry.CloseKey;
       Current := DiscoverUserProfiles(SID1, prCurrent);
@@ -65,16 +72,22 @@ begin
       Require((Length(Current) = 1) and SameFileName(Current[0].Folder, A), 'Current-user cleanup scope');
       Require(Length(All) = 2, 'All user profiles, excluding system/service profiles');
       Require(RemoveProfilesAfterSuccess(1603, All) = 0, 'Failed MSI must not remove user data');
-      Require(FileExists(TPath.Combine(A, 'settings.ini')) and FileExists(TPath.Combine(B, 'settings.ini')), 'Profiles preserved on MSI failure');
-      Lock := CreateFile(PChar(TPath.Combine(A, 'tasks.db')), GENERIC_READ, 0, nil, OPEN_EXISTING, 0, 0);
+      Require(FileExists(TPath.Combine(A, 'settings.json')) and FileExists(TPath.Combine(B, 'settings.json')), 'Profiles preserved on MSI failure');
+      Lock := CreateFile(PChar(TPath.Combine(A, 'settings.json.bak')), GENERIC_READ, 0, nil, OPEN_EXISTING, 0, 0);
       Require(Lock <> INVALID_HANDLE_VALUE, 'Lock test metadata');
       try
         Require(RemoveProfilesAfterSuccess(0, Current) = 0, 'Active/locked profile is preserved');
-        Require(FileExists(TPath.Combine(A, 'settings.ini')), 'No profile files removed when preflight fails');
+        Require(FileExists(TPath.Combine(A, 'settings.json')), 'No profile files removed when preflight fails');
       finally CloseHandle(Lock); end;
       Require(RemoveProfilesAfterSuccess(0, Current) = 1, 'Current profile metadata cleanup');
-      Require(not FileExists(TPath.Combine(A, 'tasks.db')) and not FileExists(TPath.Combine(A, 'settings.ini')), 'Application metadata removed');
-      Require(FileExists(TPath.Combine(B, 'settings.ini')), 'Other user profile preserved');
+      Require(not FileExists(TPath.Combine(A, 'settings.json.bak')) and not FileExists(TPath.Combine(A, 'settings.json')), 'Application metadata removed');
+      Require(FileExists(TPath.Combine(B, 'settings.json')), 'Other user profile preserved');
+      Require(not FileExists(TPath.Combine(A, 'Tasks\123.json')) and
+        not FileExists(TPath.Combine(A, 'Tasks\123.json.bak')) and
+        not FileExists(TPath.Combine(A, 'Tasks\456.json.deleted')), 'Task generations and tombstones removed');
+      Require(not FileExists(TPath.Combine(A, 'Resume\123.{12345678-1234-1234-1234-123456789ABC}.resume')), 'Owned resume removed');
+      Require(FileExists(TPath.Combine(A, 'Tasks\notes.txt')) and
+        FileExists(TPath.Combine(A, 'Resume\123.download.resume')), 'Unowned files in service directories preserved');
       Require(not FileExists(TPath.Combine(A, 'Torrents\' + StringOfChar('a',40) + '.torrent')), 'Managed torrent removed');
       Require(FileExists(TPath.Combine(A, 'Torrents\downloaded.torrent')), 'Unowned torrent preserved');
       Require(TFile.ReadAllText(TPath.Combine(A, 'Downloads\movie.bin'), TEncoding.UTF8) = 'downloaded data', 'Downloaded content preserved even inside profile');

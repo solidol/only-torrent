@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import sqlite3
+from profile_json import rows as task_rows
 import subprocess
 import time
 import uuid
@@ -94,47 +94,45 @@ def run():
     assert report['rows'] == len(source_tasks), report
     assert report['imported'] > 0 and report['imported'] == report['duplicates'], report
     assert report['progress'] == 1000, report
-    with sqlite3.connect(PROFILE / 'tasks.db') as db:
-        assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
-        rows = db.execute('SELECT info_hash,torrent_file,save_path,running,details,resume FROM tasks').fetchall()
-        assert len(rows) == report['imported'], (len(rows), report)
-        assert len({r[0] for r in rows}) == len(rows)
-        skipped_files = 0
-        for info_hash, torrent, folder, running, details, resume in rows:
-            assert running == 0 and resume is None, (info_hash, running)
-            assert info_hash in source_tasks, info_hash
-            source = source_tasks[info_hash]
-            content = Path(source['SaveLocation'])
-            assert Path(folder) in (content, content.parent), (folder, content)
-            torrent = Path(torrent)
-            assert PROFILE in torrent.parents and torrent.stem == info_hash
-            assert torrent.is_file()
-            detail = json.loads(details)
-            assert detail['files'] and all(f['priority'] in (0, 4) for f in detail['files'])
-            cached_torrent = SOURCE / source['TorrentFile']
-            if not cached_torrent.is_file():
-                cached_torrent = SOURCE / 'Torrents' / source['Torrent']
-            files = ET.parse(cached_torrent.with_suffix('.xml')).getroot().find('FileList')
-            single = files.get('StandAlone', '').lower() == 'true'
-            assert Path(folder) == (content.parent if single else content), (folder, content)
-            entries = list(files.iter('FileEntry'))
-            assert len(entries) == len(detail['files'])
-            for actual, expected in zip(detail['files'], entries):
-                expected_path = expected.get('RelativePathName', '').replace('/', '\\')
-                while '\\\\' in expected_path:
-                    expected_path = expected_path.replace('\\\\', '\\')
-                if single:
-                    expected_path = content.name
-                assert actual['path'] == expected_path, (actual['path'], expected_path)
-                assert actual['size'] == int(expected.get('Size'))
-                assert actual['priority'] == (0 if expected.get('Priority') == '-1' else 4)
-            skipped_files += sum(f['priority'] == 0 for f in detail['files'])
-            assert all(not Path(f['path']).is_absolute() and '..' not in Path(f['path']).parts for f in detail['files'])
+    rows = task_rows(PROFILE, 'info_hash', 'torrent_file', 'save_path', 'running', 'details', 'resume')
+    assert len(rows) == report['imported'], (len(rows), report)
+    assert len({r[0] for r in rows}) == len(rows)
+    skipped_files = 0
+    for info_hash, torrent, folder, running, details, resume in rows:
+        assert running == 0 and resume is None, (info_hash, running)
+        assert info_hash in source_tasks, info_hash
+        source = source_tasks[info_hash]
+        content = Path(source['SaveLocation'])
+        assert Path(folder) in (content, content.parent), (folder, content)
+        torrent = Path(torrent)
+        assert PROFILE in torrent.parents and torrent.stem == info_hash
+        assert torrent.is_file()
+        detail = json.loads(details)
+        assert detail['files'] and all(f['priority'] in (0, 4) for f in detail['files'])
+        cached_torrent = SOURCE / source['TorrentFile']
+        if not cached_torrent.is_file():
+            cached_torrent = SOURCE / 'Torrents' / source['Torrent']
+        files = ET.parse(cached_torrent.with_suffix('.xml')).getroot().find('FileList')
+        single = files.get('StandAlone', '').lower() == 'true'
+        assert Path(folder) == (content.parent if single else content), (folder, content)
+        entries = list(files.iter('FileEntry'))
+        assert len(entries) == len(detail['files'])
+        for actual, expected in zip(detail['files'], entries):
+            expected_path = expected.get('RelativePathName', '').replace('/', '\\')
+            while '\\\\' in expected_path:
+                expected_path = expected_path.replace('\\\\', '\\')
+            if single:
+                expected_path = content.name
+            assert actual['path'] == expected_path, (actual['path'], expected_path)
+            assert actual['size'] == int(expected.get('Size'))
+            assert actual['priority'] == (0 if expected.get('Priority') == '-1' else 4)
+        skipped_files += sum(f['priority'] == 0 for f in detail['files'])
+        assert all(not Path(f['path']).is_absolute() and '..' not in Path(f['path']).parts for f in detail['files'])
     assert before == snapshot(), 'Source BitComet profile changed during the read-only test'
     summary = dict(profile=str(PROFILE), source_tasks=report['rows'], imported=len(rows),
                    not_imported=report['rows']-len(rows),
                    duplicates=report['duplicates'], skipped_files=skipped_files,
-                   source_unchanged=True, sqlite_integrity='ok')
+                   source_unchanged=True, json_storage='ok')
     (ROOT / 'build/bitcomet-import-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
     print(json.dumps(summary, ensure_ascii=True, indent=2))
 

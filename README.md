@@ -1,4 +1,4 @@
-﻿# Only Torrent
+# Only Torrent
 
 Торрент-клієнт Delphi 13 CE / VCL / DFM, Windows x64. Рушій: оригінальний libtorrent 1.2.19 в `torrent-rasterbar.dll`, окремий C-міст `ltbridge.dll`. Ліцензія власного коду: BSD-3-Clause.
 
@@ -23,7 +23,7 @@ SQLite використовує FireDAC. Схема БД збережена. П�
 запис задачі видаляється з SQLite після підтвердження успіху. Файли видаляються
 без Кошика; інші файли в каталозі завантаження не видаляються.
 
-Відкрийте otorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/otorrent.exe. Поруч потрібні `ltbridge.dll`, `torrent-rasterbar.dll`, `sqlite3.dll`, папка `Languages` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
+Відкрийте otorrent.dproj у Delphi 13 CE, виберіть Release / Windows 64-bit, виконайте Build. Результат: bin/Win64/otorrent.exe. Поруч потрібні `ltbridge.dll`, `torrent-rasterbar.dll`, папка `Languages` та встановлений відповідний Microsoft Visual C++ x64 Runtime.
 
 Для встановленої тут CE працює штатний AutoBuild через IDE:
 
@@ -37,7 +37,6 @@ powershell -ExecutionPolicy Bypass -File tools/build-ide.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/fetch-deps.ps1
-python tools/fetch-sqlite.py
 powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 ```
 
@@ -51,13 +50,13 @@ powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 - Нижні вкладки: загальні відомості, файли, трекери, швидкість, журнал.
 - Діалог за локальним BitComet 2.23: шлях і підпапка, місце на диску, пошук і вибір файлів за типами, видавець, трекери, ліміти завдання та послідовне завантаження. Кнопки «Завантажити зараз» / «Завантажити пізніше». Перегляд метаданих не запускає мережеву сесію. Деталі — [docs/BITCOMET-UI.md](docs/BITCOMET-UI.md).
 - Налаштування: системне / класичне оформлення стандартних контролів, прогресбари, показ діалогу, автоматичний старт, типова папка, порт, глобальні ліміти швидкості й з’єднань.
-- Параметри зберігаються в %APPDATA%/Only Torrent/settings.ini. Застосування не вимагає перезапуску.
+- Параметри зберігаються в %APPDATA%/Only Torrent/settings.json. Застосування не вимагає перезапуску.
 
 Аналіз джерел µTorrent 2.x/3.x та межі відтворення: [docs/UI-RESEARCH.md](docs/UI-RESEARCH.md). Системна тема означає стандартне Win32-оформлення ОС; автоматична темна тема Windows не реалізована. Таблиці використовують системні кольори.
 
 ## Стан функцій
 
-Реалізовано **P0**: INI для основної конфігурації, SQLite для списку завдань і fast-resume, JSON для української та англійської. Службові `.torrent` копіюються в окрему налаштовувану папку за info-hash. Після перезапуску відновлюються папки, вибір файлів, шляхи, параметри та бажаний стан завдань. Формат і порядок збирання: [docs/STORAGE.md](docs/STORAGE.md).
+Реалізовано **P0**: JSON для конфігурації та списку завдань, окремі бінарні файли fast-resume, JSON для української та англійської. Службові `.torrent` копіюються в окрему налаштовувану папку за info-hash. Після перезапуску відновлюються папки, вибір файлів, шляхи, параметри та бажаний стан завдань. Формат і порядок збирання: [docs/STORAGE.md](docs/STORAGE.md).
 
 Працюють .torrent, вибір файлів, перевірка частин, TCP-піри, HTTP/UDP-трекери, пауза, продовження, видалення запису зі збереженням файлів. Локальне end-to-end завантаження перевірено тестом. Нижня вкладка трекерів показує адреси з метаданих, а не стан кожного announce.
 

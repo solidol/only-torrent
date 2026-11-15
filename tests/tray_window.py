@@ -5,7 +5,8 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import sqlite3
+import shutil
+from profile_json import rows as task_rows
 import time
 import uuid
 
@@ -116,8 +117,8 @@ def main():
     source = Path((ROOT / 'build/persistence-profile.path').read_text(encoding='utf-8-sig'))
     stored_profile = PROFILE / 'with-task'
     stored_profile.mkdir()
-    with sqlite3.connect(source / 'tasks.db') as original, sqlite3.connect(stored_profile / 'tasks.db') as target:
-        original.backup(target)
+    for folder in ('Tasks', 'Resume'):
+        shutil.copytree(source / folder, stored_profile / folder)
     process = subprocess.Popen([str(ROOT / 'bin/Win64/otorrent.exe')], cwd=ROOT,
                                env=dict(os.environ, OT_PROFILE_DIR=str(stored_profile)))
     try:
@@ -128,10 +129,8 @@ def main():
         wait_for(lambda: tray_handle(process.pid), 'Restored-task tray icon missing')
         user.PostMessageW(window, 0x112, 0xF060, 0)
         assert process.wait(timeout=25) == 0, 'Close from tray must finish resume saving and terminate'
-        with sqlite3.connect(stored_profile / 'tasks.db') as db:
-            assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
-            row = db.execute('SELECT running,length(resume) FROM tasks').fetchone()
-            assert row[0] == 0 and row[1] > 0, row
+        row = task_rows(stored_profile, 'running', 'length(resume)')[0]
+        assert row[0] == 0 and row[1] > 0, row
         report['close_with_task_saves_resume'] = True
         (ROOT / 'build/tray-window-summary.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         print('PASS: close while in tray with a restored task saves resume and terminates completely')

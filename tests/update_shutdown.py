@@ -69,14 +69,14 @@ try:
     children.append(client)
     for _ in range(100):
         assert client.poll() is None, 'Real client exited before the close request'
-        if (profile / 'tasks.db').exists():
+        if (profile / 'Tasks').exists():
             break
         time.sleep(.05)
     else:
         raise AssertionError('Real client profile initialization timeout')
     assert close(actual, 10000) == 0
     assert client.wait(timeout=5) == 0
-    assert (profile / 'tasks.db').exists(), 'Profile lost while closing for update'
+    assert (profile / 'Tasks').exists(), 'Profile lost while closing for update'
     print('PASS: graceful WM_CLOSE, exact installation matching, refusal timeout, no forced termination')
 finally:
     for proc in children:

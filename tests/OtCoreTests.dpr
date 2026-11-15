@@ -4,7 +4,6 @@ uses
   Ot.WatchFolder in '..\src\core\Ot.WatchFolder.pas',
   Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
   Ot.Profile in '..\src\core\Ot.Profile.pas',
-  Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
   Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
   Ot.Bencode in '..\src\core\Ot.Bencode.pas',
   Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
@@ -16,7 +15,7 @@ uses
   Ot.UninstallTests in 'Ot.UninstallTests.pas',
   Ot.ShellIntegrationTests in 'Ot.ShellIntegrationTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
-  System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
+  System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, System.JSON, Winapi.Windows,
   Ot.Settings in '..\src\ui\Ot.Settings.pas',
   Ot.Types in '..\src\core\Ot.Types.pas',
   Ot.BlockMap in '..\src\core\Ot.BlockMap.pas',
@@ -145,6 +144,52 @@ begin
   finally Engine.Free; end;
 end;
 
+procedure JsonStorageFailures;
+var Folder, Path: string; Token: TGUID; Store: TOtTaskStore;
+  Task: TOtStoredTask; Items: TArray<TOtStoredTask>; Root: TJSONObject;
+  Settings, Loaded: TOtSettings;
+begin
+  CreateGUID(Token); Folder := ExpandFileName('..\build\json-failures-' + GUIDToString(Token));
+  ForceDirectories(Folder); SetEnvironmentVariable('OT_PROFILE_DIR', PChar(Folder));
+  // Old storage must never be opened or migrated.
+  TFile.WriteAllText(TPath.Combine(Folder, 'settings.ini'), '[Interface]Language=en-US');
+  TFile.WriteAllText(TPath.Combine(Folder, 'tasks.db'), 'not a database');
+  Settings.Load; Require(Settings.Language = 'uk-UA', 'Old INI ignored');
+  Settings.Save; Settings.Language := 'en-US'; Settings.Save;
+  Path := TPath.Combine(Folder, 'settings.json');
+  TFile.WriteAllText(Path, '{broken'); Loaded.Load;
+  Require(Loaded.Language = 'uk-UA', 'Settings recover previous committed JSON');
+  Loaded.Save;
+  Require(TFile.ReadAllText(TPath.Combine(Folder, 'tasks.db')) = 'not a database', 'Old DB untouched');
+  Store := TOtTaskStore.Create(Folder);
+  try
+    Require(Length(Store.Load) = 0, 'Old DB not imported');
+    Task := Default(TOtStoredTask); Task.InfoHash := StringOfChar('a',40);
+    Task.Name := 'Unicode Україна'; Task.SavePath := Folder; Task.Details := '{}';
+    Store.Save(Task); Store.SaveResume(Task.Id, TBytes.Create(0,255,1,128)); Store.Flush;
+    Store.SaveResume(Task.Id, TBytes.Create(0,255,2,128)); Store.Flush;
+    Store.SaveResume(Task.Id, TBytes.Create(0,255,3,128)); Store.Flush;
+    Require(Length(TDirectory.GetFiles(TPath.Combine(Folder, 'Resume'), '*.resume')) = 2,
+      'Only current and backup resume generations are retained');
+    Path := TPath.Combine(Folder, 'Tasks\' + IntToStr(Task.Id) + '.json');
+    FreeAndNil(Store);
+    TFile.WriteAllText(Path, '{interrupted');
+    TFile.WriteAllText(Path + '.temp.tmp', '{incomplete');
+    TFile.WriteAllText(TPath.Combine(Folder, 'Tasks\123.json'), '[]');
+    Store := TOtTaskStore.Create(Folder); Items := Store.Load;
+    Require((Length(Items) = 1) and (Items[0].Name = Task.Name), 'Corrupt primary recovers; malformed neighbor is isolated');
+    Require((Length(Items[0].Resume) = 4) and (Items[0].Resume[2] = 2), 'Backup references its matching binary generation');
+    Store.Remove(Task.Id); FreeAndNil(Store);
+    // A crash may leave a stale backup after the committed deletion marker.
+    Root := TJSONObject.Create;
+    try Root.AddPair('schemaVersion', TJSONNumber.Create(1));
+      AtomicWrite(Path + '.bak', TEncoding.UTF8.GetBytes(Root.ToJSON));
+    finally Root.Free; end;
+    Store := TOtTaskStore.Create(Folder);
+    Require(Length(Store.Load) = 0, 'Deletion marker prevents backup resurrection');
+  finally Store.Free; end;
+end;
+
 procedure PersistenceIntegration;
 var Store: TOtTaskStore; Task: TOtStoredTask; Tasks, ClearedTasks: TArray<TOtStoredTask>;
   Engine: TOtEngine; Metadata, Restored: TOtMetadata; Settings, Reloaded: TOtSettings;
@@ -173,9 +218,9 @@ begin
   Settings.DownloadKiB := 19; Settings.Save;
   Reloaded.Load;
   Require((Length(Reloaded.RecentDownloadFolders) = 10) and
-    SameText(Reloaded.RecentDownloadFolders[0], Settings.DownloadFolder), 'Download history survives INI reload');
+    SameText(Reloaded.RecentDownloadFolders[0], Settings.DownloadFolder), 'Download history survives JSON reload');
   Require((Reloaded.Language = 'en-US') and (Reloaded.TorrentFolder = Settings.TorrentFolder) and
-    (Reloaded.DownloadKiB = 19), 'INI general settings round trip');
+    (Reloaded.DownloadKiB = 19), 'JSON general settings round trip');
   LoadLanguage('en-US');
   Require(L('FormPreferences.ButtonCancel.Caption', '') = 'Cancel', 'English JSON');
   LoadLanguage('uk-UA');
@@ -231,13 +276,13 @@ begin
     FreeAndNil(Store); FreeAndNil(Engine);
     Store := TOtTaskStore.Create(Profile); Tasks := Store.Load;
     Require((Length(Tasks) = 1) and (Tasks[0].Id = Task.Id) and not Tasks[0].Running and
-      (Length(Tasks[0].Resume) > 0), 'SQLite close and reopen with resume BLOB and desired pause');
+      (Length(Tasks[0].Resume) > 0), 'JSON close and reopen with resume BLOB and desired pause');
     Require(Tasks[0].Name = Task.Name, 'Unicode text and trailing spaces survive storage');
     Require((Length(Tasks[0].Resume) = Length(Bytes)) and
       CompareMem(@Tasks[0].Resume[0], @Bytes[0], Length(Bytes)), 'Resume BLOB remains byte-exact');
     Store.SaveResume(Task.Id, nil); Store.Flush;
     ClearedTasks := Store.Load;
-    Require((Length(ClearedTasks) = 1) and (Length(ClearedTasks[0].Resume) = 0), 'Empty resume binds as NULL');
+    Require((Length(ClearedTasks) = 1) and (Length(ClearedTasks[0].Resume) = 0), 'Empty resume clears the binary reference');
     Store.SaveResume(Task.Id, Bytes); Store.Flush;
     Restored := TOtMetadata.Create;
     ReadTaskDetails(Tasks[0].Details, Restored, Priorities, Options);
@@ -302,7 +347,7 @@ begin
       if (ParamCount > 0) and (ParamStr(1) = '--updates') then
       begin
         UninstallModels;
-        Results.Add('PASS: uninstall keep/current/all scopes, failed MSI preserves profiles, locked databases and downloaded files remain untouched');
+        Results.Add('PASS: uninstall keep/current/all scopes, failed MSI preserves profiles, locked metadata and downloaded files remain untouched');
         UpdateModels(ExpandFileName(ParamStr(2)));
         ShellRegistrationModels;
         Results.Add('PASS: update version comparison, download/hash/staging, traversal rejection, locked files, rollback, installation and profile preservation');
@@ -318,8 +363,10 @@ begin
       Results.Add('PASS: pure Delphi aggregation, holes, partial blocks, resampling, ETA, disk usage, paths, rates, trackers, selection');
       EngineIntegration;
       Results.Add('PASS: original libtorrent DLL -> ltbridge -> application calculations with real verified files');
+      JsonStorageFailures;
+      Results.Add('PASS: JSON backups, immutable resume generations, bounded cleanup, malformed task isolation, interrupted writes, deletion markers and no legacy migration');
       PersistenceIntegration;
-      Results.Add('PASS: INI, SQLite worker, stable IDs, JSON fallback, managed torrent copy, fast-resume, desired pause, corrupt resume fallback, late replies after removal');
+      Results.Add('PASS: JSON configuration and task worker, stable IDs, JSON fallback, managed torrent copy, fast-resume, desired pause, corrupt resume fallback, late replies after removal');
     except
       on E: Exception do begin Results.Add(E.ClassName + ': ' + E.Message); ExitCode := 1; end;
     end;

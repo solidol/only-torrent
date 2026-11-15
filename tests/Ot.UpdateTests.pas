@@ -93,7 +93,7 @@ begin
   Root := ExpandFileName('..\build\update-test-' + GUIDToString(Token));
   Stage := TPath.Combine(Root, 'fixture'); ForceDirectories(Stage);
   Names := TArray<string>.Create('otorrent.exe', 'otupdater.exe', 'ltbridge.dll',
-    'torrent-rasterbar.dll', 'sqlite3.dll', 'Languages/uk-UA.json', 'Languages/en-US.json', 'runtime.json', 'version.json');
+    'torrent-rasterbar.dll',  'Languages/uk-UA.json', 'Languages/en-US.json', 'runtime.json', 'version.json');
   Version := InstalledVersion('..\bin\Win64\otorrent.exe');
   Require(InstalledVersion('..\bin\Win64\otupdater.exe') = Version, 'Rebuild updater after main version changes');
   Require(CompareVersions(Version, InstalledVersion(OldExecutable)) > 0, 'Need an older fixture executable');
@@ -164,7 +164,7 @@ begin
   Failed := False;
   try InstallUpdate(Downloaded, Target, Version); except on E: Exception do Failed := True; end;
   Require(Failed, 'Same-version reinstall accepted');
-  TFile.WriteAllText(TPath.Combine(Downloaded, 'sqlite3.dll'), 'corrupted', TEncoding.ASCII);
+  TFile.WriteAllText(TPath.Combine(Downloaded, 'ltbridge.dll'), 'corrupted', TEncoding.ASCII);
   Failed := False;
   try VerifyUpdateStage(Downloaded, Version); except on E: Exception do Failed := True; end;
   Require(Failed, 'Corrupted stage accepted');

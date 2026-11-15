@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import shutil
 import socket
-import sqlite3
+from profile_json import rows as task_rows
 import ssl
 import subprocess
 import threading
@@ -64,12 +64,10 @@ def settings(root, watch=None):
     profile.mkdir(parents=True, exist_ok=True)
     folder = root / 'data'
     folder.mkdir(exist_ok=True)
-    cfg = configparser.ConfigParser()
-    cfg['Adding'] = {'Folder': str(folder), 'StartImmediately': '0', 'ShowDialog': '1'}
-    cfg['Storage'] = {'TorrentFolder': str(profile / 'Torrents')}
-    cfg['Watch'] = {'Enabled': '1' if watch else '0', 'Folder': str(watch or '')}
-    with (profile / 'settings.ini').open('w', encoding='utf-8') as file:
-        cfg.write(file)
+    (profile / 'settings.json').write_text(json.dumps({
+        'schemaVersion': 1, 'addingFolder': str(folder), 'addingStartImmediately': False,
+        'addingShowDialog': True, 'storageTorrentFolder': str(profile / 'Torrents'),
+        'watchEnabled': bool(watch), 'watchFolder': str(watch or '')}), encoding='utf-8')
     return profile
 
 
@@ -91,8 +89,7 @@ def source_case(name, link, mode):
     report = root / 'report.txt'
     launch(['--source-test', link, report, mode], profile)
     assert report.read_text(encoding='utf-8-sig').startswith('PASS: ' + mode)
-    with sqlite3.connect(profile / 'tasks.db') as db:
-        rows = db.execute('SELECT info_hash,running,torrent_file,details FROM tasks').fetchall()
+    rows = task_rows(profile, 'info_hash', 'running', 'torrent_file', 'details')
     assert len(rows) == int(mode in ('success', 'download')), (name, rows)
     if rows:
         assert rows[0][0] == HASH and rows[0][1] == int(mode == 'download')
@@ -101,9 +98,8 @@ def source_case(name, link, mode):
         assert details['needsVerification'] == (mode != 'download')
         if link.startswith('magnet:'):
             assert details['magnet'] == link
-            cfg = configparser.ConfigParser()
-            cfg.read(profile / 'settings.ini', encoding='utf-8-sig')
-            assert cfg.getboolean('Network', 'DHT')
+            cfg = json.loads((profile / 'settings.json').read_text(encoding='utf-8-sig'))
+            assert cfg['networkDHT']
     if mode == 'download':
         assert (root / 'data/source.bin').read_bytes() == PAYLOAD
     else:
@@ -130,13 +126,12 @@ def watch_case():
         report = root / f'watch-{iteration}.txt'
         launch(['--watch-test', report], profile)
         assert report.read_text(encoding='utf-8-sig').strip() == 'PASS: watcher'
-        with sqlite3.connect(profile / 'tasks.db') as db:
-            rows = db.execute('SELECT id,info_hash,running FROM tasks ORDER BY id').fetchall()
-            assert len(rows) == 2 and all(row[2] == 0 for row in rows)
-            if ids is None:
-                ids = rows
-            else:
-                assert rows == ids, 'Watch restart must not recreate duplicate tasks'
+        rows = task_rows(profile, 'id', 'info_hash', 'running')
+        assert len(rows) == 2 and all(row[2] == 0 for row in rows)
+        if ids is None:
+            ids = rows
+        else:
+            assert rows == ids, 'Watch restart must not recreate duplicate tasks'
     assert before == {p.name: p.read_bytes() for p in watch.iterdir()}
     assert not list((root / 'data').iterdir()), 'Paused watch imports do not download payload'
     print('PASS: watcher, duplicates, malformed/partial files, original preservation and restart', flush=True)

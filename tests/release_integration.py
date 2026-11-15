@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import sqlite3
+from profile_json import rows as task_rows
 import subprocess
 import time
 import uuid
@@ -111,7 +111,7 @@ def main():
     print((ROOT / 'build/update-tests.txt').read_text(encoding='utf-8-sig').strip())
     profile = RUN / 'profile'
     profile.mkdir()
-    (profile / 'settings.ini').write_text('[Interface]\nLanguage=en-US\n[Adding]\nStartImmediately=0\nShowDialog=1\nFolder=' + str(RUN / 'downloads') + '\n', encoding='utf-8')
+    (profile / 'settings.json').write_text(json.dumps({'schemaVersion':1, 'interfaceLanguage':'en-US', 'addingStartImmediately':False, 'addingShowDialog':True, 'addingFolder':str(RUN / 'downloads')}), encoding='utf-8')
     torrent = RUN / 'Тест із пробілами.torrent'
     torrent.write_bytes(bencode({b'info': {b'name': b'fixture.bin', b'length': 4,
         b'piece length': 16384, b'pieces': hashlib.sha1(b'test').digest(), b'private': 1}}))
@@ -163,8 +163,7 @@ def main():
         print('PASS: menu launches standalone updater; no automatic check; explicit live GitHub check; installation requires verified download')
         user.PostMessageW(window, 0x10, 0, 0)
         assert client.wait(25) == 0
-        with sqlite3.connect(profile / 'tasks.db') as db:
-            assert db.execute('SELECT count(*) FROM tasks').fetchone()[0] == 0
+        assert len(task_rows(profile, "id")) == 0
         (ROOT / 'build/release-integration-summary.json').write_text(json.dumps({'status': 'PASS', 'root': str(RUN)}, indent=2), encoding='utf-8')
     finally:
         if updater_pid and form(updater_pid, 'TFormUpdater'):

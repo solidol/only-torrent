@@ -49,7 +49,7 @@ try {
     [void]$client.CloseMainWindow()
     if (-not $client.WaitForExit(20000)) { throw 'Installed client did not shut down' }
   } finally { if (-not $client.HasExited) { $client.Kill() } }
-  if (-not (Test-Path -LiteralPath (Join-Path $profile 'tasks.db'))) { throw 'Client did not create its user-profile database' }
+  if (-not (Test-Path -LiteralPath (Join-Path $profile 'settings.json'))) { throw 'Client did not create its user-profile configuration' }
   New-Item -ItemType Directory -Force (Join-Path $profile 'Torrents') | Out-Null
   [IO.File]::WriteAllText((Join-Path $profile 'Torrents/preserve.torrent'), 'managed torrent preservation marker')
   $before = ProfileSnapshot

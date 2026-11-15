@@ -5,7 +5,6 @@ uses
   Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
   Ot.AddLinkForm in '..\src\ui\Ot.AddLinkForm.pas',
   Ot.Profile in '..\src\core\Ot.Profile.pas',
-  Ot.Sqlite in '..\src\core\Ot.Sqlite.pas',
   Ot.TaskStore in '..\src\core\Ot.TaskStore.pas',
   Ot.Bencode in '..\src\core\Ot.Bencode.pas',
   Ot.TaskImport in '..\src\core\Ot.TaskImport.pas',
@@ -118,7 +117,7 @@ begin
         try
           Require(GetEnvironmentVariable('OT_PROFILE_DIR') <> '', 'Isolated import profile required');
           RunBitCometImport(FormMain, ParamStr(2), ParamStr(3));
-          Output.Add('PASS: real BitComet profile -> import dialog -> paused SQLite tasks, progress and duplicate prevention');
+          Output.Add('PASS: real BitComet profile -> import dialog -> paused JSON tasks, progress and duplicate prevention');
         finally FormMain.Free; end;
         Output.SaveToFile('..\build\bitcomet-import-test.txt', TEncoding.UTF8);
         Exit;
@@ -146,8 +145,8 @@ begin
             Sleep(10);
             FormMain.FormCloseQuery(nil, CanClose);
           until CanClose or (GetTickCount64 > Deadline);
-          Require(CanClose, 'Graceful close drains final resume replies and SQLite writes');
-          Output.Add('PASS: application restart restores SQLite tasks and managed torrent; graceful close saves fast-resume');
+          Require(CanClose, 'Graceful close drains final resume replies and JSON writes');
+          Output.Add('PASS: application restart restores JSON tasks and managed torrent; graceful close saves fast-resume');
         finally FormMain.Free; end;
         Output.SaveToFile('..\build\ui-restore.txt', TEncoding.UTF8);
         Exit;
@@ -208,7 +207,7 @@ begin
         Require(ThemeColor(clWindow) = TColor(RGB(30, 30, 30)), 'Dark editor background');
         Require(ThemeColor(clWindowText) = TColor(RGB(212, 212, 212)), 'Soft dark foreground');
         Settings.Load;
-        Require(Settings.DarkTheme, 'Dark theme persisted in INI');
+        Require(Settings.DarkTheme, 'Dark theme persisted in JSON');
         Capture(FormMain, 'ui-main-dark');
         FormPreferences := TFormPreferences.Create(nil);
         try
@@ -222,7 +221,7 @@ begin
         Require(not FormMain.MenuItemTheme.Checked and not FormMain.ToolButtonTheme.Down,
           'Light theme menu and toolbar are synchronized');
         Settings.Load;
-        Require(not Settings.DarkTheme, 'Light theme persisted in INI');
+        Require(not Settings.DarkTheme, 'Light theme persisted in JSON');
         Capture(FormMain, 'ui-main-light-restored');
         FormPreferences := TFormPreferences.Create(nil);
         try
@@ -335,7 +334,7 @@ begin
         Entry.Free;
         FormMain.Free;
       end;
-      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and INI persistence, preferences navigation, file checkboxes and progress rendering');
+      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and JSON persistence, preferences navigation, file checkboxes and progress rendering');
     except
       on E: Exception do
       begin

@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import sqlite3
+from profile_json import rows as task_rows
 import subprocess
 import sys
 import uuid
@@ -62,16 +62,14 @@ def run():
         assert process.returncode == 0, (scenario, process.returncode,
             (ROOT / 'build/ui-smoke.txt').read_text(encoding='utf-8-sig') if (ROOT / 'build/ui-smoke.txt').exists() else '')
         assert report.with_suffix('.json.result').read_text(encoding='utf-8-sig').strip() == 'PASS: ' + scenario
-        with sqlite3.connect(profile / 'tasks.db') as db:
-            assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
-            rows = db.execute('SELECT running,details FROM tasks').fetchall()
-            if scenario == 'batch':
-                assert len(rows) == 0
-            else:
-                assert len(rows) == 2
-                for running, details in rows:
-                    assert running == int(scenario in ('auto', 'verify-auto', 'start'))
-                    assert json.loads(details)['needsVerification'] == (scenario == 'paused')
+        rows = task_rows(profile, 'running', 'details')
+        if scenario == 'batch':
+            assert len(rows) == 0
+        else:
+            assert len(rows) == 2
+            for running, details in rows:
+                assert running == int(scenario in ('auto', 'verify-auto', 'start'))
+                assert json.loads(details)['needsVerification'] == (scenario == 'paused')
         assert (root / 'data/unrelated.txt').read_text(encoding='utf-8') == 'Keep this file'
         results.append(scenario)
         print('PASS:', scenario, flush=True)

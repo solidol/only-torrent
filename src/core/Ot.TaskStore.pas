@@ -3,7 +3,7 @@
 interface
 
 uses System.SysUtils, System.Classes, System.SyncObjs, System.Generics.Collections,
-  Winapi.Windows, Ot.Types, Ot.Sqlite, FireDAC.Comp.Client;
+  Winapi.Windows, Ot.Types;
 
 type
   TOtStoredTask = record
@@ -30,9 +30,13 @@ type
     FLock: TCriticalSection;
     FWake: TEvent;
     FPath, FLastError: string;
-    FDB: TOtSqlite;
+    FTasks: TDictionary<Int64, TOtStoredTask>;
+    FResumeFiles: TDictionary<Int64, string>;
+    procedure ReadTasks;
+    procedure CleanResume(Id: Int64; const Current: string);
+    procedure WriteTask(const Task: TOtStoredTask; const ResumeFile: string);
+    function TaskFile(Id: Int64): string;
     procedure Process(Job: TOtStoreJob);
-    procedure Migrate;
   protected
     procedure Execute; override;
   public
@@ -65,7 +69,7 @@ procedure ReadTaskDetails(const Json: string; Metadata: TOtMetadata;
 implementation
 
 uses Ot.Localization, System.IOUtils, System.DateUtils, System.JSON,
-  Data.DB, FireDAC.Stan.Param;
+  Ot.Profile, System.Generics.Defaults;
 
 function TaskDetails(Metadata: TOtMetadata; const Priorities: TArray<Integer>;
   const Options: TOtAddOptions): string;
@@ -147,6 +151,8 @@ constructor TOtStoreWorker.Create(const Path: string);
 begin
   inherited Create(True);
   FPath := Path;
+  FTasks := TDictionary<Int64, TOtStoredTask>.Create;
+  FResumeFiles := TDictionary<Int64, string>.Create;
   FQueue := TQueue<TOtStoreJob>.Create;
   FLock := TCriticalSection.Create;
   FWake := TEvent.Create(nil, False, False, '');
@@ -155,7 +161,7 @@ end;
 destructor TOtStoreWorker.Destroy;
 begin
   WaitFor;
-  FWake.Free; FLock.Free; FQueue.Free;
+  FWake.Free; FLock.Free; FQueue.Free; FResumeFiles.Free; FTasks.Free;
   inherited;
 end;
 
@@ -172,114 +178,190 @@ begin
   try Result := FLastError; FLastError := ''; finally FLock.Release; end;
 end;
 
-procedure TOtStoreWorker.Migrate;
-var FDQueryTask: TFDQuery; Version: Integer;
+function TOtStoreWorker.TaskFile(Id: Int64): string;
 begin
-  FDQueryTask := FDB.Prepare('PRAGMA user_version');
-  try FDQueryTask.Open; Version := FDQueryTask.Fields[0].AsInteger; finally FDQueryTask.Free; end;
-  if Version > 1 then raise Exception.Create(L('message.302d3409a7b0', 'База завдань створена новішою версією Only Torrent'));
-  if Version = 1 then Exit;
-  FDB.Connection.StartTransaction;
+  Result := TPath.Combine(FPath, 'Tasks\' + IntToStr(Id) + '.json');
+end;
+
+procedure TOtStoreWorker.WriteTask(const Task: TOtStoredTask; const ResumeFile: string);
+var Root: TJSONObject; Details: TJSONValue;
+begin
+  Root := TJSONObject.Create;
   try
-    FDB.Execute('CREATE TABLE tasks (' +
-      'id INTEGER PRIMARY KEY AUTOINCREMENT, info_hash TEXT NOT NULL UNIQUE,' +
-      'name TEXT NOT NULL, torrent_file TEXT NOT NULL, save_path TEXT NOT NULL,' +
-      'running INTEGER NOT NULL CHECK(running IN (0,1)), position INTEGER NOT NULL,' +
-      'created_utc INTEGER NOT NULL, updated_utc INTEGER NOT NULL,' +
-      'details TEXT NOT NULL, resume BLOB)');
-    FDB.Execute('PRAGMA user_version=1');
-    FDB.Connection.Commit;
-  except
-    if FDB.Connection.InTransaction then FDB.Connection.Rollback;
-    raise;
-  end;
+    Root.AddPair('schemaVersion', TJSONNumber.Create(1));
+    Root.AddPair('id', TJSONNumber.Create(Task.Id));
+    Root.AddPair('infoHash', Task.InfoHash); Root.AddPair('name', Task.Name);
+    Root.AddPair('torrentFile', Task.TorrentFile); Root.AddPair('savePath', Task.SavePath);
+    Root.AddPair('running', TJSONBool.Create(Task.Running));
+    Root.AddPair('position', TJSONNumber.Create(Task.Position));
+    Root.AddPair('createdUTC', TJSONNumber.Create(Task.CreatedUTC));
+    Root.AddPair('updatedUTC', TJSONNumber.Create(Task.UpdatedUTC));
+    Details := TJSONObject.ParseJSONValue(Task.Details);
+    if not (Details is TJSONObject) then
+    begin Details.Free; raise EWriteError.Create('Invalid task details'); end;
+    Root.AddPair('details', Details); Root.AddPair('resumeFile', ResumeFile);
+    WriteProfileJson(TaskFile(Task.Id), Root);
+  finally Root.Free; end;
+end;
+
+procedure TOtStoreWorker.CleanResume(Id: Int64; const Current: string);
+var Backup: TJSONObject; Keep, Path: string;
+begin
+  Backup := nil;
+  try
+    try
+      Backup := ReadProfileJson(TaskFile(Id) + '.bak');
+      Keep := '';
+      if Backup <> nil then Keep := Backup.GetValue<string>('resumeFile', '');
+      for Path in TDirectory.GetFiles(TPath.Combine(FPath, 'Resume'), IntToStr(Id) + '.*.resume') do
+        if ManagedResumeFile(ExtractFileName(Path)) and (ExtractFileName(Path) <> Current) and
+          (ExtractFileName(Path) <> Keep) then TFile.Delete(Path);
+    except
+      // Cleanup is optional; failed cleanup must not invalidate a committed save.
+    end;
+  finally Backup.Free; end;
+end;
+
+procedure TOtStoreWorker.ReadTasks;
+var Path, Primary, ResumeFile, Candidate: string; Root: TJSONObject;
+  Task: TOtStoredTask; Value: TJSONValue; Id: Int64; Seen: TDictionary<string, Boolean>;
+begin
+  Root := nil;
+  Seen := TDictionary<string, Boolean>.Create;
+  try
+    for Path in TDirectory.GetFiles(TPath.Combine(FPath, 'Tasks'), '*.json*') do
+    begin
+      Primary := Path;
+      if SameText(ExtractFileExt(Path), '.bak') then Primary := ChangeFileExt(Path, '');
+      if not SameText(ExtractFileExt(Primary), '.json') then Continue;
+      if not TryStrToInt64(ChangeFileExt(ExtractFileName(Primary), ''), Id) or (Id <= 0) then Continue;
+      if FileExists(Primary + '.deleted') or Seen.ContainsKey(Primary) then Continue;
+      Seen.Add(Primary, True);
+      for Candidate in TArray<string>.Create(Primary, Primary + '.bak') do
+      begin
+        if not FileExists(Candidate) then Continue;
+        Root := nil;
+        try
+          // Parse each complete generation independently; malformed tasks do not block others.
+          Value := TJSONObject.ParseJSONValue(TFile.ReadAllText(Candidate, TEncoding.UTF8));
+          if not (Value is TJSONObject) then
+          begin Value.Free; raise EReadError.Create('Invalid task JSON'); end;
+          Root := TJSONObject(Value);
+          if (Root = nil) or (Root.GetValue<Integer>('schemaVersion') <> 1) then
+            raise EReadError.Create('Invalid task schema');
+          Task := Default(TOtStoredTask);
+          Task.Id := Root.GetValue<Int64>('id');
+          if Task.Id <> Id then raise EReadError.Create('Task ID mismatch');
+          Task.InfoHash := Root.GetValue<string>('infoHash'); Task.Name := Root.GetValue<string>('name');
+          Task.TorrentFile := Root.GetValue<string>('torrentFile'); Task.SavePath := Root.GetValue<string>('savePath');
+          Task.Running := Root.GetValue<Boolean>('running'); Task.Position := Root.GetValue<Integer>('position');
+          Task.CreatedUTC := Root.GetValue<Int64>('createdUTC'); Task.UpdatedUTC := Root.GetValue<Int64>('updatedUTC');
+          Task.Details := Root.GetValue<TJSONObject>('details').ToJSON;
+          ResumeFile := Root.GetValue<string>('resumeFile');
+          if ResumeFile <> '' then
+          begin
+            if not ManagedResumeFile(ResumeFile) or
+              not ResumeFile.StartsWith(IntToStr(Id) + '.') or not ResumeFile.EndsWith('.resume') then
+              raise EReadError.Create('Invalid resume filename');
+            try
+              if FileExists(TPath.Combine(FPath, 'Resume\' + ResumeFile)) then
+                Task.Resume := TFile.ReadAllBytes(TPath.Combine(FPath, 'Resume\' + ResumeFile));
+            except Task.Resume := nil; end;
+          end;
+          FTasks.AddOrSetValue(Id, Task); FResumeFiles.AddOrSetValue(Id, ResumeFile);
+          if Candidate <> Primary then AtomicWrite(Primary, TEncoding.UTF8.GetBytes(Root.ToJSON));
+          Break;
+        except
+          on E: Exception do
+          begin
+            FLock.Acquire;
+            try FLastError := 'Task ' + IntToStr(Id) + ': ' + E.Message; finally FLock.Release; end;
+          end;
+        end;
+        Root.Free; Root := nil;
+      end;
+      Root.Free;
+    end;
+  finally Seen.Free; end;
 end;
 
 procedure TOtStoreWorker.Process(Job: TOtStoreJob);
-var FDQueryTask: TFDQuery; Tasks: TList<TOtStoredTask>; Task: TOtStoredTask;
-  ResumeStream: TBytesStream;
+var Task, Existing: TOtStoredTask; Token: TGUID; ResumeFile, Path: string; Id: Int64;
 begin
   case Job.Kind of
-    0: begin FDB := TOtSqlite.Create(FPath); Migrate; end;
+    0: begin
+      if not ForceDirectories(TPath.Combine(FPath, 'Tasks')) or
+        not ForceDirectories(TPath.Combine(FPath, 'Resume')) then RaiseLastOSError;
+      ReadTasks;
+    end;
     1: begin
-      FDQueryTask := FDB.Prepare('SELECT id AS "id::BIGINT",info_hash,name,torrent_file,save_path,running,position,created_utc AS "created_utc::BIGINT",updated_utc AS "updated_utc::BIGINT",details,resume FROM tasks ORDER BY position,id');
-      Tasks := TList<TOtStoredTask>.Create;
-      try
-        FDQueryTask.Open;
-        while not FDQueryTask.Eof do
+      Job.Tasks := FTasks.Values.ToArray;
+      TArray.Sort<TOtStoredTask>(Job.Tasks, TComparer<TOtStoredTask>.Construct(
+        function(const A, B: TOtStoredTask): Integer
         begin
-          Task := Default(TOtStoredTask);
-          Task.Id := FDQueryTask.Fields[0].AsLargeInt; Task.InfoHash := FDQueryTask.Fields[1].AsString;
-          Task.Name := FDQueryTask.Fields[2].AsString; Task.TorrentFile := FDQueryTask.Fields[3].AsString;
-          Task.SavePath := FDQueryTask.Fields[4].AsString; Task.Running := FDQueryTask.Fields[5].AsLargeInt <> 0;
-          Task.Position := FDQueryTask.Fields[6].AsLargeInt; Task.CreatedUTC := FDQueryTask.Fields[7].AsLargeInt;
-          Task.UpdatedUTC := FDQueryTask.Fields[8].AsLargeInt; Task.Details := FDQueryTask.Fields[9].AsString;
-          Task.Resume := FDQueryTask.Fields[10].AsBytes; Tasks.Add(Task);
-          FDQueryTask.Next;
-        end;
-        Job.Tasks := Tasks.ToArray;
-      finally Tasks.Free; FDQueryTask.Free; end;
+          Result := 0;
+          if A.Position < B.Position then Exit(-1);
+          if A.Position > B.Position then Exit(1);
+          if A.Id < B.Id then Exit(-1);
+          if A.Id > B.Id then Exit(1);
+        end));
     end;
     2: begin
-      Job.Task.UpdatedUTC := DateTimeToUnix(Now, False);
-      if Job.Task.CreatedUTC = 0 then Job.Task.CreatedUTC := Job.Task.UpdatedUTC;
-      FDB.Connection.StartTransaction;
-      try
-        if Job.Task.Id = 0 then
-          FDQueryTask := FDB.Prepare('INSERT INTO tasks(info_hash,name,torrent_file,save_path,running,position,created_utc,updated_utc,details) VALUES(:p1,:p2,:p3,:p4,:p5,:p6,:p7,:p8,:p9)')
-        else
-          FDQueryTask := FDB.Prepare('UPDATE tasks SET info_hash=:p1,name=:p2,torrent_file=:p3,save_path=:p4,running=:p5,position=:p6,created_utc=:p7,updated_utc=:p8,details=:p9 WHERE id=:p10');
-        try
-          FDQueryTask.Params[0].AsWideString := Job.Task.InfoHash; FDQueryTask.Params[1].AsWideString := Job.Task.Name;
-          FDQueryTask.Params[2].AsWideString := Job.Task.TorrentFile; FDQueryTask.Params[3].AsWideString := Job.Task.SavePath;
-          FDQueryTask.Params[4].AsLargeInt := Int64(Ord(Job.Task.Running)); FDQueryTask.Params[5].AsLargeInt := Int64(Job.Task.Position);
-          FDQueryTask.Params[6].AsLargeInt := Job.Task.CreatedUTC; FDQueryTask.Params[7].AsLargeInt := Job.Task.UpdatedUTC;
-          FDQueryTask.Params[8].AsWideMemo := Job.Task.Details;
-          if Job.Task.Id <> 0 then FDQueryTask.Params[9].AsLargeInt := Job.Task.Id;
-          FDQueryTask.ExecSQL;
-          if Job.Task.Id = 0 then Job.Task.Id := FDB.LastId;
-        finally FDQueryTask.Free; end;
-        FDB.Connection.Commit;
-      except
-        if FDB.Connection.InTransaction then FDB.Connection.Rollback;
-        raise;
+      Task := Job.Task;
+      if Task.Id = 0 then
+      begin
+        repeat
+          CreateGUID(Token); Move(Token, Id, SizeOf(Id)); Id := Id and High(Int64);
+        until (Id > 0) and not FTasks.ContainsKey(Id) and not FileExists(TaskFile(Id)) and
+          not FileExists(TaskFile(Id) + '.deleted');
+        Task.Id := Id;
       end;
+      for Existing in FTasks.Values do
+        if (Existing.Id <> Task.Id) and SameText(Existing.InfoHash, Task.InfoHash) then
+          raise EWriteError.Create('Duplicate task info-hash');
+      ResumeFile := '';
+      if FTasks.TryGetValue(Task.Id, Existing) then
+      begin Task.Resume := Existing.Resume; ResumeFile := FResumeFiles[Task.Id]; end;
+      Task.UpdatedUTC := DateTimeToUnix(Now, False);
+      if Task.CreatedUTC = 0 then Task.CreatedUTC := Task.UpdatedUTC;
+      WriteTask(Task, ResumeFile);
+      FTasks.AddOrSetValue(Task.Id, Task); FResumeFiles.AddOrSetValue(Task.Id, ResumeFile);
+      CleanResume(Task.Id, ResumeFile);
+      Job.Task := Task;
     end;
     3: begin
-      FDQueryTask := FDB.Prepare('DELETE FROM tasks WHERE id=:p1');
-      try FDQueryTask.Params[0].AsLargeInt := Job.Task.Id; FDQueryTask.ExecSQL; finally FDQueryTask.Free; end;
+      if not FTasks.ContainsKey(Job.Task.Id) then Exit;
+      Path := TaskFile(Job.Task.Id);
+      // Commit deletion before removing either generation, so backups cannot resurrect it.
+      AtomicWrite(Path + '.deleted', nil);
+      FTasks.Remove(Job.Task.Id); FResumeFiles.Remove(Job.Task.Id);
+      if FileExists(Path) then TFile.Delete(Path);
+      if FileExists(Path + '.bak') then TFile.Delete(Path + '.bak');
+      for Path in TDirectory.GetFiles(TPath.Combine(FPath, 'Resume'), IntToStr(Job.Task.Id) + '.*.resume') do
+        if ManagedResumeFile(ExtractFileName(Path)) then TFile.Delete(Path);
     end;
     4: begin
-      FDQueryTask := FDB.Prepare('UPDATE tasks SET resume=:p1,updated_utc=:p2 WHERE id=:p3');
-      try
-        if Length(Job.Task.Resume) = 0 then
-        begin
-          FDQueryTask.Params[0].DataType := ftBlob;
-          FDQueryTask.Params[0].Clear;
-          FDQueryTask.Params[0].Bound := True;
-        end
-        else
-        begin
-          ResumeStream := TBytesStream.Create(Job.Task.Resume);
-          try FDQueryTask.Params[0].LoadFromStream(ResumeStream, ftBlob);
-          finally ResumeStream.Free; end;
-        end;
-        FDQueryTask.Params[1].AsLargeInt := DateTimeToUnix(Now, False); FDQueryTask.Params[2].AsLargeInt := Job.Task.Id;
-        FDQueryTask.ExecSQL;
-      finally FDQueryTask.Free; end;
+      if not FTasks.TryGetValue(Job.Task.Id, Task) then Exit;
+      ResumeFile := '';
+      if Length(Job.Task.Resume) > 0 then
+      begin
+        CreateGUID(Token);
+        ResumeFile := IntToStr(Task.Id) + '.' + GUIDToString(Token) + '.resume';
+        AtomicWrite(TPath.Combine(FPath, 'Resume\' + ResumeFile), Job.Task.Resume);
+      end;
+      Task.Resume := Job.Task.Resume; Task.UpdatedUTC := DateTimeToUnix(Now, False);
+      WriteTask(Task, ResumeFile);
+      FTasks.AddOrSetValue(Task.Id, Task); FResumeFiles.AddOrSetValue(Task.Id, ResumeFile);
+      CleanResume(Task.Id, ResumeFile);
     end;
-    5: begin
-      FDQueryTask := FDB.Prepare('PRAGMA wal_checkpoint(PASSIVE)');
-      try FDQueryTask.Open; finally FDQueryTask.Free; end;
-    end;
+    5: ; // FIFO barrier: all previous atomic writes have completed.
   end;
 end;
 
 procedure TOtStoreWorker.Execute;
 var Job: TOtStoreJob; InitError: string;
 begin
-  try
-    while True do
+  while True do
     begin
       Job := nil;
       FLock.Acquire;
@@ -303,7 +385,6 @@ begin
       end;
       if Job.Async then Job.Free else Job.Done.SetEvent;
     end;
-  finally FDB.Free; end;
 end;
 
 constructor TOtTaskStore.Create(const Folder: string);
@@ -315,8 +396,7 @@ begin
   FProfileLock := CreateFile(PChar(TPath.Combine(Folder, 'profile.lock')), GENERIC_READ or GENERIC_WRITE,
     0, nil, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
   if FProfileLock = INVALID_HANDLE_VALUE then raise Exception.Create(L('message.8c01a8d2068f', 'Профіль Only Torrent уже використовується або недоступний'));
-  TOtSqlite.Initialize;
-  FWorker := TOtStoreWorker.Create(TPath.Combine(Folder, 'tasks.db'));
+  FWorker := TOtStoreWorker.Create(Folder);
   FWorker.Start;
   Job := TOtStoreJob.Create(0);
   try Run(Job); finally Job.Free; end;

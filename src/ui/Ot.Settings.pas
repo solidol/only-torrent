@@ -18,11 +18,11 @@ type
 
 implementation
 
-uses Ot.Localization, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, Ot.Profile, Ot.AutoStart;
+uses Ot.Localization, System.SysUtils, System.Classes, System.IOUtils, System.JSON, System.Generics.Collections, Ot.Profile, Ot.AutoStart;
 
 function SettingsFile: string;
 begin
-  Result := TPath.Combine(ProfileFolder, 'settings.ini');
+  Result := TPath.Combine(ProfileFolder, 'settings.json');
 end;
 
 procedure TOtSettings.RememberDownloadFolder(const Folder: string);
@@ -47,27 +47,30 @@ begin
 end;
 
 procedure TOtSettings.Load;
-var Ini: TMemIniFile; I, Count: Integer; SelectedFolder, DefaultFolder: string;
+var Root: TJSONObject; History: TJSONArray; I, Count: Integer; SelectedFolder, DefaultFolder: string;
 begin
-  Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
+  Root := ReadProfileJson(SettingsFile);
+  if Root = nil then Root := TJSONObject.Create;
   try
     AutoStart := AutoStartEnabled;
-    DarkTheme := Ini.ReadBool('Interface', 'DarkTheme', False);
-    SystemTheme := Ini.ReadBool('Interface', 'SystemTheme', True);
-    Language := Ini.ReadString('Interface', 'Language', 'uk-UA');
-    TorrentFolder := ExpandFileName(Ini.ReadString('Storage', 'TorrentFolder',
+    DarkTheme := Root.GetValue<Boolean>('interfaceDarkTheme', False);
+    SystemTheme := Root.GetValue<Boolean>('interfaceSystemTheme', True);
+    Language := Root.GetValue<string>('interfaceLanguage', 'uk-UA');
+    TorrentFolder := ExpandFileName(Root.GetValue<string>('storageTorrentFolder',
       TPath.Combine(ProfileFolder, 'Torrents')));
-    ShowProgressBars := Ini.ReadBool('Interface', 'ProgressBars', True);
-    StartImmediately := Ini.ReadBool('Adding', 'StartImmediately', True);
-    ShowAddDialog := Ini.ReadBool('Adding', 'ShowDialog', True);
-    WatchEnabled := Ini.ReadBool('Watch', 'Enabled', False);
-    WatchFolder := Trim(Ini.ReadString('Watch', 'Folder', ''));
+    ShowProgressBars := Root.GetValue<Boolean>('interfaceProgressBars', True);
+    StartImmediately := Root.GetValue<Boolean>('addingStartImmediately', True);
+    ShowAddDialog := Root.GetValue<Boolean>('addingShowDialog', True);
+    WatchEnabled := Root.GetValue<Boolean>('watchEnabled', False);
+    WatchFolder := Trim(Root.GetValue<string>('watchFolder', ''));
     if WatchFolder <> '' then WatchFolder := ExpandFileName(WatchFolder);
     DefaultFolder := TPath.GetDownloadsPath;
     if DefaultFolder = '' then DefaultFolder := 'C:\Downloads';
-    SelectedFolder := Ini.ReadString('Adding', 'Folder', DefaultFolder);
+    SelectedFolder := Root.GetValue<string>('addingFolder', DefaultFolder);
     RecentDownloadFolders := nil;
-    Count := Ini.ReadInteger('DownloadFolders', 'Count', 0);
+    History := Root.GetValue<TJSONArray>('DownloadFolders', nil);
+    Count := 0;
+    if History <> nil then Count := History.Count;
     if Count < 0 then Count := 0;
     if Count > 10 then Count := 10;
     if Count = 0 then
@@ -76,55 +79,51 @@ begin
       RememberDownloadFolder(DefaultFolder);
     end;
     for I := Count - 1 downto 0 do
-      RememberDownloadFolder(Ini.ReadString('DownloadFolders', 'Folder' + IntToStr(I), ''));
+      RememberDownloadFolder(History.Items[I].Value);
     if Trim(SelectedFolder) = '' then SelectedFolder := DefaultFolder;
     RememberDownloadFolder(SelectedFolder);
-    ListenPort := Ini.ReadInteger('Network', 'Port', 6881);
-    DownloadKiB := Ini.ReadInteger('Network', 'DownloadKiB', 0);
-    UploadKiB := Ini.ReadInteger('Network', 'UploadKiB', 0);
-    Connections := Ini.ReadInteger('Network', 'Connections', 200);
-    EnableDHT := Ini.ReadBool('Network', 'DHT', False);
+    ListenPort := Root.GetValue<Integer>('networkPort', 6881);
+    DownloadKiB := Root.GetValue<Integer>('networkDownloadKiB', 0);
+    UploadKiB := Root.GetValue<Integer>('networkUploadKiB', 0);
+    Connections := Root.GetValue<Integer>('networkConnections', 200);
+    EnableDHT := Root.GetValue<Boolean>('networkDHT', False);
     if (ListenPort < 1) or (ListenPort > 65535) then ListenPort := 6881;
     if (DownloadKiB < 0) or (DownloadKiB > 1048576) then DownloadKiB := 0;
     if (UploadKiB < 0) or (UploadKiB > 1048576) then UploadKiB := 0;
     if (Connections < 10) or (Connections > 10000) then Connections := 200;
   finally
-    Ini.Free;
+    Root.Free;
   end;
 end;
 
 procedure TOtSettings.Save;
-var Ini: TMemIniFile; Lines: TStringList; I: Integer;
+var Root: TJSONObject; History: TJSONArray; I: Integer;
 begin
-  Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
+  Root := TJSONObject.Create;
+  Root.AddPair('schemaVersion', TJSONNumber.Create(1));
   try
-    Ini.WriteBool('Interface', 'AutoStart', AutoStart);
-    Ini.WriteBool('Interface', 'DarkTheme', DarkTheme);
-    Ini.WriteBool('Interface', 'SystemTheme', SystemTheme);
-    Ini.WriteString('Interface', 'Language', Language);
-    Ini.WriteString('Storage', 'TorrentFolder', TorrentFolder);
-    Ini.WriteBool('Interface', 'ProgressBars', ShowProgressBars);
-    Ini.WriteBool('Adding', 'StartImmediately', StartImmediately);
-    Ini.WriteBool('Adding', 'ShowDialog', ShowAddDialog);
-    Ini.WriteBool('Watch', 'Enabled', WatchEnabled);
-    Ini.WriteString('Watch', 'Folder', WatchFolder);
-    Ini.WriteString('Adding', 'Folder', DownloadFolder);
-    Ini.EraseSection('DownloadFolders');
-    Ini.WriteInteger('DownloadFolders', 'Count', Length(RecentDownloadFolders));
-    for I := 0 to High(RecentDownloadFolders) do
-      Ini.WriteString('DownloadFolders', 'Folder' + IntToStr(I), RecentDownloadFolders[I]);
-    Ini.WriteInteger('Network', 'Port', ListenPort);
-    Ini.WriteInteger('Network', 'DownloadKiB', DownloadKiB);
-    Ini.WriteInteger('Network', 'UploadKiB', UploadKiB);
-    Ini.WriteInteger('Network', 'Connections', Connections);
-    Ini.WriteBool('Network', 'DHT', EnableDHT);
-    Lines := TStringList.Create;
-    try
-      Ini.GetStrings(Lines);
-      AtomicWrite(SettingsFile, TEncoding.UTF8.GetBytes(Lines.Text));
-    finally Lines.Free; end;
+    Root.AddPair('interfaceAutoStart', TJSONBool.Create(AutoStart));
+    Root.AddPair('interfaceDarkTheme', TJSONBool.Create(DarkTheme));
+    Root.AddPair('interfaceSystemTheme', TJSONBool.Create(SystemTheme));
+    Root.AddPair('interfaceLanguage', Language);
+    Root.AddPair('storageTorrentFolder', TorrentFolder);
+    Root.AddPair('interfaceProgressBars', TJSONBool.Create(ShowProgressBars));
+    Root.AddPair('addingStartImmediately', TJSONBool.Create(StartImmediately));
+    Root.AddPair('addingShowDialog', TJSONBool.Create(ShowAddDialog));
+    Root.AddPair('watchEnabled', TJSONBool.Create(WatchEnabled));
+    Root.AddPair('watchFolder', WatchFolder);
+    Root.AddPair('addingFolder', DownloadFolder);
+    History := TJSONArray.Create;
+    Root.AddPair('DownloadFolders', History);
+    for I := 0 to High(RecentDownloadFolders) do History.Add(RecentDownloadFolders[I]);
+    Root.AddPair('networkPort', TJSONNumber.Create(ListenPort));
+    Root.AddPair('networkDownloadKiB', TJSONNumber.Create(DownloadKiB));
+    Root.AddPair('networkUploadKiB', TJSONNumber.Create(UploadKiB));
+    Root.AddPair('networkConnections', TJSONNumber.Create(Connections));
+    Root.AddPair('networkDHT', TJSONBool.Create(EnableDHT));
+    WriteProfileJson(SettingsFile, Root);
   finally
-    Ini.Free;
+    Root.Free;
   end;
 end;
 

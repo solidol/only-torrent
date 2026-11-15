@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import shutil
-import sqlite3
+from profile_json import rows as task_rows, tasks
 import subprocess
 import sys
 import uuid
@@ -21,10 +21,9 @@ def run(profile, mode):
     result = subprocess.run([str(PACKAGE / 'OtUiSmoke.exe'), mode], cwd=ROOT / 'tests',
                             env=env, startupinfo=flags, timeout=45)
     assert result.returncode == 0, (mode, (ROOT / 'build/ui-smoke.txt').read_text(encoding='utf-8-sig'))
-    with sqlite3.connect(profile / 'tasks.db') as db:
-        assert db.execute('PRAGMA quick_check').fetchone()[0] == 'ok'
-        assert db.execute('SELECT count(*) FROM tasks').fetchone()[0] == 1
-        return db.execute('SELECT running,length(resume),updated_utc FROM tasks').fetchone()
+    rows = task_rows(profile, 'running', 'length(resume)', 'updated_utc')
+    assert len(rows) == 1
+    return rows[0]
 
 first = run(PROFILE, '--restore-test')
 second = run(PROFILE, '--restore-test')
@@ -33,33 +32,32 @@ assert first[0] == second[0] == 0 and first[1] > 0 and second[1] > 0
 for case in ('missing-disk', 'missing-torrent', 'bad-resume'):
     target = ROOT / 'build' / ('restart-' + case + '-' + uuid.uuid4().hex)
     target.mkdir()
-    with sqlite3.connect(PROFILE / 'tasks.db') as src, sqlite3.connect(target / 'tasks.db') as dst:
-        src.backup(dst)
-        if case == 'missing-disk':
-            missing = target / 'unavailable-disk' / 'downloads'
-            dst.execute('UPDATE tasks SET save_path=?', (str(missing),))
-        elif case == 'missing-torrent':
-            dst.execute('UPDATE tasks SET torrent_file=?', (str(target / 'absent.torrent'),))
-        else:
-            dst.execute('UPDATE tasks SET resume=?', (b'corrupt bencode',))
+    for folder in ('Tasks', 'Resume'):
+        shutil.copytree(PROFILE / folder, target / folder)
+    path = next((target / 'Tasks').glob('*.json'))
+    task = json.loads(path.read_text(encoding='utf-8-sig'))
+    if case == 'missing-disk':
+        missing = target / 'unavailable-disk' / 'downloads'
+        task['savePath'] = str(missing)
+    elif case == 'missing-torrent':
+        task['torrentFile'] = str(target / 'absent.torrent')
+    else:
+        (target / 'Resume' / task['resumeFile']).write_bytes(b'corrupt bencode')
+    path.write_text(json.dumps(task), encoding='utf-8')
     row = run(target, '--restore-test' if case == 'bad-resume' else '--restore-unavailable')
     assert row[0] == 0
     if case == 'missing-disk':
         assert not missing.exists(), 'Application must not create or substitute an unavailable disk'
 
-# Kill an uncommitted SQLite writer, then verify the last committed task survives.
+# Incomplete temp files are never published; the last committed task remains.
 target = ROOT / 'build' / ('restart-crash-' + uuid.uuid4().hex)
 target.mkdir()
-with sqlite3.connect(PROFILE / 'tasks.db') as src, sqlite3.connect(target / 'tasks.db') as dst:
-    src.backup(dst)
-child = subprocess.Popen([sys.executable, '-u', '-c',
-    "import sqlite3,sys,time; d=sqlite3.connect(sys.argv[1]); d.execute('BEGIN IMMEDIATE'); "
-    "d.execute('DELETE FROM tasks'); print('ready',flush=True); time.sleep(30)",
-    str(target / 'tasks.db')], stdout=subprocess.PIPE, text=True)
-try:
-    assert child.stdout.readline().strip() == 'ready'
-finally:
-    child.kill()
-    child.wait(timeout=5)
+for folder in ('Tasks', 'Resume'):
+    shutil.copytree(PROFILE / folder, target / folder)
+path = next((target / 'Tasks').glob('*.json'))
+Path(str(path) + '.interrupted.tmp').write_bytes(b'{"schemaVersion":1,')
 run(target, '--restore-test')
-print('PASS: two application restarts, graceful resume save, missing disk, missing metadata, corrupt resume, interrupted SQLite transaction')
+# Corrupt primary recovers from the complete backup.
+path.write_bytes(b'{broken')
+run(target, '--restore-test')
+print('PASS: two restarts, graceful resume, missing disk/torrent, corrupt resume, interrupted JSON write, backup recovery')

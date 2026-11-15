@@ -274,7 +274,7 @@ begin
   if LanguageWarning <> '' then Log(LanguageWarning);
   try
     FStore := TOtTaskStore.Create(ProfileFolder);
-    if not FileExists(TPath.Combine(ProfileFolder, 'settings.ini')) then FSettings.Save;
+    if not FileExists(TPath.Combine(ProfileFolder, 'settings.json')) then FSettings.Save;
     RestoreTasks;
   except
     on E: Exception do
@@ -329,6 +329,7 @@ begin
     Entry.Metadata.Pieces := Original.Pieces;
     Entry.Metadata.PieceLength := Original.PieceLength;
   finally Original.Free; end;
+  if Length(Entry.Stored.Resume) = 0 then Entry.Options.NeedsVerification := True;
   WantsStart := Entry.Stored.Running and AllowStart;
   Entry.Options.Start := WantsStart and not Entry.Options.NeedsVerification;
   Resume := Entry.Stored.Resume;
@@ -1021,7 +1022,7 @@ begin
     Log(L('text.a1a82bfde2a1', 'Прибрано зі списку, файли збережено: ') + Entry.Metadata.Name);
     // Remove list pointers before destroying the owned model.
     // Keep the managed .torrent as a small orphan cache.
-    // A queued resume reply only UPDATEs existing rows and cannot recreate it.
+    // A queued resume reply only saves existing tasks and cannot recreate one.
     ForgetEntry(Entry);
   end;
 end;

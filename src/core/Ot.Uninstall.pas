@@ -34,7 +34,7 @@ function RemoveProfilesAfterSuccess(ExitCode: Cardinal; const Profiles: TArray<T
 
 implementation
 
-uses Winapi.Windows, Winapi.ShellAPI, System.SysUtils, System.IOUtils,
+uses Ot.Profile, Winapi.Windows, Winapi.ShellAPI, System.SysUtils, System.IOUtils,
   System.Win.Registry, System.Generics.Collections, Ot.Localization, Ot.UpdateShutdown;
 
 function OtMsiGetProductInfo(Product, PropertyName, Buffer: PChar; var Size: DWORD): UINT;
@@ -240,7 +240,8 @@ begin
 end;
 
 function RemoveProfileMetadata(const Folder: string): Boolean;
-var Files: TList<string>; Handles: TList<THandle>; Name, Path, Torrents, Root: string;
+var Files: TList<string>; Handles: TList<THandle>; Name, Path, Torrents, Root, ServiceFolder, Stem: string;
+  ServiceHandle: THandle; ServiceHandles: TList<THandle>; TaskId: Int64;
   Probe, RootHandle, TorrentsHandle: THandle; Attributes: DWORD; DeleteFlag: Byte;
 begin
   Result := False;
@@ -251,6 +252,7 @@ begin
   if Attributes = INVALID_FILE_ATTRIBUTES then
     Exit(GetLastError in [ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND]);
   if (Attributes and FILE_ATTRIBUTE_DIRECTORY) = 0 then Exit;
+  ServiceHandles := TList<THandle>.Create;
   Files := TList<string>.Create;
   Handles := TList<THandle>.Create;
   TorrentsHandle := INVALID_HANDLE_VALUE;
@@ -258,7 +260,7 @@ begin
     if not LockAncestors(Root, Handles) then Exit;
     RootHandle := Handles.Last;
     // Never recursively delete arbitrary user files or the configured download directory.
-    for Name in TArray<string>.Create('settings.ini','tasks.db','tasks.db-wal','tasks.db-shm') do
+    for Name in TArray<string>.Create('settings.json','settings.json.bak','profile.lock') do
     begin
       Path := TPath.Combine(Root, Name);
       Attributes := GetFileAttributes(PChar(Path));
@@ -286,6 +288,31 @@ begin
       for Path in TDirectory.GetFiles(Torrents, '*.torrent') do
         if ManagedTorrent(Path) then Files.Add(Path);
     end;
+    for Name in TArray<string>.Create('Tasks', 'Resume') do
+    begin
+      ServiceFolder := TPath.Combine(Root, Name);
+      if not LocalPath(ServiceFolder) then Exit;
+      if not DirectoryExists(ServiceFolder) then Continue;
+      if not LockDirectory(ServiceFolder, Handles, True) then Exit;
+      ServiceHandles.Add(Handles.Last);
+      for Path in TDirectory.GetFiles(ServiceFolder) do
+      begin
+        Stem := ExtractFileName(Path);
+        if Name = 'Tasks' then
+        begin
+          if Stem.EndsWith('.bak') then Stem := ChangeFileExt(Stem, '');
+          if Stem.EndsWith('.deleted') then Stem := ChangeFileExt(Stem, '');
+          if not Stem.EndsWith('.json') then Continue;
+          Stem := ChangeFileExt(Stem, '');
+        end
+        else
+        begin
+          if not ManagedResumeFile(Stem) then Continue;
+          Stem := Copy(Stem, 1, Pos('.', Stem) - 1);
+        end;
+        if TryStrToInt64(Stem, TaskId) and (TaskId > 0) then Files.Add(Path);
+      end;
+    end;
     for Path in Files do
     begin
       if not LocalPath(Path) then Exit;
@@ -297,6 +324,11 @@ begin
     // Empty-directory removal uses the verified handles, never a path that
     // could be redirected after releasing the directory locks.
     DeleteFlag := 1;
+    for ServiceHandle in ServiceHandles do
+    begin
+      OtSetFileInformation(ServiceHandle, 4, @DeleteFlag, SizeOf(DeleteFlag));
+      Handles.Remove(ServiceHandle); CloseHandle(ServiceHandle);
+    end;
     if TorrentsHandle <> INVALID_HANDLE_VALUE then
     begin
       OtSetFileInformation(TorrentsHandle, 4, @DeleteFlag, SizeOf(DeleteFlag));
@@ -306,7 +338,7 @@ begin
     Result := True;
   finally
     for Probe in Handles do CloseHandle(Probe);
-    Handles.Free; Files.Free;
+    Handles.Free; Files.Free; ServiceHandles.Free;
   end;
 end;
 

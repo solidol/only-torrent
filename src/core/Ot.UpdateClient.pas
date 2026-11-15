@@ -122,7 +122,7 @@ begin
   Parts := Name.Split(['/']);
   if Length(Parts) = 1 then
     Result := (Name = 'otorrent.exe') or (Name = 'otupdater.exe') or
-      (Name = 'ltbridge.dll') or (Name = 'torrent-rasterbar.dll') or (Name = 'sqlite3.dll') or
+      (Name = 'ltbridge.dll') or (Name = 'torrent-rasterbar.dll') or
       (Name = 'version.json') or (Name = 'release.json') or (Name = 'runtime.json') or
       (Name = 'client-build.json') or (Name = 'engine-build.json') or
       (Name = 'README.md') or (Name = 'LICENSE')
@@ -169,7 +169,7 @@ begin
     if (Files = nil) or (Files.Count < 8) or (Files.Count > 64) then
       raise EReadError.Create(L('update.badPackage', 'Некоректний пакет оновлення.'));
     Required := TArray<string>.Create('otorrent.exe', 'otupdater.exe', 'ltbridge.dll',
-      'torrent-rasterbar.dll', 'sqlite3.dll', 'Languages/uk-UA.json', 'Languages/en-US.json', 'runtime.json', 'version.json');
+      'torrent-rasterbar.dll',  'Languages/uk-UA.json', 'Languages/en-US.json', 'runtime.json', 'version.json');
     for Name in Required do
       if Files.GetValue(Name) = nil then raise EReadError.Create(L('update.badPackage', 'Некоректний пакет оновлення.'));
     for Pair in Files do
