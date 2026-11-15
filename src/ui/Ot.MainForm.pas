@@ -677,6 +677,8 @@ begin
           FormDialog.Prepare(Metadata, FSettings);
           if FormDialog.ShowModal <> mrOk then Exit;
           Folder := FormDialog.SaveFolder;
+          FSettings.RememberDownloadFolder(Folder);
+          FSettings.Save;
           Options := FormDialog.Options;
           Priorities := FormDialog.Priorities;
         finally

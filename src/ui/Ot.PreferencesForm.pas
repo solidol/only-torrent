@@ -164,6 +164,7 @@ begin
     NewValue.DownloadFolder := Trim(EditFolder.Text);
     if NewValue.DownloadFolder = '' then raise Exception.Create(L('text.6a21e66cb169', 'Вкажіть папку завантажень.'));
     NewValue.DownloadFolder := ExpandFileName(NewValue.DownloadFolder);
+    NewValue.RememberDownloadFolder(NewValue.DownloadFolder);
     if Trim(EditTorrentFolder.Text) = '' then raise Exception.Create(L('text.21ba4eba4706', 'Вкажіть папку службових torrent-файлів.'));
     NewValue.TorrentFolder := ExpandFileName(Trim(EditTorrentFolder.Text));
     PageControlSettings.ActivePage := TabSheetWatch;

@@ -17,7 +17,7 @@ uses
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
-  Vcl.ComCtrls, Vcl.Imaging.pngimage, Ot.MainForm in '..\src\ui\Ot.MainForm.pas',
+  Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Imaging.pngimage, Ot.MainForm in '..\src\ui\Ot.MainForm.pas',
   Ot.Engine in '..\src\engine\Ot.Engine.pas',
   Ot.Settings in '..\src\ui\Ot.Settings.pas',
   Ot.Appearance in '..\src\ui\Ot.Appearance.pas',
@@ -246,6 +246,16 @@ begin
           FormAddTorrent.Prepare(Entry.Metadata, Settings);
           Require(FormAddTorrent.Caption = 'Створити нове завдання BitTorrent — Only Torrent', 'Add dialog UTF-8');
           Require(FormAddTorrent.ComboBoxFolder.Text = Settings.DownloadFolder, 'Save location');
+          Require(FormAddTorrent.ComboBoxFolder.Style = csDropDown, 'Save folder accepts manual input');
+          Require(FormAddTorrent.ComboBoxFolder.Items.Count = Length(Settings.RecentDownloadFolders),
+            'Save folder dropdown contains remembered folders');
+          Require(FormAddTorrent.ComboBoxFolder.DropDownCount = 10, 'Ten visible recent folders');
+          FormAddTorrent.ComboBoxFolder.Text := ExpandFileName('..\build\manual-download-folder');
+          FormAddTorrent.FolderChange(FormAddTorrent.ComboBoxFolder);
+          Require(FormAddTorrent.SaveFolder = ExpandFileName('..\build\manual-download-folder'), 'Manually typed folder is used');
+          FormAddTorrent.ComboBoxFolder.ItemIndex := 0;
+          FormAddTorrent.FolderChange(FormAddTorrent.ComboBoxFolder);
+          Require(SameText(FormAddTorrent.SaveFolder, Settings.RecentDownloadFolders[0]), 'Dropdown-selected folder is used');
           Require(StateText(3) = 'Завантаження', 'Pascal UTF-8');
           Require(FormAddTorrent.ListViewFiles.Items.Count = 2, 'Metadata file count');
           FormAddTorrent.SelectAll(False);

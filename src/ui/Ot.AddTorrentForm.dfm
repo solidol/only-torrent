@@ -82,6 +82,9 @@
           Height = 23
           Anchors = [akLeft, akTop, akRight]
           TabOrder = 0
+          Style = csDropDown
+          AutoComplete = False
+          DropDownCount = 10
           OnChange = FolderChange
         end
         object ButtonBrowse: TButton

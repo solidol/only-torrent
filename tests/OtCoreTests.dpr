@@ -147,16 +147,30 @@ var Store: TOtTaskStore; Task: TOtStoredTask; Tasks, ClearedTasks: TArray<TOtSto
   Engine: TOtEngine; Metadata, Restored: TOtMetadata; Settings, Reloaded: TOtSettings;
   Options: TOtAddOptions; Priorities: TArray<Integer>; Snapshot: TOtSnapshot;
   Profile, ManagedFile, InputFile, DataFolder: string; Token: TGUID;
-  Id, ReplyId, Status: Integer; Bytes: TBytes; Clock: TStopwatch; Failed: Boolean;
+  Id, ReplyId, Status, I: Integer; Bytes: TBytes; Clock: TStopwatch; Failed: Boolean;
 begin
   CreateGUID(Token);
   Profile := ExpandFileName('..\build\persistence-' + GUIDToString(Token));
   ForceDirectories(Profile);
   SetEnvironmentVariable('OT_PROFILE_DIR', PChar(Profile));
   Settings.Load; Settings.Language := 'en-US';
+  Require(SameText(Settings.DownloadFolder, TPath.GetDownloadsPath), 'Default user Downloads folder');
+  Require((Length(Settings.RecentDownloadFolders) = 2) and
+    SameText(Settings.RecentDownloadFolders[1], 'C:\Downloads'), 'Initial download folder alternatives');
+  for I := 1 to 12 do Settings.RememberDownloadFolder(TPath.Combine(Profile, 'Download ' + IntToStr(I)));
+  Require(Length(Settings.RecentDownloadFolders) = 10, 'Download history is limited to ten');
+  Reloaded := Settings;
+  Settings.RememberDownloadFolder(UpperCase(TPath.Combine(Profile, 'Download 5')) + '\.\');
+  Require((Length(Settings.RecentDownloadFolders) = 10) and
+    SameText(Settings.RecentDownloadFolders[0], TPath.Combine(Profile, 'Download 5')),
+    'Existing normalized folder moves to front without duplication');
+  Require(SameText(Reloaded.RecentDownloadFolders[0], TPath.Combine(Profile, 'Download 12')),
+    'Remembering a folder does not mutate a copied settings record');
   Settings.TorrentFolder := TPath.Combine(Profile, 'TorrentCopies');
   Settings.DownloadKiB := 19; Settings.Save;
   Reloaded.Load;
+  Require((Length(Reloaded.RecentDownloadFolders) = 10) and
+    SameText(Reloaded.RecentDownloadFolders[0], Settings.DownloadFolder), 'Download history survives INI reload');
   Require((Reloaded.Language = 'en-US') and (Reloaded.TorrentFolder = Settings.TorrentFolder) and
     (Reloaded.DownloadKiB = 19), 'INI general settings round trip');
   LoadLanguage('en-US');

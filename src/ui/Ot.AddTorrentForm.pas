@@ -114,7 +114,9 @@ begin
   FMetadata := Metadata;
   try
     ComboBoxFolder.Items.Clear;
-    ComboBoxFolder.Items.Add(Settings.DownloadFolder);
+    for I := 0 to High(Settings.RecentDownloadFolders) do
+      ComboBoxFolder.Items.Add(Settings.RecentDownloadFolders[I]);
+    if ComboBoxFolder.Items.Count = 0 then ComboBoxFolder.Items.Add(Settings.DownloadFolder);
     ComboBoxFolder.Text := Settings.DownloadFolder;
     FSingleFile := (Length(Metadata.Files) = 1) and (Metadata.Files[0].Path = Metadata.Name);
     EditSubfolder.Text := Metadata.Name;
@@ -181,7 +183,11 @@ var Folder: string;
 begin
   Folder := ComboBoxFolder.Text;
   if SelectDirectory(L('text.ef23a39f0897', 'Зберегти файли торрента'), '', Folder,
-    [sdNewUI, sdNewFolder], Self) then ComboBoxFolder.Text := Folder;
+    [sdNewUI, sdNewFolder], Self) then
+  begin
+    ComboBoxFolder.Text := Folder;
+    FolderChange(ComboBoxFolder);
+  end;
 end;
 
 procedure TFormAddTorrent.SelectAll(Value: Boolean);

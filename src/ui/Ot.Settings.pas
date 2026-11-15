@@ -6,12 +6,14 @@ type
   TOtSettings = record
     DarkTheme, SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
     DownloadFolder, TorrentFolder, Language: string;
+    RecentDownloadFolders: TArray<string>;
     WatchEnabled: Boolean;
     EnableDHT: Boolean;
     WatchFolder: string;
     ListenPort, DownloadKiB, UploadKiB, Connections: Integer;
     procedure Load;
     procedure Save;
+    procedure RememberDownloadFolder(const Folder: string);
   end;
 
 implementation
@@ -23,8 +25,29 @@ begin
   Result := TPath.Combine(ProfileFolder, 'settings.ini');
 end;
 
+procedure TOtSettings.RememberDownloadFolder(const Folder: string);
+var Path, Previous: string; Items: TStringList;
+begin
+  if Trim(Folder) = '' then Exit;
+  Path := ExpandFileName(StringReplace(Trim(Folder), '/', '\', [rfReplaceAll]));
+  if Length(Path) > Length(TPath.GetPathRoot(Path)) then
+    Path := ExcludeTrailingPathDelimiter(Path);
+  Items := TStringList.Create;
+  try
+    Items.CaseSensitive := False;
+    Items.Add(Path);
+    for Previous in RecentDownloadFolders do
+    begin
+      if (Items.Count < 10) and (Items.IndexOf(Previous) < 0) then Items.Add(Previous);
+    end;
+    // Allocate a new array: settings records can share their previous array.
+    RecentDownloadFolders := Items.ToStringArray;
+    DownloadFolder := Path;
+  finally Items.Free; end;
+end;
+
 procedure TOtSettings.Load;
-var Ini: TMemIniFile;
+var Ini: TMemIniFile; I, Count: Integer; SelectedFolder, DefaultFolder: string;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
@@ -39,8 +62,22 @@ begin
     WatchEnabled := Ini.ReadBool('Watch', 'Enabled', False);
     WatchFolder := Trim(Ini.ReadString('Watch', 'Folder', ''));
     if WatchFolder <> '' then WatchFolder := ExpandFileName(WatchFolder);
-    DownloadFolder := Ini.ReadString('Adding', 'Folder',
-      TPath.Combine(TPath.GetDocumentsPath, 'Only Torrent'));
+    DefaultFolder := TPath.GetDownloadsPath;
+    if DefaultFolder = '' then DefaultFolder := 'C:\Downloads';
+    SelectedFolder := Ini.ReadString('Adding', 'Folder', DefaultFolder);
+    RecentDownloadFolders := nil;
+    Count := Ini.ReadInteger('DownloadFolders', 'Count', 0);
+    if Count < 0 then Count := 0;
+    if Count > 10 then Count := 10;
+    if Count = 0 then
+    begin
+      RememberDownloadFolder('C:\Downloads');
+      RememberDownloadFolder(DefaultFolder);
+    end;
+    for I := Count - 1 downto 0 do
+      RememberDownloadFolder(Ini.ReadString('DownloadFolders', 'Folder' + IntToStr(I), ''));
+    if Trim(SelectedFolder) = '' then SelectedFolder := DefaultFolder;
+    RememberDownloadFolder(SelectedFolder);
     ListenPort := Ini.ReadInteger('Network', 'Port', 6881);
     DownloadKiB := Ini.ReadInteger('Network', 'DownloadKiB', 0);
     UploadKiB := Ini.ReadInteger('Network', 'UploadKiB', 0);
@@ -56,7 +93,7 @@ begin
 end;
 
 procedure TOtSettings.Save;
-var Ini: TMemIniFile; Lines: TStringList;
+var Ini: TMemIniFile; Lines: TStringList; I: Integer;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
@@ -70,6 +107,10 @@ begin
     Ini.WriteBool('Watch', 'Enabled', WatchEnabled);
     Ini.WriteString('Watch', 'Folder', WatchFolder);
     Ini.WriteString('Adding', 'Folder', DownloadFolder);
+    Ini.EraseSection('DownloadFolders');
+    Ini.WriteInteger('DownloadFolders', 'Count', Length(RecentDownloadFolders));
+    for I := 0 to High(RecentDownloadFolders) do
+      Ini.WriteString('DownloadFolders', 'Folder' + IntToStr(I), RecentDownloadFolders[I]);
     Ini.WriteInteger('Network', 'Port', ListenPort);
     Ini.WriteInteger('Network', 'DownloadKiB', DownloadKiB);
     Ini.WriteInteger('Network', 'UploadKiB', UploadKiB);
