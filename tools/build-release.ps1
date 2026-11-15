@@ -41,6 +41,7 @@ try {
   $checksum = $archive + '.sha256'
   ((Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant() + '  ' + [IO.Path]::GetFileName($archive)) | Set-Content -Encoding ASCII $checksum
   Write-Output "Release package: $archive"
+  & "$PSScriptRoot/build-msi.ps1" -PackageFolder (Join-Path $root $package)
   if ($Draft) {
     if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'Package ready. Install/authenticate GitHub CLI to create a draft.' }
     # Commit the reserved version first, so the tag identifies the exact source version.

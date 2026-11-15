@@ -11,7 +11,8 @@ implementation
 uses System.SysUtils, System.IOUtils, Winapi.ShellAPI, Ot.Localization;
 
 procedure LaunchUpdater(Owner: HWND; const Folder, Language: string);
-var Source, Temporary, Parameters, Code: string; Token: TGUID; ResultCode: NativeInt;
+var Source, Temporary, Parameters, Code, Verb, ProbeName: string;
+  Token: TGUID; ResultCode: NativeInt; Probe: THandle;
 begin
   Source := TPath.Combine(ExpandFileName(Folder), 'otupdater.exe');
   if not FileExists(Source) then
@@ -27,7 +28,15 @@ begin
   // Run a copy so the installed updater can itself be replaced while updating.
   TFile.Copy(Source, Temporary, False);
   Parameters := '--target "' + IncludeTrailingPathDelimiter(ExpandFileName(Folder)) + '." --language ' + Code;
-  ResultCode := ShellExecute(Owner, 'open', PChar(Temporary), PChar(Parameters), PChar(ExtractFilePath(Temporary)), SW_SHOWNORMAL);
+  // Per-machine MSI installs normally require elevation to replace application files.
+  // The updater does not read or modify the administrator's/user's profile.
+  Verb := 'open';
+  ProbeName := TPath.Combine(Folder, '.ot-write-probe-' + GUIDToString(Token));
+  Probe := CreateFile(PChar(ProbeName), GENERIC_WRITE, 0, nil, CREATE_NEW,
+    FILE_ATTRIBUTE_TEMPORARY or FILE_FLAG_DELETE_ON_CLOSE, 0);
+  if Probe = INVALID_HANDLE_VALUE then Verb := 'runas'
+  else CloseHandle(Probe);
+  ResultCode := ShellExecute(Owner, PChar(Verb), PChar(Temporary), PChar(Parameters), PChar(ExtractFilePath(Temporary)), SW_SHOWNORMAL);
   if ResultCode <= 32 then raise Exception.Create(L('update.launchFailed', 'Не вдалося запустити апдейтер.'));
 end;
 

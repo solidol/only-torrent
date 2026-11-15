@@ -29,5 +29,10 @@ $checksum = $Archive + '.sha256'
 if (-not (Test-Path -LiteralPath $checksum)) { throw 'Missing checksum' }
 $expected = (Get-Content -Raw $checksum).Split(' ')[0]
 if ((Get-FileHash -Algorithm SHA256 $Archive).Hash -ne $expected) { throw 'Archive checksum mismatch' }
-& gh release create "v$version" $Archive $checksum --repo $Repository --target $head --title "Only Torrent $version" --draft --generate-notes
+$installer = [IO.Path]::ChangeExtension($Archive, '.msi')
+$installerChecksum = $installer + '.sha256'
+if (-not (Test-Path -LiteralPath $installer) -or -not (Test-Path -LiteralPath $installerChecksum)) { throw 'Missing MSI installer or checksum' }
+$expectedInstaller = (Get-Content -Raw $installerChecksum).Split(' ')[0]
+if ((Get-FileHash -Algorithm SHA256 $installer).Hash -ne $expectedInstaller) { throw 'Installer checksum mismatch' }
+& gh release create "v$version" $Archive $checksum $installer $installerChecksum --repo $Repository --target $head --title "Only Torrent $version" --draft --generate-notes
 if ($LASTEXITCODE -ne 0) { throw 'GitHub draft creation failed' }

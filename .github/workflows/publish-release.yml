@@ -27,7 +27,9 @@ jobs:
           gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' | grep -qx true
           version="${RELEASE_TAG#v}"
           archive="Only-Torrent-$version-Win64.zip"
-          gh release download "$RELEASE_TAG" --pattern "$archive" --pattern "$archive.sha256"
+          installer="Only-Torrent-$version-Win64.msi"
+          gh release download "$RELEASE_TAG" --pattern "$archive" --pattern "$archive.sha256" --pattern "$installer" --pattern "$installer.sha256"
           sha256sum --check "$archive.sha256"
+          sha256sum --check "$installer.sha256"
           unzip -p "$archive" release.json | jq -e --arg version "$version" '.version == $version and .platform == "Win64"'
           gh release edit "$RELEASE_TAG" --draft=false
