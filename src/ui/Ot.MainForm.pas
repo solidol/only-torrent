@@ -13,6 +13,8 @@ type
   TTorrentEntry = class
   public
     Id: Integer;
+    UploadedBytes: Int64;
+    StatusIconKey: Integer;
     FileName, Folder, LastError: string;
     Metadata: TOtMetadata;
     Priorities: TArray<Integer>;
@@ -108,6 +110,7 @@ type
     procedure ThemeClick(Sender: TObject);
     procedure ViewClick(Sender: TObject);
     procedure OpenFolderClick(Sender: TObject);
+    procedure TorrentInfoTip(Sender: TObject; Item: TListItem; var InfoTip: string);
     procedure DrawSubItem(Sender: TCustomListView; Item: TListItem;
       SubItem: Integer; State: TCustomDrawState; Stage: TCustomDrawStage;
       var DefaultDraw: Boolean);
@@ -163,7 +166,7 @@ var FormMain: TFormMain;
 
 implementation
 
-uses System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
+uses Ot.StatusIcons, System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
   Vcl.Graphics, Ot.Appearance, Ot.AddTorrentForm, Ot.PreferencesForm, Ot.TransferMath, Ot.BlockMap, Ot.Profile, Ot.Localization, Ot.FormLocalization,
   Ot.ImportTasksForm, Ot.AddLinkForm, Ot.Activation, Ot.UpdateLaunch;
 
@@ -1184,7 +1187,8 @@ begin
 end;
 
 procedure TFormMain.UpdateRows;
-var Entry, Selected: TTorrentEntry; Item: TListItem; I, J, ImageIndex: Integer; Seconds: Int64;
+var Entry, Selected: TTorrentEntry; Item: TListItem; I, J, ImageIndex, IconKey: Integer; Seconds: Int64;
+  IconBounds: TRect;
   Selection: TArray<TTorrentEntry>; SelectedItem: TTorrentEntry;
   Rebuild: Boolean;
   procedure SetSubItem(Index: Integer; const Value: string);
@@ -1206,7 +1210,7 @@ begin
         begin
           Item := ListViewTorrents.Items.Add;
           Item.Data := Entry;
-          for J := 1 to 9 do Item.SubItems.Add('');
+          for J := 1 to 10 do Item.SubItems.Add('');
           for SelectedItem in Selection do
             if Entry = SelectedItem then Item.Selected := True;
           if Entry = Selected then Item.Focused := True;
@@ -1224,11 +1228,19 @@ begin
       if Entry.Options.NeedsVerification and not Entry.Checking and (Entry.Snapshot.State = 8) then
         SetSubItem(2, L('batch.unverified', 'Призупинено; файли не перевірено'));
       if Entry.DeletingId <> 0 then SetSubItem(2, L('delete.state', 'Видалення файлів…'));
+      IconKey := Entry.Snapshot.State + Ord(Entry.Snapshot.UploadRate > 0) * 256 + Ord(Entry.DeletingId <> 0) * 512;
+      if IconKey <> Entry.StatusIconKey then
+      begin
+        Entry.StatusIconKey := IconKey;
+        if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, 3, LVIR_BOUNDS, @IconBounds) then
+          InvalidateRect(ListViewTorrents.Handle, @IconBounds, False);
+      end;
       SetSubItem(3, IntToStr(Entry.Snapshot.Seeds));
       SetSubItem(4, IntToStr(Entry.Snapshot.Peers));
       SetSubItem(5, SizeText(Entry.Snapshot.DownloadRate) + L('text.a9208f0400fe', '/с'));
       SetSubItem(6, SizeText(Entry.Snapshot.UploadRate) + L('text.a9208f0400fe', '/с'));
       SetSubItem(7, SizeText(Entry.Snapshot.DoneBytes));
+      SetSubItem(9, SizeText(Entry.UploadedBytes));
       if Entry.Snapshot.DownloadRate > 0 then
       begin
         Seconds := RemainingSeconds(Entry.Snapshot.TotalBytes, Entry.Snapshot.DoneBytes, Entry.Snapshot.DownloadRate);
@@ -1321,7 +1333,10 @@ begin
   begin
     Before := Matches(Entry, FFilter);
     try
-      if (FEngine <> nil) and (Entry.Id > 0) then Entry.Snapshot := FEngine.Snapshot(Entry.Id);
+      if (FEngine <> nil) and (Entry.Id > 0) then
+      begin
+        Entry.Snapshot := FEngine.Snapshot(Entry.Id, Entry.UploadedBytes);
+      end;
       if Entry.Checking and (Entry.Snapshot.State in [8, 9]) then
       begin
         Entry.Checking := False;
@@ -1392,18 +1407,27 @@ begin
   ProcessActivation;
 end;
 
+procedure TFormMain.TorrentInfoTip(Sender: TObject; Item: TListItem; var InfoTip: string);
+begin
+  if (Item <> nil) and (Item.SubItems.Count > 2) then
+    InfoTip := Item.Caption + sLineBreak + Item.SubItems[2];
+end;
+
 procedure TFormMain.DrawSubItem(Sender: TCustomListView; Item: TListItem;
   SubItem: Integer; State: TCustomDrawState; Stage: TCustomDrawStage;
   var DefaultDraw: Boolean);
 var Bounds: TRect; Entry: TTorrentEntry;
 begin
-  if (SubItem <> 2) or not FSettings.ShowProgressBars then Exit;
+  if (SubItem <> 3) and ((SubItem <> 2) or not FSettings.ShowProgressBars) then Exit;
   if Stage <> cdPrePaint then Exit;
   Entry := TTorrentEntry(Item.Data);
   if Entry = nil then Exit;
   if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, SubItem, LVIR_BOUNDS, @Bounds) then
   begin
-    DrawBlockFence(ListViewTorrents.Canvas, Bounds, Entry.Blocks,
+    if SubItem = 3 then
+      DrawTorrentStatus(ListViewTorrents.Canvas, Bounds, Entry.Snapshot.State,
+        MulDiv(20, CurrentPPI, 96), Entry.Snapshot.UploadRate > 0, Entry.DeletingId <> 0, Item.Selected)
+    else DrawBlockFence(ListViewTorrents.Canvas, Bounds, Entry.Blocks,
       Item.Selected, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
     DefaultDraw := False;
   end;

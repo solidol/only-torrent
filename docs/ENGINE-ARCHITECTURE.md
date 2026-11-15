@@ -33,3 +33,7 @@ powershell -ExecutionPolicy Bypass -File tools/build-engine.ps1 -NoDeploy
 `tests/separation.py` перевіряє PE-імпорти й експорти, справжню версію бібліотеки, спільний CRT та ABI. Мережеві тести перевіряють фактичне завантаження і SHA-1. `OtCoreTests` перевіряє Delphi-обчислення та інтеграцію з обома DLL; `OtUiSmoke` завантажує DFM й малює прогрес. Після чистого перезбирання моста SHA-256 готового EXE та оригінальної DLL залишилися незмінними. Усі DFM і контрольний PNG «забору» збігаються побайтово зі станом до відокремлення.
 
 Першоджерела: [ABI libtorrent](https://libtorrent.org/manual-ref.html#abi-considerations), [параметри збірки](https://libtorrent.org/building.html), [CRT між DLL](https://learn.microsoft.com/en-us/cpp/c-runtime-library/potential-errors-passing-crt-objects-across-dll-boundaries).
+
+## Лічильник віддачі
+
+`lt_snapshot_uploaded` розширює ABI 2 без зміни структури snapshot. Повертає звичайний snapshot і int64 all_time_upload одним запитом до libtorrent. Пакет Only Torrent 0.3.2 містить узгоджені EXE та ltbridge.dll; оригінальна DLL libtorrent не змінюється.

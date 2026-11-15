@@ -30,6 +30,7 @@ type
   TOtDestroy = procedure(Session: Pointer); cdecl;
   TOtAdd = function(Session: Pointer; FileName, SavePath: PAnsiChar): Integer; cdecl;
   TOtSnapshotProc = function(Session: Pointer; Id: Integer; out Value: TOtSnapshot): Integer; cdecl;
+  TOtSnapshotUploaded = function(Session: Pointer; Id: Integer; out Value: TOtSnapshot; out Bytes: Int64): Integer; cdecl;
   TOtCommand = function(Session: Pointer; Id, Command: Integer): Integer; cdecl;
   TOtError = function: PAnsiChar; cdecl;
   TOtMetaOpen = function(FileName: PAnsiChar): Pointer; cdecl;

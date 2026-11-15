@@ -376,5 +376,6 @@
   "FormUninstall.RadioGroupProfiles.Caption": "User data",
   "FormUninstall.ButtonRemove.Caption": "Uninstall",
   "FormUninstall.ButtonClose.Caption": "Close",
-  "uninstall.reboot": "Restart Windows to finish uninstallation."
+  "uninstall.reboot": "Restart Windows to finish uninstallation.",
+  "FormMain.ListViewTorrents.Columns.10": "Uploaded"
 }

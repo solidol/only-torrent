@@ -139,6 +139,7 @@ begin
       Require((Map.Verified[0] = 127) and (Map.Verified[1] = 127), 'Real data aggregation in Delphi');
       Require(not TFile.Exists(TPath.Combine(Folder, 'custom\1.bin')), 'Skipped file');
       Require(State.DoneBytes = 32768, 'Selected data verified');
+      Require(Engine.Uploaded(Id) = 0, 'Lifetime upload counter starts at zero without peers');
       Engine.Command(Id, 2);
     finally Metadata.Free; end;
   finally Engine.Free; end;

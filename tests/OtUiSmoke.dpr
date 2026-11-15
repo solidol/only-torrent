@@ -1,6 +1,7 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.StatusIcons in '..\src\ui\Ot.StatusIcons.pas',
   Ot.WatchFolder in '..\src\core\Ot.WatchFolder.pas',
   Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
   Ot.AddLinkForm in '..\src\ui\Ot.AddLinkForm.pas',
@@ -60,6 +61,27 @@ begin
   end;
 end;
 
+procedure CaptureStatuses(const Name: string);
+var Bitmap: TBitmap; Png: TPngImage; I: Integer;
+begin
+  Bitmap := TBitmap.Create; Png := TPngImage.Create;
+  try
+    Bitmap.SetSize(480, 80);
+    Bitmap.Canvas.Brush.Color := ThemeColor(clWindow);
+    Bitmap.Canvas.FillRect(Rect(0,0,480,80));
+    for I := 0 to 9 do
+    begin
+      DrawTorrentStatus(Bitmap.Canvas, Rect(I*40,0,I*40+40,40), I, 28, False, False, False);
+      DrawTorrentStatus(Bitmap.Canvas, Rect(I*40,40,I*40+40,80), I, 28, False, False, True);
+    end;
+    DrawTorrentStatus(Bitmap.Canvas, Rect(400,0,440,40), 3, 28, True, False, False);
+    DrawTorrentStatus(Bitmap.Canvas, Rect(440,0,480,40), 3, 28, False, True, False);
+    Require(Bitmap.Canvas.Pixels[5*40+20,20] = TColor(RGB(30,177,74)), 'Seeding triangle color');
+    Require(Bitmap.Canvas.Pixels[8*40+13,20] <> ThemeColor(clWindow), 'Pause icon remains visible');
+    Png.Assign(Bitmap); Png.SaveToFile('..\build\' + Name + '.png');
+  finally Png.Free; Bitmap.Free; end;
+end;
+
 procedure CaptureFence(const Map: TOtBlockMap);
 var Bitmap: TBitmap; Png: TPngImage;
 begin
@@ -80,7 +102,8 @@ var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TForm
   FormUpdater: TFormUpdater;
   Entry: TTorrentEntry; Item: TListItem; Settings: TOtSettings;
   InspectEngine: TOtEngine; TorrentMetadata: TOtMetadata;
-  I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
+  I: Integer; Output: TStringList; CanClose, DefaultDraw: Boolean; Deadline: UInt64;
+  StatusTip: string;
   FormUninstall: TFormUninstall;
 begin
   Output := TStringList.Create;
@@ -187,17 +210,28 @@ begin
         Item := FormMain.ListViewTorrents.Items.Add;
         Item.Data := Entry;
         Item.Caption := Entry.Metadata.Name;
-        for I := 1 to 9 do Item.SubItems.Add('');
+        for I := 1 to 10 do Item.SubItems.Add('');
         Item.SubItems[0] := '2.00 GiB';
         Item.SubItems[1] := '59.3 %';
         Item.SubItems[2] := 'Downloading';
+        Entry.UploadedBytes := 5368709120;
+        Item.SubItems[9] := '5.00 GiB';
+        Require(FormMain.ListViewTorrents.Columns.Count = 11, 'Uploaded column exists');
+        Require(FormMain.ListViewTorrents.Columns[3].Width <= MulDiv(70, FormMain.CurrentPPI, 96), 'Compact icon status column');
         Item.SubItems[3] := '8'; Item.SubItems[4] := '12';
+        FormMain.TorrentInfoTip(FormMain.ListViewTorrents, Item, StatusTip);
+        Require(Pos('Downloading', StatusTip) > 0, 'Status meaning remains available in tooltip');
+        FormMain.HandleNeeded; FormMain.ListViewTorrents.HandleNeeded;
+        DefaultDraw := True;
+        FormMain.DrawSubItem(FormMain.ListViewTorrents, Item, 3, [], cdPrePaint, DefaultDraw);
+        Require(not DefaultDraw, 'Status text painting is replaced by icon drawing');
         Item.SubItems[5] := '12.3 MiB/s'; Item.SubItems[6] := '1.2 MiB/s';
         Item.Selected := True;
         FormMain.TorrentSelect(FormMain.ListViewTorrents, Item, True);
         Settings.Load;
         Settings.SystemTheme := True;
         ApplyAppearance(FormMain, True);
+        CaptureStatuses('ui-status-icons-light');
         Capture(FormMain, 'ui-main-system');
         ApplyAppearance(FormMain, False);
         Capture(FormMain, 'ui-main-classic');
@@ -208,6 +242,7 @@ begin
         Require(ThemeColor(clWindowText) = TColor(RGB(212, 212, 212)), 'Soft dark foreground');
         Settings.Load;
         Require(Settings.DarkTheme, 'Dark theme persisted in JSON');
+        CaptureStatuses('ui-status-icons-dark');
         Capture(FormMain, 'ui-main-dark');
         FormPreferences := TFormPreferences.Create(nil);
         try
@@ -334,7 +369,7 @@ begin
         Entry.Free;
         FormMain.Free;
       end;
-      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and JSON persistence, preferences navigation, file checkboxes and progress rendering');
+      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and JSON persistence, preferences navigation, file checkboxes, progress rendering, DPI-aware status icons, tooltips and lifetime-upload column');
     except
       on E: Exception do
       begin

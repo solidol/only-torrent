@@ -16,6 +16,7 @@ uses
   Ot.Localization in 'src\core\Ot.Localization.pas',
   Ot.FormLocalization in 'src\ui\Ot.FormLocalization.pas',
   Vcl.Forms,
+  Ot.StatusIcons in 'src\ui\Ot.StatusIcons.pas',
   Ot.MainForm in 'src\ui\Ot.MainForm.pas' {FormMain},
   Ot.Engine in 'src\engine\Ot.Engine.pas',
   Ot.Settings in 'src\ui\Ot.Settings.pas',

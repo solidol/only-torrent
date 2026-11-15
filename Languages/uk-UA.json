@@ -376,5 +376,6 @@
   "FormUninstall.RadioGroupProfiles.Caption": "Дані користувачів",
   "FormUninstall.ButtonRemove.Caption": "Видалити",
   "FormUninstall.ButtonClose.Caption": "Закрити",
-  "uninstall.reboot": "Для завершення видалення перезавантажте Windows."
+  "uninstall.reboot": "Для завершення видалення перезавантажте Windows.",
+  "FormMain.ListViewTorrents.Columns.10": "Віддано"
 }

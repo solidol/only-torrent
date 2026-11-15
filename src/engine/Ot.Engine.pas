@@ -29,6 +29,7 @@ type
     FDestroy: TOtDestroy;
     FAdd: TOtAdd;
     FSnapshot: TOtSnapshotProc;
+    FSnapshotUploaded: TOtSnapshotUploaded;
     FCommand: TOtCommand;
     FError: TOtError;
     FMetaOpen: TOtMetaOpen;
@@ -73,7 +74,9 @@ type
     function ReadPieces(Id: Integer): TOtPieceState;
     function Blocks(Id, Columns: Integer): TOtBlockMap;
     function LibraryVersion: string;
-    function Snapshot(Id: Integer): TOtSnapshot;
+    function Snapshot(Id: Integer): TOtSnapshot; overload;
+    function Snapshot(Id: Integer; out UploadedBytes: Int64): TOtSnapshot; overload;
+    function Uploaded(Id: Integer): Int64;
     function CanRecheck: Boolean;
     procedure RecheckPaused(Id: Integer);
     function CanRemoveFiles: Boolean;
@@ -114,6 +117,7 @@ begin
   FDestroy := TOtDestroy(Resolve('lt_destroy'));
   FAdd := TOtAdd(Resolve('lt_add'));
   FSnapshot := TOtSnapshotProc(Resolve('lt_snapshot'));
+  FSnapshotUploaded := TOtSnapshotUploaded(Resolve('lt_snapshot_uploaded'));
   FCommand := TOtCommand(Resolve('lt_command'));
   // Optional extension: older ABI 2 bundles continue to load normally.
   FRecheckPaused := TOtRecheckPaused(GetProcAddress(FLibrary, 'lt_recheck_paused'));
@@ -315,6 +319,18 @@ begin
   finally
     if OwnMetadata then Metadata.Free;
   end;
+end;
+
+function TOtEngine.Snapshot(Id: Integer; out UploadedBytes: Int64): TOtSnapshot;
+begin
+  Result := Default(TOtSnapshot); UploadedBytes := 0;
+  Check(FSnapshotUploaded(FSession, Id, Result, UploadedBytes));
+end;
+
+function TOtEngine.Uploaded(Id: Integer): Int64;
+var Value: TOtSnapshot;
+begin
+  Value := Snapshot(Id, Result);
 end;
 
 procedure TOtEngine.RequestResume(Id: Integer; Flush: Boolean);

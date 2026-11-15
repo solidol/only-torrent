@@ -1,4 +1,4 @@
-﻿#ifndef LTBRIDGE_H
+#ifndef LTBRIDGE_H
 #define LTBRIDGE_H
 #include <stdint.h>
 #ifdef __cplusplus
@@ -58,6 +58,7 @@ LT_API int lt_add_selected(void* session, char const* file, char const* path, in
 LT_API int lt_add_prepared(void* session, char const* file, char const* path,
     int const* priorities, int count, int start, int sequential, int download_bytes, int upload_bytes,
     char const* const* paths, char const* const* trackers, int tracker_count) LT_NOEXCEPT;
+LT_API int lt_snapshot_uploaded(void* session, int id, snapshot* out, int64_t* bytes) LT_NOEXCEPT;
 LT_API int lt_snapshot(void* session, int id, snapshot* out) LT_NOEXCEPT;
 LT_API int lt_command(void* session, int id, int command) LT_NOEXCEPT;
 // Optional ABI 2 extension. Verify on disk and stop before downloading/seeding.

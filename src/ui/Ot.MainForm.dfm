@@ -325,7 +325,7 @@
         end
         item
           Caption = #1057#1090#1072#1085
-          Width = 145
+          Width = 60
         end
         item
           Caption = #1057#1110#1076#1080
@@ -350,6 +350,10 @@
         item
           Caption = #1047#1072#1083#1080#1096#1080#1083#1086#1089#1100
           Width = 90
+        end
+        item
+          Caption = #1042#1110#1076#1076#1072#1085#1086
+          Width = 105
         end>
       HideSelection = False
       ReadOnly = True
@@ -360,6 +364,7 @@
       ViewStyle = vsReport
       MultiSelect = True
       OnAdvancedCustomDrawSubItem = DrawSubItem
+      OnInfoTip = TorrentInfoTip
       OnSelectItem = TorrentSelect
     end
   end

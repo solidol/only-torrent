@@ -1,4 +1,4 @@
-﻿#include "ltbridge.h"
+#include "ltbridge.h"
 #include <libtorrent/version.hpp>
 #include <windows.h>
 #include <libtorrent/session.hpp>
@@ -163,12 +163,13 @@ static int protocol_state(lt::torrent_status::state_t state) {
     }
 }
 #pragma warning(pop)
-LT_API int lt_snapshot(void* p, int id, snapshot* out) noexcept {
+static int read_snapshot(void* p, int id, snapshot* out, std::int64_t* uploaded) noexcept {
     try {
         if (!out) throw std::runtime_error("Missing output buffer");
         auto& e = get(p);
         dispatch(e);
         auto s = e.torrents.at(id).status();
+        if (uploaded) *uploaded = s.all_time_upload;
         *out = {};
         out->total = s.total_wanted;
         out->done = s.total_wanted_done;
@@ -185,6 +186,15 @@ LT_API int lt_snapshot(void* p, int id, snapshot* out) noexcept {
         return 0;
     } catch (std::exception const& e) { last_error = e.what(); return -1; }
       catch (...) { last_error = "Unknown snapshot error"; return -1; }
+}
+LT_API int lt_snapshot(void* p, int id, snapshot* out) noexcept {
+    return read_snapshot(p, id, out, nullptr);
+}
+// Additive ABI 2 extension: both outputs come from one libtorrent status query.
+LT_API int lt_snapshot_uploaded(void* p, int id, snapshot* out, std::int64_t* uploaded) noexcept {
+    if (!uploaded) { last_error = "Missing upload output"; return -1; }
+    *uploaded = 0;
+    return read_snapshot(p, id, out, uploaded);
 }
 LT_API int lt_command(void* p, int id, int command) noexcept {
     try {
