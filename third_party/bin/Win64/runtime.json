@@ -1,23 +1,24 @@
-﻿{
-    "compiler":  {
-                     "runtime":  "MD",
-                     "toolset":  "v143"
-                 },
-    "files":  {
-                  "torrent-rasterbar.dll":  "5ae5e1fd589ad613887147f389e7097f2521f2d25ce4ab58ae4e2cd1598e6850",
-                  "engine-build.json":  "b68e737c32744e0f898f473bc1942d8b8815db566f1600fbc8e401de98435eff",
-                  "ltbridge.dll":  "962a5840c944048287c6e4cee8c9356d2437484cc3392ddbc18a863cd0cf27f4",
-                  "licenses/THIRD_PARTY.md":  "bb948ff79cc67b0890ad59b9a98ef3d35eb36939101dcd9909e3fb76d5e2aa3e",
-                  "licenses/libtorrent-LICENSE.txt":  "babc5fefbcafe7ef25f7f8b7cb84b632ec0244f8e56b126e744487172116173d",
-                  "licenses/boost-LICENSE.txt":  "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
-                  "licenses/LICENSE":  "1a56370f732b33f56a78b3fce76b757b1a8467ac57b86b238b4b1e6ecdc4fd91",
-                  "licenses/libtorrent-COPYING.txt":  "f3a5dd1558cce616b12edad521427ec8976ce2bb0af33f7f359cfa648bf55ad8"
-              },
-    "bridgeAbi":  2,
-    "versions":  {
-                     "libtorrent":  "1.2.19",
-                     "boost":  "1.78.0"
-                 },
-    "platform":  "Win64",
-    "format":  1
+{
+  "compiler": {
+    "runtime": "MD",
+    "toolset": "v143"
+  },
+  "files": {
+    "torrent-rasterbar.dll": "5ae5e1fd589ad613887147f389e7097f2521f2d25ce4ab58ae4e2cd1598e6850",
+    "engine-build.json": "b68e737c32744e0f898f473bc1942d8b8815db566f1600fbc8e401de98435eff",
+    "ltbridge.dll": "962a5840c944048287c6e4cee8c9356d2437484cc3392ddbc18a863cd0cf27f4",
+    "licenses/THIRD_PARTY.md": "1e7721637a7b678538ea40adbfa63a707f4c954581c76e9e3933e6708396c41e",
+    "licenses/libtorrent-LICENSE.txt": "babc5fefbcafe7ef25f7f8b7cb84b632ec0244f8e56b126e744487172116173d",
+    "licenses/boost-LICENSE.txt": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
+    "licenses/LICENSE": "1a56370f732b33f56a78b3fce76b757b1a8467ac57b86b238b4b1e6ecdc4fd91",
+    "licenses/libtorrent-COPYING.txt": "f3a5dd1558cce616b12edad521427ec8976ce2bb0af33f7f359cfa648bf55ad8",
+    "licenses/Fluent-System-Icons-LICENSE.txt": "69bc45dc42b9acb96a69823adbc6ae538374e3c0bde169b855b32c48eaaef52f"
+  },
+  "bridgeAbi": 2,
+  "versions": {
+    "libtorrent": "1.2.19",
+    "boost": "1.78.0"
+  },
+  "platform": "Win64",
+  "format": 1
 }

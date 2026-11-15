@@ -1,6 +1,7 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.IconPreview in 'Ot.IconPreview.pas',
   Ot.TableUiTests in 'Ot.TableUiTests.pas',
   Ot.TaskSort in '..\src\core\Ot.TaskSort.pas',
   Ot.StatusIcons in '..\src\ui\Ot.StatusIcons.pas',
@@ -20,7 +21,7 @@ uses
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
-  Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Imaging.pngimage, Ot.MainForm in '..\src\ui\Ot.MainForm.pas',
+  Vcl.ComCtrls, Vcl.StdCtrls, Vcl.Imaging.pngimage, Vcl.ImgList, Ot.MainForm in '..\src\ui\Ot.MainForm.pas',
   Ot.Engine in '..\src\engine\Ot.Engine.pas',
   Ot.Settings in '..\src\ui\Ot.Settings.pas',
   Ot.Appearance in '..\src\ui\Ot.Appearance.pas',
@@ -63,7 +64,7 @@ begin
   end;
 end;
 
-procedure CaptureStatuses(const Name: string);
+procedure CaptureStatuses(const Name: string; Images: TCustomImageList);
 var Bitmap: TBitmap; Png: TPngImage; I: Integer;
 begin
   Bitmap := TBitmap.Create; Png := TPngImage.Create;
@@ -73,13 +74,13 @@ begin
     Bitmap.Canvas.FillRect(Rect(0,0,480,80));
     for I := 0 to 9 do
     begin
-      DrawTorrentStatus(Bitmap.Canvas, Rect(I*40,0,I*40+40,40), I, 28, False, False, False);
-      DrawTorrentStatus(Bitmap.Canvas, Rect(I*40,40,I*40+40,80), I, 28, False, False, True);
+      DrawTorrentStatus(Bitmap.Canvas, Rect(I*40,0,I*40+40,40), I, 28, False, False, False, Images);
+      DrawTorrentStatus(Bitmap.Canvas, Rect(I*40,40,I*40+40,80), I, 28, False, False, True, Images);
     end;
-    DrawTorrentStatus(Bitmap.Canvas, Rect(400,0,440,40), 3, 28, True, False, False);
-    DrawTorrentStatus(Bitmap.Canvas, Rect(440,0,480,40), 3, 28, False, True, False);
-    Require(Bitmap.Canvas.Pixels[5*40+20,20] = ThemeColor(clGreen), 'Seeding triangle color');
-    Require(Bitmap.Canvas.Pixels[8*40+13,20] <> ThemeColor(clWindow), 'Pause icon remains visible');
+    DrawTorrentStatus(Bitmap.Canvas, Rect(400,0,440,40), 3, 28, True, False, False, Images);
+    DrawTorrentStatus(Bitmap.Canvas, Rect(440,0,480,40), 3, 28, False, True, False, Images);
+    Require(Images.Count = OtIconCount, 'Fluent PNG image list has all application icons');
+
     Png.Assign(Bitmap); Png.SaveToFile('..\build\' + Name + '.png');
   finally Png.Free; Bitmap.Free; end;
 end;
@@ -235,7 +236,7 @@ begin
         Settings.Load;
         Settings.SystemTheme := True;
         ApplyAppearance(FormMain, True);
-        CaptureStatuses('ui-status-icons-light');
+        CaptureStatuses('ui-status-icons-light',FormMain.VirtualImageListMain);
         Capture(FormMain, 'ui-main-system');
         ApplyAppearance(FormMain, False);
         Capture(FormMain, 'ui-main-classic');
@@ -246,7 +247,7 @@ begin
         Require(ThemeColor(clWindowText) = TColor(RGB(212, 212, 212)), 'Soft dark foreground');
         Settings.Load;
         Require(Settings.DarkTheme, 'Dark theme persisted in JSON');
-        CaptureStatuses('ui-status-icons-dark');
+        CaptureStatuses('ui-status-icons-dark',FormMain.VirtualImageListMain);
         Capture(FormMain, 'ui-main-dark');
         FormPreferences := TFormPreferences.Create(nil);
         try

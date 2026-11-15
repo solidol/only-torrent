@@ -1,0 +1,76 @@
+{
+  "repository": "https://github.com/microsoft/fluentui-system-icons",
+  "commit": "67e6dec1ee956af3ab4c746a2b3bb6a2e5520a44",
+  "license": "MIT",
+  "renderer": "@resvg/resvg-js@2.6.2",
+  "sources": {
+    "document_add": {
+      "path": "assets/Document Add/SVG/ic_fluent_document_add_20_filled.svg",
+      "sha256": "c0ff873fb9af0cbde4aa6f8e12f7d7e541f470e434ceb7d24703e57b7d15d633"
+    },
+    "dismiss": {
+      "path": "assets/Dismiss/SVG/ic_fluent_dismiss_20_filled.svg",
+      "sha256": "579375dd435194cedccf6e12ee762cd8fb7a337d0d09cbcf9aac8ce90c6a89d3"
+    },
+    "play": {
+      "path": "assets/Play/SVG/ic_fluent_play_20_filled.svg",
+      "sha256": "07fb72bfb7e5990b21d1eb7872a6bb47a42009f737b6bb488851a2b9cf6a80b0"
+    },
+    "pause": {
+      "path": "assets/Pause/SVG/ic_fluent_pause_20_filled.svg",
+      "sha256": "24849c5b0b3ad409e07b36f6dd765619e25b9ae189efa469477c94e4a3a9bba2"
+    },
+    "settings": {
+      "path": "assets/Settings/SVG/ic_fluent_settings_20_filled.svg",
+      "sha256": "2fbd6bd33e72da2c2765374960b83e57bcfd89e59e55769f0e2460eb13998097"
+    },
+    "folder_open": {
+      "path": "assets/Folder Open/SVG/ic_fluent_folder_open_20_filled.svg",
+      "sha256": "1541aabe116b5888d26ee15edcddff76ee1c39826f3c46217ee883198243a0a9"
+    },
+    "delete": {
+      "path": "assets/Delete/SVG/ic_fluent_delete_20_filled.svg",
+      "sha256": "99f4d7020338d17ad3322401c95a569539fa9dced2c373c9c8d7178b421c352d"
+    },
+    "dark_theme": {
+      "path": "assets/Dark Theme/SVG/ic_fluent_dark_theme_20_filled.svg",
+      "sha256": "2714f8b5fcc516c00a95b214010219ee957244d9ac7e3633a15b97161777fb72"
+    },
+    "clock": {
+      "path": "assets/Clock/SVG/ic_fluent_clock_20_filled.svg",
+      "sha256": "aadfb9cf090e6f79d47e19dca3cb24fa687acbc7743d2b42072bd66da43b4788"
+    },
+    "document_search": {
+      "path": "assets/Document Search/SVG/ic_fluent_document_search_20_filled.svg",
+      "sha256": "e5568e6ad31458de080381fd0ba54d59758ebb326e47b08cae0977d8a3bf6f3a"
+    },
+    "document_arrow_down": {
+      "path": "assets/Document Arrow Down/SVG/ic_fluent_document_arrow_down_20_filled.svg",
+      "sha256": "c7054e5e14627c21fb27d0d60108781f3bf509b9799b9b9473530bdee8283526"
+    },
+    "arrow_download": {
+      "path": "assets/Arrow Download/SVG/ic_fluent_arrow_download_20_filled.svg",
+      "sha256": "15171fc2127075f45ab0117bf0ada0e2d743c0f839d4ba143757f8649c5cd711"
+    },
+    "checkmark": {
+      "path": "assets/Checkmark/SVG/ic_fluent_checkmark_20_filled.svg",
+      "sha256": "0850ce9b88d85961051cfa7ae3e352904e8b9bc46b061f2523399dc80f68b27d"
+    },
+    "arrow_upload": {
+      "path": "assets/Arrow Upload/SVG/ic_fluent_arrow_upload_20_filled.svg",
+      "sha256": "b6c79fe8ed0c6db9e8f1504283bb5c694af005191efc3b55231c368f74046a5d"
+    },
+    "hard_drive": {
+      "path": "assets/Hard Drive/SVG/ic_fluent_hard_drive_20_filled.svg",
+      "sha256": "78f404ff253d9075385c1c36fb1cc4de44e0a95002a202e087ba97a589e7350a"
+    },
+    "arrow_up": {
+      "path": "assets/Arrow Up/SVG/ic_fluent_arrow_up_20_filled.svg",
+      "sha256": "4d12c6d0fa23e90ab31889b68b707c7797035ab61a51e154ae65eea0c79419b8"
+    },
+    "arrow_down": {
+      "path": "assets/Arrow Down/SVG/ic_fluent_arrow_down_20_filled.svg",
+      "sha256": "d3cf11bc54185204cf36e6f2b2dd900788f66f7fb7986d0315b60641ffb6df3c"
+    }
+  }
+}

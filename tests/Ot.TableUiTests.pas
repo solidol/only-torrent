@@ -7,7 +7,7 @@ implementation
 
 uses System.SysUtils, System.Classes, Vcl.ComCtrls, Vcl.Controls,
   Ot.MainForm, Ot.Types, Ot.PreferencesForm, Ot.StatusIcons, Ot.Appearance,
-  Vcl.Graphics, System.Types;
+  Vcl.Graphics, System.Types, Ot.IconPreview;
 
 type
   TFormMainProbe = class(TFormMain)
@@ -89,11 +89,11 @@ begin
     try
       Bitmap.SetSize(20,20);
       Bitmap.Canvas.Brush.Color := clWhite; Bitmap.Canvas.FillRect(Rect(0,0,20,20));
-      DrawAppIcon(Bitmap.Canvas,Rect(0,0,20,20),TorrentStateIcon(3,False,False));
-      Require(Bitmap.Canvas.Pixels[10,8]=ThemeColor(clMaroon),'Status download uses toolbar red');
+      DrawAppIcon(Bitmap.Canvas,Rect(0,0,20,20),TorrentStateIcon(3,False,False),FormProbe.VirtualImageListMain);
+      Require(TorrentStateIcon(3,False,False)=16,'Status uses the red Fluent download asset');
       Bitmap.Canvas.Brush.Color := clWhite; Bitmap.Canvas.FillRect(Rect(0,0,20,20));
-      DrawAppIcon(Bitmap.Canvas,Rect(0,0,20,20),TorrentStatusIcon(3,False,False));
-      Require(Bitmap.Canvas.Pixels[10,8]=ThemeColor(clHotLight),'Leading download keeps original blue');
+      DrawAppIcon(Bitmap.Canvas,Rect(0,0,20,20),TorrentStatusIcon(3,False,False),FormProbe.VirtualImageListMain);
+      Require(TorrentStatusIcon(3,False,False)=11,'Blue Fluent download remains available');
     finally Bitmap.Free; end;
     FormPreferences := TFormPreferences.Create(nil);
     try

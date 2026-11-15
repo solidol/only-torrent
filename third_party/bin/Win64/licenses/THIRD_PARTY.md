@@ -8,3 +8,5 @@
 Copy full upstream license files and any bundled third-party notices into release packages. This file does not replace those licenses.
 
 The two native DLLs use the shared Microsoft Visual C++ x64 Runtime (/MD). Install a suitable official redistributable; runtime files are not bundled by these scripts. Keep the compiler, runtime, Boost and libtorrent build settings compatible when updating the engine. See docs/ENGINE-ARCHITECTURE.md and native/dependencies.json.
+
+Fluent System Icons — Microsoft Corporation, MIT license. Selected SVG sources are pinned by commit and SHA-256 in resources/icons/fluent/manifest.json. Prepared PNG variants are embedded in the VCL DFM; no SVG renderer is shipped. Full notice: licenses/Fluent-System-Icons-LICENSE.txt.

@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Classes, System.UITypes, System.Types,
   System.Generics.Collections, Vcl.Forms, Vcl.Controls, Vcl.ComCtrls,
-  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList,
+  Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList, Vcl.ImageCollection, Vcl.VirtualImageList,
   Ot.Engine, Ot.Settings, System.ImageList, Vcl.ToolWin, Ot.TaskStore, Ot.TaskImport,
   Ot.WatchFolder, Ot.TaskSort;
 
@@ -55,7 +55,8 @@ type
     ToolButtonSeparatorSecond: TToolButton;
     ToolButtonTheme: TToolButton;
     ToolButtonPreferences: TToolButton;
-    ImageListMain: TImageList;
+    ImageCollectionMain: TImageCollection;
+    VirtualImageListMain: TVirtualImageList;
     TreeViewSidebar: TTreeView;
     SplitterLeft: TSplitter;
     StatusBarMain: TStatusBar;
@@ -188,20 +189,15 @@ begin
 end;
 
 procedure TFormMain.BuildImages;
-var Bitmap: TBitmap; I: Integer;
+var I, Offset: Integer;
 begin
-  Bitmap := TBitmap.Create;
+  Offset := 0;
+  if FSettings.DarkTheme then Offset := OtIconCount;
+  VirtualImageListMain.BeginUpdate;
   try
-    Bitmap.SetSize(ImageListMain.Width, ImageListMain.Height);
-    ImageListMain.Clear;
     for I := 0 to OtIconCount-1 do
-    begin
-      Bitmap.Canvas.Brush.Color := clFuchsia;
-      Bitmap.Canvas.FillRect(Rect(0,0,Bitmap.Width,Bitmap.Height));
-      DrawAppIcon(Bitmap.Canvas,Rect(0,0,Bitmap.Width,Bitmap.Height),I);
-      ImageListMain.AddMasked(Bitmap,clFuchsia);
-    end;
-  finally Bitmap.Free; end;
+      VirtualImageListMain.Images[I].CollectionIndex := Offset+I;
+  finally VirtualImageListMain.EndUpdate; end;
   UpdateSortHeader;
 end;
 
@@ -1133,7 +1129,7 @@ var I: Integer; Header: HWND; Value: THDItem;
 begin
   Header := ListView_GetHeader(ListViewTorrents.Handle);
   // Native and VCL-styled headers both center this image before the caption.
-  SendMessage(Header,HDM_SETIMAGELIST,0,LPARAM(ImageListMain.Handle));
+  SendMessage(Header,HDM_SETIMAGELIST,0,LPARAM(VirtualImageListMain.Handle));
   for I := 0 to ListViewTorrents.Columns.Count-1 do
   begin
     Value := Default(THDItem); Value.Mask := HDI_FORMAT;
@@ -1457,9 +1453,9 @@ begin
       if Item.Selected then ListViewTorrents.Canvas.Brush.Color := ThemeColor(clHighlight)
       else ListViewTorrents.Canvas.Brush.Color := ThemeColor(clWindow);
       ListViewTorrents.Canvas.FillRect(Bounds);
-      ImageListMain.Draw(ListViewTorrents.Canvas,
-        Bounds.Left+(Bounds.Width-ImageListMain.Width) div 2,
-        Bounds.Top+(Bounds.Height-ImageListMain.Height) div 2,
+      VirtualImageListMain.Draw(ListViewTorrents.Canvas,
+        Bounds.Left+(Bounds.Width-VirtualImageListMain.Width) div 2,
+        Bounds.Top+(Bounds.Height-VirtualImageListMain.Height) div 2,
         TorrentStateIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0));
     end
     else DrawBlockFence(ListViewTorrents.Canvas, Bounds, Entry.Blocks,

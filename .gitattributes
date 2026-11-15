@@ -1,0 +1,6 @@
+# Preserve pinned upstream icon bytes and license hashes across Windows checkouts.
+resources/icons/fluent/svg/*.svg -text
+resources/icons/fluent/LICENSE -text
+resources/icons/fluent/png/** -text
+resources/icons/fluent/preview.png -text
+third_party/bin/Win64/licenses/Fluent-System-Icons-LICENSE.txt -text
