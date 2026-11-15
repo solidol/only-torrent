@@ -146,21 +146,21 @@
       Caption = 'Папки'
       object GroupBoxTorrentStorage: TGroupBox
         Left = 12
-        Top = 178
+        Top = 116
         Width = 496
-        Height = 160
+        Height = 112
         Caption = 'Службові torrent-файли'
         TabOrder = 1
         object EditTorrentFolder: TEdit
           Left = 16
-          Top = 32
+          Top = 24
           Width = 356
           Height = 23
           TabOrder = 0
         end
         object ButtonBrowseTorrents: TButton
           Left = 380
-          Top = 30
+          Top = 22
           Width = 98
           Height = 27
           Caption = 'Огляд...'
@@ -169,9 +169,9 @@
         end
         object LabelTorrentStorageNote: TLabel
           Left = 16
-          Top = 78
+          Top = 60
           Width = 460
-          Height = 64
+          Height = 46
           AutoSize = False
           WordWrap = True
           Caption = 'Метадані копіюються сюди під час додавання. Початковий torrent-файл більше не потрібний. Зміна папки діє на нові завдання; наявні копії не переміщуються.'
@@ -179,21 +179,21 @@
       end
       object GroupBoxFolder: TGroupBox
         Left = 12
-        Top = 12
+        Top = 8
         Width = 496
-        Height = 150
+        Height = 100
         Caption = 'Розташування завантажених файлів'
         TabOrder = 0
         object EditFolder: TEdit
           Left = 16
-          Top = 32
+          Top = 24
           Width = 356
           Height = 23
           TabOrder = 0
         end
         object ButtonBrowse: TButton
           Left = 380
-          Top = 30
+          Top = 22
           Width = 98
           Height = 27
           Caption = 'Огляд...'
@@ -202,12 +202,53 @@
         end
         object LabelFolderNote: TLabel
           Left = 16
-          Top = 80
+          Top = 60
           Width = 460
-          Height = 52
+          Height = 32
           AutoSize = False
           WordWrap = True
           Caption = 'Ця папка підставляється для нових торрентів. Її можна змінити у вікні додавання. Наявні завантаження не переміщуються.'
+        end
+      end
+      object GroupBoxWatch: TGroupBox
+        Left = 12
+        Top = 236
+        Width = 496
+        Height = 156
+        Caption = 'Папка автопідхвату torrent-файлів'
+        TabOrder = 2
+        object CheckBoxWatch: TCheckBox
+          Left = 16
+          Top = 24
+          Width = 460
+          Height = 21
+          Caption = 'Автоматично додавати нові torrent-файли'
+          TabOrder = 0
+        end
+        object EditWatchFolder: TEdit
+          Left = 16
+          Top = 54
+          Width = 356
+          Height = 23
+          TabOrder = 1
+        end
+        object ButtonBrowseWatch: TButton
+          Left = 380
+          Top = 52
+          Width = 98
+          Height = 27
+          Caption = 'Огляд...'
+          TabOrder = 2
+          OnClick = BrowseClick
+        end
+        object LabelWatchNote: TLabel
+          Left = 16
+          Top = 88
+          Width = 460
+          Height = 60
+          AutoSize = False
+          WordWrap = True
+          Caption = 'Файли додаються без діалогу за поточними налаштуваннями папки й запуску. Оригінали не видаляються. Файл має залишатися незмінним щонайменше 1,5 секунди. Дублікати не додаються. Вкладені папки не переглядаються.'
         end
       end
     end
@@ -323,50 +364,6 @@
         AutoSize = False
         WordWrap = True
         Caption = 'Заплановано: розширені налаштування DHT, проксі та веб-інтерфейс. Отримання метаданих magnet використовує окрему DHT-сесію.'
-      end
-    end
-    object TabSheetWatch: TTabSheet
-      Caption = 'Автопідхват'
-      object GroupBoxWatch: TGroupBox
-        Left = 12
-        Top = 12
-        Width = 496
-        Height = 240
-        Caption = 'Папка автопідхвату torrent-файлів'
-        TabOrder = 0
-        object CheckBoxWatch: TCheckBox
-          Left = 16
-          Top = 28
-          Width = 460
-          Height = 21
-          Caption = 'Автоматично додавати нові torrent-файли'
-          TabOrder = 0
-        end
-        object EditWatchFolder: TEdit
-          Left = 16
-          Top = 64
-          Width = 356
-          Height = 23
-          TabOrder = 1
-        end
-        object ButtonBrowseWatch: TButton
-          Left = 380
-          Top = 62
-          Width = 98
-          Height = 27
-          Caption = 'Огляд...'
-          TabOrder = 2
-          OnClick = BrowseClick
-        end
-        object LabelWatchNote: TLabel
-          Left = 16
-          Top = 108
-          Width = 460
-          Height = 110
-          AutoSize = False
-          WordWrap = True
-          Caption = 'Файли додаються без діалогу за поточними налаштуваннями папки й запуску. Оригінали не видаляються. Файл має залишатися незмінним щонайменше 1,5 секунди. Дублікати не додаються. Вкладені папки не переглядаються.'
-        end
       end
     end
     object TabSheetAssociations: TTabSheet

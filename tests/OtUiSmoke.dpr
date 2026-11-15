@@ -1,6 +1,8 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.TableUiTests in 'Ot.TableUiTests.pas',
+  Ot.TaskSort in '..\src\core\Ot.TaskSort.pas',
   Ot.StatusIcons in '..\src\ui\Ot.StatusIcons.pas',
   Ot.WatchFolder in '..\src\core\Ot.WatchFolder.pas',
   Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
@@ -115,6 +117,7 @@ begin
         SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
+      if ParamCount=0 then TableUiModels;
       Application.CreateForm(TFormMain, FormMain);
       Require(FormMain.MenuItemUpdate.Parent = FormMain.MenuItemOptions,
         'Update command is in the Settings menu');
@@ -209,23 +212,24 @@ begin
         Entry.Snapshot.Seeds := 8;
         Item := FormMain.ListViewTorrents.Items.Add;
         Item.Data := Entry;
-        Item.Caption := Entry.Metadata.Name;
+        Item.Caption := '';
+        Item.SubItems.Add(Entry.Metadata.Name);
         for I := 1 to 10 do Item.SubItems.Add('');
-        Item.SubItems[0] := '2.00 GiB';
-        Item.SubItems[1] := '59.3 %';
-        Item.SubItems[2] := 'Downloading';
+        Item.SubItems[1] := '2.00 GiB';
+        Item.SubItems[2] := '59.3 %';
+        Item.SubItems[3] := 'Downloading';
         Entry.UploadedBytes := 5368709120;
-        Item.SubItems[9] := '5.00 GiB';
-        Require(FormMain.ListViewTorrents.Columns.Count = 11, 'Uploaded column exists');
-        Require(FormMain.ListViewTorrents.Columns[3].Width <= MulDiv(70, FormMain.CurrentPPI, 96), 'Compact icon status column');
-        Item.SubItems[3] := '8'; Item.SubItems[4] := '12';
+        Item.SubItems[10] := '5.00 GiB';
+        Require(FormMain.ListViewTorrents.Columns.Count = 12, 'Uploaded column exists');
+        Require(FormMain.ListViewTorrents.Columns[4].Width <= MulDiv(70, FormMain.CurrentPPI, 96), 'Compact icon status column');
+        Item.SubItems[4] := '8'; Item.SubItems[5] := '12';
         FormMain.TorrentInfoTip(FormMain.ListViewTorrents, Item, StatusTip);
         Require(Pos('Downloading', StatusTip) > 0, 'Status meaning remains available in tooltip');
         FormMain.HandleNeeded; FormMain.ListViewTorrents.HandleNeeded;
         DefaultDraw := True;
-        FormMain.DrawSubItem(FormMain.ListViewTorrents, Item, 3, [], cdPrePaint, DefaultDraw);
+        FormMain.DrawSubItem(FormMain.ListViewTorrents, Item, 4, [], cdPrePaint, DefaultDraw);
         Require(not DefaultDraw, 'Status text painting is replaced by icon drawing');
-        Item.SubItems[5] := '12.3 MiB/s'; Item.SubItems[6] := '1.2 MiB/s';
+        Item.SubItems[6] := '12.3 MiB/s'; Item.SubItems[7] := '1.2 MiB/s';
         Item.Selected := True;
         FormMain.TorrentSelect(FormMain.ListViewTorrents, Item, True);
         Settings.Load;
@@ -272,6 +276,8 @@ begin
           Require(FormPreferences.PageControlSettings.ActivePage = FormPreferences.TabSheetBandwidth, 'Category navigation');
           FormPreferences.TreeViewCategories.Selected := FormPreferences.TreeViewCategories.Items[0];
           Capture(FormPreferences, 'ui-preferences');
+          FormPreferences.TreeViewCategories.Selected := FormPreferences.TreeViewCategories.Items[1];
+          Capture(FormPreferences, 'ui-preferences-folders');
         finally FormPreferences.Free; end;
         FormAddTorrent := TFormAddTorrent.Create(nil);
         try
@@ -369,7 +375,7 @@ begin
         Entry.Free;
         FormMain.Free;
       end;
-      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and JSON persistence, preferences navigation, file checkboxes, progress rendering, DPI-aware status icons, tooltips and lifetime-upload column');
+      Output.Add('PASS: all DFM forms load, system/classic appearance, dark/light palette switching and JSON persistence, preferences navigation, file checkboxes, progress rendering, DPI-aware status icons, toolbar red download, original leading icons, numeric/dynamic sorting, selection, double-click folder action, relocated watch controls and lifetime-upload column');
     except
       on E: Exception do
       begin

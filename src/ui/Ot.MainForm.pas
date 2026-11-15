@@ -7,7 +7,7 @@ uses
   System.Generics.Collections, Vcl.Forms, Vcl.Controls, Vcl.ComCtrls,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList,
   Ot.Engine, Ot.Settings, System.ImageList, Vcl.ToolWin, Ot.TaskStore, Ot.TaskImport,
-  Ot.WatchFolder;
+  Ot.WatchFolder, Ot.TaskSort;
 
 type
   TTorrentEntry = class
@@ -15,6 +15,7 @@ type
     Id: Integer;
     UploadedBytes: Int64;
     StatusIconKey: Integer;
+    SortKey: TOtTaskSortKey;
     FileName, Folder, LastError: string;
     Metadata: TOtMetadata;
     Priorities: TArray<Integer>;
@@ -110,6 +111,9 @@ type
     procedure ThemeClick(Sender: TObject);
     procedure ViewClick(Sender: TObject);
     procedure OpenFolderClick(Sender: TObject);
+    procedure TorrentColumnClick(Sender: TObject; Column: TListColumn);
+    procedure TorrentCompare(Sender: TObject; Item1, Item2: TListItem; Data: Integer; var Compare: Integer);
+    procedure TorrentDblClick(Sender: TObject);
     procedure TorrentInfoTip(Sender: TObject; Item: TListItem; var InfoTip: string);
     procedure DrawSubItem(Sender: TCustomListView; Item: TListItem;
       SubItem: Integer; State: TCustomDrawState; Stage: TCustomDrawStage;
@@ -121,6 +125,8 @@ type
     FSettings: TOtSettings;
     FEntries: TObjectList<TTorrentEntry>;
     FFilter: Integer;
+    FSortColumn: Integer;
+    FSortDescending, FSortDirty: Boolean;
     FRebuilding, FNeedsRebuild: Boolean;
     FDownHistory, FUpHistory: array[0..119] of Int64;
     FSelectedBlocks: TOtBlockMap;
@@ -130,6 +136,7 @@ type
     FAddingTorrent: Boolean;
     FInTray: Boolean;
     FWatcher: TOtWatchFolder;
+    procedure UpdateSortHeader;
     procedure OpenLink(const Link: string);
     procedure ProcessActivation;
     procedure WMSysCommand(var Message: TWMSysCommand); message WM_SYSCOMMAND;
@@ -160,6 +167,8 @@ type
     procedure Log(const Text: string);
     function ImportTask(const Task: TOtImportTask; CheckNow, AutoStart: Boolean;
       out Added: Boolean): string;
+  protected
+    procedure OpenTaskFolder(const Folder: string); virtual;
   end;
 
 var FormMain: TFormMain;
@@ -197,6 +206,8 @@ end;
 
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
+  FSortColumn := 1; FSortDirty := True;
+  UpdateSortHeader;
   FEntries := TObjectList<TTorrentEntry>.Create(True);
   FWatcher := TOtWatchFolder.Create;
   TrayIconMain.Icon.Assign(Application.Icon);
@@ -1096,13 +1107,56 @@ begin
   end;
 end;
 
+procedure TFormMain.OpenTaskFolder(const Folder: string);
+begin
+  if NativeInt(ShellExecute(Handle,'open',PChar(Folder),nil,nil,SW_SHOWNORMAL)) <= 32 then
+    MessageDlg(L('text.8a97e3f4441c','Не вдалося відкрити папку.'),mtError,[mbOK],0);
+end;
+
 procedure TFormMain.OpenFolderClick(Sender: TObject);
 var Entry: TTorrentEntry;
 begin
   Entry := SelectedEntry;
-  if Entry <> nil then
-    if NativeInt(ShellExecute(Handle, 'open', PChar(Entry.Folder), nil, nil, SW_SHOWNORMAL)) <= 32 then
-      MessageDlg(L('text.8a97e3f4441c', 'Не вдалося відкрити папку.'), mtError, [mbOK], 0);
+  if Entry <> nil then OpenTaskFolder(Entry.Folder);
+end;
+
+procedure TFormMain.TorrentDblClick(Sender: TObject);
+begin
+  OpenFolderClick(Sender);
+end;
+
+procedure TFormMain.UpdateSortHeader;
+var I: Integer; Header: HWND; Value: THDItem;
+begin
+  Header := ListView_GetHeader(ListViewTorrents.Handle);
+  for I := 0 to ListViewTorrents.Columns.Count-1 do
+  begin
+    Value := Default(THDItem); Value.Mask := HDI_FORMAT;
+    if Header_GetItem(Header,I,Value) then
+    begin
+      Value.fmt := Value.fmt and not (HDF_SORTUP or HDF_SORTDOWN);
+      if I = FSortColumn then
+        if FSortDescending then Value.fmt := Value.fmt or HDF_SORTDOWN
+        else Value.fmt := Value.fmt or HDF_SORTUP;
+      Header_SetItem(Header,I,Value);
+    end;
+  end;
+end;
+
+procedure TFormMain.TorrentColumnClick(Sender: TObject; Column: TListColumn);
+begin
+  if Column.Index = FSortColumn then FSortDescending := not FSortDescending
+  else begin FSortColumn := Column.Index; FSortDescending := False; end;
+  FSortDirty := True; UpdateSortHeader; UpdateRows;
+end;
+
+procedure TFormMain.TorrentCompare(Sender: TObject; Item1, Item2: TListItem;
+  Data: Integer; var Compare: Integer);
+begin
+  Compare := 0;
+  if (Item1.Data = nil) or (Item2.Data = nil) then Exit;
+  Compare := CompareTaskKeys(TTorrentEntry(Item1.Data).SortKey,TTorrentEntry(Item2.Data).SortKey);
+  if FSortDescending then Compare := -Compare;
 end;
 
 function TFormMain.Matches(Entry: TTorrentEntry; Filter: Integer): Boolean;
@@ -1140,7 +1194,7 @@ procedure TFormMain.UpdateRows;
 var Entry, Selected: TTorrentEntry; Item: TListItem; I, J, ImageIndex, IconKey: Integer; Seconds: Int64;
   IconBounds: TRect;
   Selection: TArray<TTorrentEntry>; SelectedItem: TTorrentEntry;
-  Rebuild: Boolean;
+  Rebuild, NeedsSort: Boolean; Key: TOtTaskSortKey; Order: Integer;
   procedure SetSubItem(Index: Integer; const Value: string);
   begin
     if Item.SubItems[Index] <> Value then Item.SubItems[Index] := Value;
@@ -1160,7 +1214,7 @@ begin
         begin
           Item := ListViewTorrents.Items.Add;
           Item.Data := Entry;
-          for J := 1 to 10 do Item.SubItems.Add('');
+          for J := 1 to 11 do Item.SubItems.Add('');
           for SelectedItem in Selection do
             if Entry = SelectedItem then Item.Selected := True;
           if Entry = Selected then Item.Focused := True;
@@ -1171,37 +1225,53 @@ begin
     begin
       Item := ListViewTorrents.Items[I];
       Entry := TTorrentEntry(Item.Data);
-      if Item.Caption <> Entry.Metadata.Name then Item.Caption := Entry.Metadata.Name;
-      SetSubItem(0, SizeText(Entry.Snapshot.TotalBytes));
-      SetSubItem(1, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
-      SetSubItem(2, StateText(Entry.Snapshot.State));
+      if Item.Caption <> '' then Item.Caption := '';
+      SetSubItem(0, Entry.Metadata.Name);
+      SetSubItem(1, SizeText(Entry.Snapshot.TotalBytes));
+      SetSubItem(2, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
+      SetSubItem(3, StateText(Entry.Snapshot.State));
       if Entry.Options.NeedsVerification and not Entry.Checking and (Entry.Snapshot.State = 8) then
-        SetSubItem(2, L('batch.unverified', 'Призупинено; файли не перевірено'));
-      if Entry.DeletingId <> 0 then SetSubItem(2, L('delete.state', 'Видалення файлів…'));
+        SetSubItem(3, L('batch.unverified', 'Призупинено; файли не перевірено'));
+      if Entry.DeletingId <> 0 then SetSubItem(3, L('delete.state', 'Видалення файлів…'));
       IconKey := Entry.Snapshot.State + Ord(Entry.Snapshot.UploadRate > 0) * 256 + Ord(Entry.DeletingId <> 0) * 512;
       if IconKey <> Entry.StatusIconKey then
       begin
         Entry.StatusIconKey := IconKey;
-        if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, 3, LVIR_BOUNDS, @IconBounds) then
+        if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, 4, LVIR_BOUNDS, @IconBounds) then
           InvalidateRect(ListViewTorrents.Handle, @IconBounds, False);
       end;
-      SetSubItem(3, IntToStr(Entry.Snapshot.Seeds));
-      SetSubItem(4, IntToStr(Entry.Snapshot.Peers));
-      SetSubItem(5, SizeText(Entry.Snapshot.DownloadRate) + L('text.a9208f0400fe', '/с'));
-      SetSubItem(6, SizeText(Entry.Snapshot.UploadRate) + L('text.a9208f0400fe', '/с'));
-      SetSubItem(7, SizeText(Entry.Snapshot.DoneBytes));
-      SetSubItem(9, SizeText(Entry.UploadedBytes));
+      SetSubItem(4, IntToStr(Entry.Snapshot.Seeds));
+      SetSubItem(5, IntToStr(Entry.Snapshot.Peers));
+      SetSubItem(6, SizeText(Entry.Snapshot.DownloadRate) + L('text.a9208f0400fe', '/с'));
+      SetSubItem(7, SizeText(Entry.Snapshot.UploadRate) + L('text.a9208f0400fe', '/с'));
+      SetSubItem(8, SizeText(Entry.Snapshot.DoneBytes));
+      SetSubItem(10, SizeText(Entry.UploadedBytes));
       if Entry.Snapshot.DownloadRate > 0 then
       begin
         Seconds := RemainingSeconds(Entry.Snapshot.TotalBytes, Entry.Snapshot.DoneBytes, Entry.Snapshot.DownloadRate);
-        SetSubItem(8, Format('%d:%.2d:%.2d',
+        SetSubItem(9, Format('%d:%.2d:%.2d',
           [Seconds div 3600, (Seconds div 60) mod 60, Seconds mod 60]));
       end
-      else if Entry.Snapshot.Progress >= 1000000 then SetSubItem(8, '')
-      else SetSubItem(8, '—');
-      ImageIndex := TorrentStatusIcon(Entry.Snapshot.State,
-        Entry.Snapshot.UploadRate > 0, Entry.DeletingId <> 0);
+      else if Entry.Snapshot.Progress >= 1000000 then SetSubItem(9, '')
+      else SetSubItem(9, '—');
+      ImageIndex := TorrentStatusIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0);
       if Item.ImageIndex <> ImageIndex then Item.ImageIndex := ImageIndex;
+      Key := TaskSortKey(Entry.Metadata.Name,Entry.Snapshot,Entry.UploadedBytes,
+        Entry.Stored.Id,FSortColumn,Entry.DeletingId <> 0);
+      if not SameTaskKey(Key,Entry.SortKey) then
+      begin Entry.SortKey := Key; FSortDirty := True; end;
+    end;
+    if FSortDirty or Rebuild then
+    begin
+      NeedsSort := False;
+      // Avoid repainting/reordering if changing numeric values preserve the order.
+      for I := 1 to ListViewTorrents.Items.Count-1 do
+      begin
+        TorrentCompare(ListViewTorrents,ListViewTorrents.Items[I-1],ListViewTorrents.Items[I],0,Order);
+        if Order > 0 then begin NeedsSort := True; Break; end;
+      end;
+      if NeedsSort then ListViewTorrents.CustomSort(nil,0);
+      FSortDirty := False;
     end;
   finally
     if Rebuild then ListViewTorrents.Items.EndUpdate;
@@ -1357,8 +1427,8 @@ end;
 
 procedure TFormMain.TorrentInfoTip(Sender: TObject; Item: TListItem; var InfoTip: string);
 begin
-  if (Item <> nil) and (Item.SubItems.Count > 2) then
-    InfoTip := Item.Caption + sLineBreak + Item.SubItems[2];
+  if (Item <> nil) and (Item.SubItems.Count > 3) then
+    InfoTip := Item.SubItems[0] + sLineBreak + Item.SubItems[3];
 end;
 
 procedure TFormMain.DrawSubItem(Sender: TCustomListView; Item: TListItem;
@@ -1366,13 +1436,13 @@ procedure TFormMain.DrawSubItem(Sender: TCustomListView; Item: TListItem;
   var DefaultDraw: Boolean);
 var Bounds: TRect; Entry: TTorrentEntry;
 begin
-  if (SubItem <> 3) and ((SubItem <> 2) or not FSettings.ShowProgressBars) then Exit;
+  if (SubItem <> 4) and ((SubItem <> 3) or not FSettings.ShowProgressBars) then Exit;
   if Stage <> cdPrePaint then Exit;
   Entry := TTorrentEntry(Item.Data);
   if Entry = nil then Exit;
   if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, SubItem, LVIR_BOUNDS, @Bounds) then
   begin
-    if SubItem = 3 then
+    if SubItem = 4 then
     begin
       if Item.Selected then ListViewTorrents.Canvas.Brush.Color := ThemeColor(clHighlight)
       else ListViewTorrents.Canvas.Brush.Color := ThemeColor(clWindow);
@@ -1380,7 +1450,7 @@ begin
       ImageListMain.Draw(ListViewTorrents.Canvas,
         Bounds.Left+(Bounds.Width-ImageListMain.Width) div 2,
         Bounds.Top+(Bounds.Height-ImageListMain.Height) div 2,
-        TorrentStatusIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0));
+        TorrentStateIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0));
     end
     else DrawBlockFence(ListViewTorrents.Canvas, Bounds, Entry.Blocks,
       Item.Selected, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
@@ -1397,7 +1467,7 @@ begin
   begin
     First := ListViewTorrents.TopItem.Index;
     Last := Min(ListViewTorrents.Items.Count - 1, First + ListViewTorrents.VisibleRowCount + 1);
-    Columns := EnsureRange((ListViewTorrents.Columns[2].Width - 58) div 3, 1, 4096);
+    Columns := EnsureRange((ListViewTorrents.Columns[3].Width - 58) div 3, 1, 4096);
     for I := First to Last do
     begin
       Entry := TTorrentEntry(ListViewTorrents.Items[I].Data);
@@ -1410,7 +1480,7 @@ begin
       if not SameBlockMap(Entry.Blocks, NewBlocks) then
       begin
         Entry.Blocks := NewBlocks;
-        if ListView_GetSubItemRect(ListViewTorrents.Handle, I, 2, LVIR_BOUNDS, @Bounds) then
+        if ListView_GetSubItemRect(ListViewTorrents.Handle, I, 3, LVIR_BOUNDS, @Bounds) then
           InvalidateRect(ListViewTorrents.Handle, @Bounds, False);
       end;
     end;

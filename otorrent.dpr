@@ -1,6 +1,7 @@
 ﻿program otorrent;
 
 uses
+  Ot.TaskSort in 'src\core\Ot.TaskSort.pas',
   Winapi.Windows, Winapi.Messages, System.SysUtils,
   Ot.Activation in 'src\core\Ot.Activation.pas',
   Ot.UpdateLaunch in 'src\core\Ot.UpdateLaunch.pas',

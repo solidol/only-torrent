@@ -14,7 +14,6 @@ type
     TabSheetConnection: TTabSheet;
     TabSheetBandwidth: TTabSheet;
     TabSheetFuture: TTabSheet;
-    TabSheetWatch: TTabSheet;
     TabSheetAssociations: TTabSheet;
     GroupBoxAssociations: TGroupBox;
     CheckBoxAssociateTorrent: TCheckBox;
@@ -94,7 +93,6 @@ begin
   TreeViewCategories.Items.Add(nil, L('text.d5823b720a94', 'З’єднання'));
   TreeViewCategories.Items.Add(nil, L('text.d8c69ef04dda', 'Швидкість'));
   TreeViewCategories.Items.Add(nil, L('text.048483ff51ba', 'Наступні етапи'));
-  TreeViewCategories.Items.Add(nil, L('source.watchCategory', 'Автопідхват'));
   TreeViewCategories.Items.Add(nil, L('shell.category', 'Системні асоціації'));
   TreeViewCategories.Selected := TreeViewCategories.Items[0];
   TranslateForm(Self);
@@ -169,7 +167,7 @@ begin
     NewValue.RememberDownloadFolder(NewValue.DownloadFolder);
     if Trim(EditTorrentFolder.Text) = '' then raise Exception.Create(L('text.21ba4eba4706', 'Вкажіть папку службових torrent-файлів.'));
     NewValue.TorrentFolder := ExpandFileName(Trim(EditTorrentFolder.Text));
-    PageControlSettings.ActivePage := TabSheetWatch;
+    PageControlSettings.ActivePage := TabSheetFolders;
     NewValue.WatchEnabled := CheckBoxWatch.Checked;
     NewValue.WatchFolder := Trim(EditWatchFolder.Text);
     if NewValue.WatchFolder <> '' then NewValue.WatchFolder := ExpandFileName(NewValue.WatchFolder);

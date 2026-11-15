@@ -64,6 +64,7 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="..\src\core\Ot.Profile.pas"/>
+        <DCCReference Include="..\src\core\Ot.TaskSort.pas"/>
         <DCCReference Include="..\src\core\Ot.TaskStore.pas"/>
         <DCCReference Include="..\src\core\Ot.Localization.pas"/>
         <DCCReference Include="..\src\core\Ot.Types.pas"/>

@@ -1,6 +1,7 @@
 ﻿program OtCoreTests;
 {$APPTYPE CONSOLE}
 uses
+  Ot.TaskSort in '..\src\core\Ot.TaskSort.pas',
   Ot.WatchFolder in '..\src\core\Ot.WatchFolder.pas',
   Ot.TorrentSource in '..\src\core\Ot.TorrentSource.pas',
   Ot.Profile in '..\src\core\Ot.Profile.pas',

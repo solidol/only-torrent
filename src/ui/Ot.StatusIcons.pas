@@ -4,8 +4,9 @@ interface
 
 uses System.Types, Vcl.Graphics;
 
-const OtIconCount = 16;
+const OtIconCount = 18;
 
+function TorrentStateIcon(State: Integer; Uploading, Deleting: Boolean): Integer;
 function TorrentStatusIcon(State: Integer; Uploading, Deleting: Boolean): Integer;
 procedure DrawAppIcon(Canvas: TCanvas; const Bounds: TRect; Index: Integer);
 procedure DrawTorrentStatus(Canvas: TCanvas; const Bounds: TRect;
@@ -29,6 +30,13 @@ begin
     9: Result := 1;
   else Result := 8;
   end;
+end;
+
+function TorrentStateIcon(State: Integer; Uploading, Deleting: Boolean): Integer;
+begin
+  Result := TorrentStatusIcon(State,Uploading,Deleting);
+  // Retain the original blue download glyph in the leading icon column.
+  if Result = 11 then Result := 16 else if Result = 15 then Result := 17;
 end;
 
 procedure DrawAppIcon(Canvas: TCanvas; const Bounds: TRect; Index: Integer);
@@ -90,6 +98,8 @@ begin
     14: begin Canvas.Brush.Color := Blue; Box(2,4,18,16);
       Canvas.Pen.Color := ThemeColor(clWindow); Line(5,12,15,12); end;
     15: begin Triangle(True,0,3,8,14,Green); Triangle(False,12,3,8,14,Blue); end;
+    16: Triangle(False,1,3,18,14,Red);
+    17: begin Triangle(True,0,3,8,14,Green); Triangle(False,12,3,8,14,Red); end;
   end;
   Canvas.Brush.Style := bsSolid; Canvas.Pen.Width := 1;
 end;
@@ -105,7 +115,7 @@ begin
   Size := Min(IconSize,Min(Bounds.Width-4,Bounds.Height-2));
   if Size < 8 then Exit;
   X := Bounds.Left+(Bounds.Width-Size) div 2; Y := Bounds.Top+(Bounds.Height-Size) div 2;
-  DrawAppIcon(Canvas,Rect(X,Y,X+Size,Y+Size),TorrentStatusIcon(State,Uploading,Deleting));
+  DrawAppIcon(Canvas,Rect(X,Y,X+Size,Y+Size),TorrentStateIcon(State,Uploading,Deleting));
 end;
 
 end.

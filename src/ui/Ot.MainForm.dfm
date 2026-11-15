@@ -312,6 +312,10 @@
       Align = alClient
       Columns = <
         item
+          Caption = ''
+          Width = 32
+        end
+        item
           Caption = #1053#1072#1079#1074#1072
           Width = 260
         end
@@ -363,6 +367,9 @@
       TabOrder = 0
       ViewStyle = vsReport
       MultiSelect = True
+      OnColumnClick = TorrentColumnClick
+      OnCompare = TorrentCompare
+      OnDblClick = TorrentDblClick
       OnAdvancedCustomDrawSubItem = DrawSubItem
       OnInfoTip = TorrentInfoTip
       OnSelectItem = TorrentSelect
