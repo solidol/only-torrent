@@ -13,6 +13,7 @@ uses
   Ot.UpdateTests in 'Ot.UpdateTests.pas',
   Ot.UpdateShutdown in '..\src\core\Ot.UpdateShutdown.pas',
   Ot.ShutdownFixture in 'Ot.ShutdownFixture.pas',
+  Ot.UninstallTests in 'Ot.UninstallTests.pas',
   Ot.ShellIntegrationTests in 'Ot.ShellIntegrationTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
@@ -300,6 +301,8 @@ begin
       end;
       if (ParamCount > 0) and (ParamStr(1) = '--updates') then
       begin
+        UninstallModels;
+        Results.Add('PASS: uninstall keep/current/all scopes, failed MSI preserves profiles, locked databases and downloaded files remain untouched');
         UpdateModels(ExpandFileName(ParamStr(2)));
         ShellRegistrationModels;
         Results.Add('PASS: update version comparison, download/hash/staging, traversal rejection, locked files, rollback, installation and profile preservation');

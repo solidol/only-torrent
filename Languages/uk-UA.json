@@ -360,5 +360,21 @@
   "update.waitCheck": "Перевірка розпочнеться після відкриття вікна.",
   "FormPreferences.CheckBoxAutoStart.Caption": "Запускати Only Torrent разом із Windows",
   "startup.failed": "Не вдалося змінити автозавантаження. Перевірте доступ до налаштувань Windows.",
-  "update.closeBlocked": "Не вдалося автоматично закрити Only Torrent. Закрийте програму та її діалогові вікна вручну й натисніть «Оновити» ще раз. Файли програми не змінено."
+  "update.closeBlocked": "Не вдалося автоматично закрити Only Torrent. Закрийте програму та її діалогові вікна вручну й натисніть «Оновити» ще раз. Файли програми не змінено.",
+  "uninstall.invalid": "Не знайдено відповідної MSI-інсталяції Only Torrent.",
+  "uninstall.launch": "Не вдалося запустити деінсталятор або підвищення прав скасовано.",
+  "uninstall.close": "Не вдалося закрити Only Torrent. Закрийте програму вручну й повторіть спробу. Дані не змінено.",
+  "uninstall.failed": "Видалення не завершено (код %d). Профілі не очищено. Журнал: %s",
+  "uninstall.partial": "Програму видалено. Частину даних профілів не вдалося очистити; вони залишилися на диску.",
+  "uninstall.done": "Only Torrent видалено. Завантажені файли збережено.",
+  "uninstall.keep": "Не видаляти профілі",
+  "uninstall.current": "Видалити профіль поточного користувача",
+  "uninstall.all": "Видалити профілі всіх користувачів",
+  "uninstall.working": "Завершення роботи Only Torrent та видалення програми…",
+  "FormUninstall.FormUninstall.Caption": "Видалення — Only Torrent",
+  "FormUninstall.LabelNotice.Caption": "Only Torrent буде закрито й видалено. Оберіть, чи очищати дані профілів: налаштування, задачі та службові torrent-файли. Завантажені файли й інші документи залишаться на диску. Очищення виконується лише після успішного видалення програми.",
+  "FormUninstall.RadioGroupProfiles.Caption": "Дані користувачів",
+  "FormUninstall.ButtonRemove.Caption": "Видалити",
+  "FormUninstall.ButtonClose.Caption": "Закрити",
+  "uninstall.reboot": "Для завершення видалення перезавантажте Windows."
 }

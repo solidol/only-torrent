@@ -14,6 +14,7 @@ uses
   Ot.BatchTests in 'Ot.BatchTests.pas',
   Ot.SourceUiTests in 'Ot.SourceUiTests.pas',
   Ot.UpdaterForm in '..\src\ui\Ot.UpdaterForm.pas',
+  Ot.UninstallForm in '..\src\ui\Ot.UninstallForm.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   Ot.FormLocalization in '..\src\ui\Ot.FormLocalization.pas',
   Winapi.Windows, System.SysUtils, System.Classes, Vcl.Forms, Vcl.Controls, Vcl.Graphics,
@@ -81,6 +82,7 @@ var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TForm
   Entry: TTorrentEntry; Item: TListItem; Settings: TOtSettings;
   InspectEngine: TOtEngine; TorrentMetadata: TOtMetadata;
   I: Integer; Output: TStringList; CanClose: Boolean; Deadline: UInt64;
+  FormUninstall: TFormUninstall;
 begin
   Output := TStringList.Create;
   try
@@ -321,6 +323,13 @@ begin
           LoadLanguage('uk-UA'); TranslateForm(FormUpdater);
           Capture(FormUpdater, 'ui-updater');
         finally FormUpdater.Free; end;
+        FormUninstall := TFormUninstall.Create(nil);
+        try
+          FormUninstall.Prepare('C:\Only Torrent Test', '{00000000-0000-0000-0000-000000000000}', 'S-1-5-21-1-2-3-1000');
+          Require(FormUninstall.RadioGroupProfiles.Items.Count = 3, 'Three profile removal choices');
+          Require(FormUninstall.RadioGroupProfiles.ItemIndex = 0, 'Uninstall preserves profiles by default');
+          Capture(FormUninstall, 'ui-uninstall');
+        finally FormUninstall.Free; end;
         FormMain.ListViewTorrents.Items.Clear;
       finally
         Entry.Free;

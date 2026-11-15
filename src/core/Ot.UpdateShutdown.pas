@@ -19,7 +19,9 @@ begin
   GetWindowThreadProcessId(Window, Owner);
   if Owner <> DWORD(Param) then Exit;
   if GetClassName(Window, ClassName, Length(ClassName)) = 0 then Exit;
-  if SameText(ClassName, 'TFormMain') then PostMessage(Window, WM_CLOSE, 0, 0);
+  // A disabled main window owns a modal dialog; do not bypass that dialog.
+  if SameText(ClassName, 'TFormMain') and IsWindowEnabled(Window) then
+    PostMessage(Window, WM_CLOSE, 0, 0);
 end;
 
 function CloseClientForUpdate(const Folder: string; TimeoutMs: Cardinal): Boolean;

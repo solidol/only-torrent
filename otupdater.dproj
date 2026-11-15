@@ -1,4 +1,4 @@
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
         <ProjectGuid>{617F2E49-65C8-409C-AF9B-3D16E8158201}</ProjectGuid>
         <ProjectVersion>20.3</ProjectVersion>
@@ -75,6 +75,8 @@
         <DCCReference Include="src\core\Ot.Localization.pas"/>
         <DCCReference Include="src\ui\Ot.FormLocalization.pas"/>
         <DCCReference Include="src\ui\Ot.UpdaterForm.pas"><Form>FormUpdater</Form><FormType>dfm</FormType></DCCReference>
+        <DCCReference Include="src\core\Ot.Uninstall.pas"/>
+        <DCCReference Include="src\ui\Ot.UninstallForm.pas"><Form>FormUninstall</Form><FormType>dfm</FormType></DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

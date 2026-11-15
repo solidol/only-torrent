@@ -4,6 +4,8 @@ uses
   Winapi.Windows, System.SysUtils, System.IOUtils, Vcl.Forms,
   Ot.UpdateLaunch in 'src\core\Ot.UpdateLaunch.pas',
   Ot.UpdateClient in 'src\core\Ot.UpdateClient.pas',
+  Ot.Uninstall in 'src\core\Ot.Uninstall.pas',
+  Ot.UninstallForm in 'src\ui\Ot.UninstallForm.pas' {FormUninstall},
   Ot.Localization in 'src\core\Ot.Localization.pas',
   Ot.FormLocalization in 'src\ui\Ot.FormLocalization.pas',
   Ot.UpdaterForm in 'src\ui\Ot.UpdaterForm.pas' {FormUpdater};
@@ -14,6 +16,7 @@ uses
 var Folder, Language: string;
 begin
   try
+    if RunUninstallMode then Exit;
     if ParamCount = 0 then
     begin
       LaunchUpdater(0, ExtractFilePath(ParamStr(0)), 'uk-UA');

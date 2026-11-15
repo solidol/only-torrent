@@ -88,6 +88,17 @@ public static class OtBuildDialogs {
       $isBuild = ($window.Title -match '(?i)^build(?:\s.*)?$') -or
         ($window.ClassName -match '(?i)build(?:progress|status|result|dialog|dlg|form)')
       $failedText = $window.Text -match '(?i)\bfailed\b|there are errors|cannot create file|unable to'
+      # VCL labels in the Build summary can be windowless, so their Failed text
+      # is not exposed by GetWindowText. An enabled OK denotes a completed
+      # summary; acknowledge it so AutoBuild can flush the compiler log and exit.
+      if ($isBuild -and $window.OkButton -ne [IntPtr]::Zero -and -not $isError -and
+          -not $logFailed -and -not $failedText) {
+        if ($handled.Add($window.Handle.ToInt64())) {
+          [IO.File]::AppendAllText($dialogLog, "`r`nCompleted Build summary for PID $($Process.Id); confirming OK.`r`n$($window.Text)", [Text.Encoding]::UTF8)
+          [OtBuildDialogs]::Confirm($window)
+        }
+        continue
+      }
       if (-not $isError -and -not ($isBuild -and ($logFailed -or $failedText))) { continue }
       if ($null -eq $failureAt) {
         $failureAt = [datetime]::UtcNow
