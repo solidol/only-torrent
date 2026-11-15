@@ -353,6 +353,47 @@ begin
   finally Names.Free; Zip.Free; end;
 end;
 
+function BackupTreeIsLocal(const Folder: string): Boolean;
+var Entry: string; Attributes: DWORD;
+begin
+  Result := False;
+  Attributes := GetFileAttributes(PChar(Folder));
+  if (Attributes = INVALID_FILE_ATTRIBUTES) or
+    ((Attributes and FILE_ATTRIBUTE_REPARSE_POINT) <> 0) then Exit;
+  for Entry in TDirectory.GetFileSystemEntries(Folder) do
+  begin
+    Attributes := GetFileAttributes(PChar(Entry));
+    if (Attributes = INVALID_FILE_ATTRIBUTES) or
+      ((Attributes and FILE_ATTRIBUTE_REPARSE_POINT) <> 0) then Exit;
+    if ((Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0) and
+      not BackupTreeIsLocal(Entry) then Exit;
+  end;
+  Result := True;
+end;
+
+procedure RemoveUpdateBackups(const TargetFolder: string);
+const Prefix = '.ot-update-backup-';
+var Folder, Root, Name: string;
+begin
+  Root := ExcludeTrailingPathDelimiter(ExpandFileName(TargetFolder));
+  try
+  // Called only after all package hashes pass and the pending marker is removed.
+  for Folder in TDirectory.GetDirectories(Root, Prefix + '*') do
+  try
+    Name := ExtractFileName(Folder);
+    if not SameText(GUIDToString(StringToGUID(Copy(Name, Length(Prefix) + 1, MaxInt))),
+      Copy(Name, Length(Prefix) + 1, MaxInt)) then Continue;
+    if not SameFileName(ExcludeTrailingPathDelimiter(ExtractFilePath(ExpandFileName(Folder))), Root) then Continue;
+    if not FileExists(TPath.Combine(Folder, 'update-files.txt')) then Continue;
+    if BackupTreeIsLocal(Folder) then TDirectory.Delete(Folder, True);
+  except
+    // A locked backup can remain; cleanup failure must not undo a verified update.
+  end;
+  except
+    // Enumeration may also fail after installation; keep the verified new files.
+  end;
+end;
+
 procedure InstallUpdate(const StageFolder, TargetFolder, Version: string);
 var Manifest, Files: TJSONObject; Pair: TJSONPair; Names: TList<string>; Name, Backup, Temporary,
   Destination, Error, RollbackError, Pending: string; Token: TGUID; I, Changed: Integer; Probe, Lock: THandle;
@@ -437,7 +478,13 @@ begin
         try
           Name := Names[I]; Destination := SafePath(TargetFolder, Name);
           Temporary := Destination + '.ot-rollback-' + GUIDToString(Token);
-          if FileExists(SafePath(Backup, Name)) then ReplaceFile(SafePath(Backup, Name), Destination)
+          if FileExists(SafePath(Backup, Name)) then
+          begin
+            ReplaceFile(SafePath(Backup, Name), Destination);
+            if not SameText(THashSHA2.GetHashStringFromFile(Destination),
+              THashSHA2.GetHashStringFromFile(SafePath(Backup, Name))) then
+              raise EWriteError.Create('Restored file hash mismatch: ' + Name);
+          end
           else if not System.SysUtils.DeleteFile(Destination) then RaiseLastOSError;
         except on R: Exception do RollbackError := RollbackError + sLineBreak + R.Message; end;
         if (RollbackError = '') and not System.SysUtils.DeleteFile(Pending) then
@@ -445,6 +492,7 @@ begin
         raise EWriteError.Create(Error + sLineBreak + L('update.backup', 'Резервні копії: ') + Backup + RollbackError);
       end;
     end;
+    RemoveUpdateBackups(TargetFolder);
   finally Names.Free; Manifest.Free; CloseHandle(Lock); end;
 end;
 

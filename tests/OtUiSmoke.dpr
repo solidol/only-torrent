@@ -92,6 +92,8 @@ begin
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
+      Require(FormMain.MenuItemUpdate.Parent = FormMain.MainMenuMain.Items,
+        'Check for updates is directly available in the main menu');
       if ParamStr(1) = '--source-test' then
       begin
         try RunSourceUi(FormMain, ParamStr(2), ParamStr(3), ParamStr(4));

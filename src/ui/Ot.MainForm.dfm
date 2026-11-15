@@ -394,10 +394,10 @@
         ShortCut = 16464
         OnClick = PreferencesClick
       end
-      object MenuItemUpdate: TMenuItem
-        Caption = 'Перевірити оновлення...'
-        OnClick = UpdateClick
-      end
+    end
+    object MenuItemUpdate: TMenuItem
+      Caption = 'Перевірити оновлення...'
+      OnClick = UpdateClick
     end
     object MenuItemView: TMenuItem
       Caption = #1042#1080#1075#1083#1103#1076

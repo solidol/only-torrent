@@ -54,7 +54,7 @@ end;
 
 procedure UpdateModels(const OldExecutable: string);
 var Root, Stage, Target, Version, Archive, ArchiveName, Downloaded, BadArchive, OldHash: string;
-  Token: TGUID; Manifest, Files: TJSONObject; Zip: TZipFile; Name: string;
+  Token: TGUID; Manifest, Files: TJSONObject; Zip: TZipFile; Name, OldBackup: string;
   Names: TArray<string>; Worker: TFixtureUpdateWorker; Failed: Boolean; Lock: THandle;
   procedure DownloadFixture(const ZipName, Hash: string; ExpectSuccess: Boolean);
   begin
@@ -146,12 +146,21 @@ begin
   Require(THashSHA2.GetHashStringFromFile(TPath.Combine(Target, 'otorrent.exe')) = OldHash, 'Rollback did not restore old executable');
   Require(not FileExists(TPath.Combine(Target, 'otupdater.exe')), 'Rollback retained a newly added file');
   Require(not FileExists(TPath.Combine(Target, '.ot-update.pending')), 'Successful rollback left pending marker');
+  Require(Length(TDirectory.GetDirectories(Target, '.ot-update-backup-*')) > 0,
+    'Failed update must preserve backups');
   Target := TPath.Combine(Root, 'success'); PrepareTarget(Target);
   TFile.WriteAllText(TPath.Combine(Target, 'user-data.txt'), 'keep', TEncoding.UTF8);
+  CreateGUID(Token);
+  OldBackup := TPath.Combine(Target, '.ot-update-backup-' + GUIDToString(Token));
+  ForceDirectories(OldBackup);
+  TFile.WriteAllText(TPath.Combine(OldBackup, 'update-files.txt'), 'otorrent.exe', TEncoding.UTF8);
+  TFile.WriteAllText(TPath.Combine(OldBackup, 'otorrent.exe'), 'old backup', TEncoding.UTF8);
   InstallUpdate(Downloaded, Target, Version);
   VerifyUpdateStage(Target, Version);
   Require(TFile.ReadAllText(TPath.Combine(Target, 'user-data.txt'), TEncoding.UTF8) = 'keep', 'Unrelated data changed');
   Require(not FileExists(TPath.Combine(Target, '.ot-update.pending')), 'Successful update left pending marker');
+  Require(Length(TDirectory.GetDirectories(Target, '.ot-update-backup-*')) = 0,
+    'Successful verified update must remove current and old backups');
   Failed := False;
   try InstallUpdate(Downloaded, Target, Version); except on E: Exception do Failed := True; end;
   Require(Failed, 'Same-version reinstall accepted');
