@@ -84,7 +84,7 @@ begin
     Require(FormProbe.OpenedFolder=A.Folder,'Double click opens the selected folder through the shared shell action');
     Require(RowFor(A).Caption='' ,'Name is separate from the leading icon');
     Require(RowFor(A).SubItems[0]='Zulu','Name column text');
-    Require(RowFor(A).ImageIndex=TorrentStatusIcon(3,False,False),'Original leading icon retained');
+    Require(RowFor(A).ImageIndex=2,'Leading column uses the classic play icon');
     Bitmap := TBitmap.Create;
     try
       Bitmap.SetSize(20,20);

@@ -4,7 +4,7 @@ interface
 
 uses System.Types, Vcl.Graphics;
 
-const OtIconCount = 18;
+const OtIconCount = 20;
 
 function TorrentStateIcon(State: Integer; Uploading, Deleting: Boolean): Integer;
 function TorrentStatusIcon(State: Integer; Uploading, Deleting: Boolean): Integer;
@@ -100,6 +100,14 @@ begin
     15: begin Triangle(True,0,3,8,14,Green); Triangle(False,12,3,8,14,Blue); end;
     16: Triangle(False,1,3,18,14,Red);
     17: begin Triangle(True,0,3,8,14,Green); Triangle(False,12,3,8,14,Red); end;
+    18: begin
+      Triangle(True,3,2,14,10,ThemeColor(clWindowText));
+      Canvas.FillRect(TRect.Create(P(8,10),P(12,18)));
+    end;
+    19: begin
+      Triangle(False,3,8,14,10,ThemeColor(clWindowText));
+      Canvas.FillRect(TRect.Create(P(8,2),P(12,10)));
+    end;
   end;
   Canvas.Brush.Style := bsSolid; Canvas.Pen.Width := 1;
 end;

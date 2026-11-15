@@ -202,12 +202,12 @@ begin
       ImageListMain.AddMasked(Bitmap,clFuchsia);
     end;
   finally Bitmap.Free; end;
+  UpdateSortHeader;
 end;
 
 procedure TFormMain.FormCreate(Sender: TObject);
 begin
   FSortColumn := 1; FSortDirty := True;
-  UpdateSortHeader;
   FEntries := TObjectList<TTorrentEntry>.Create(True);
   FWatcher := TOtWatchFolder.Create;
   TrayIconMain.Icon.Assign(Application.Icon);
@@ -228,6 +228,7 @@ begin
   TreeViewSidebar.Items.Add(nil, L('text.793c888f1505', 'Без мітки (0)')).ImageIndex := 5;
   TreeViewSidebar.Selected := TreeViewSidebar.Items[0];
   ApplyAppearance(Self, FSettings.SystemTheme);
+  UpdateSortHeader;
   MemoInfo.Text := L('text.69edc94508cc', 'Додайте .torrent-файл кнопкою «+» або натисніть Ctrl+O.');
   StatusBarMain.Panels[0].Text := L('text.398c7d4f7b0d', 'Готово');
   StatusBarMain.Panels[1].Text := L('text.84042003acd8', 'Вниз: 0 KiB/с');
@@ -1053,6 +1054,7 @@ begin
   TranslateForm(Self);
   UpdateThemeControls;
   ApplyAppearance(Self, FSettings.SystemTheme);
+  UpdateSortHeader;
   ListViewTorrents.Invalidate;
   RefreshTimerTimer(nil);
   Log(L('text.590da7f80c60', 'Налаштування застосовано.'));
@@ -1084,6 +1086,7 @@ begin
     raise;
   end;
   ApplyAppearance(Self, FSettings.SystemTheme);
+  UpdateSortHeader;
   BuildImages;
   UpdateThemeControls;
   Invalidate;
@@ -1129,18 +1132,25 @@ procedure TFormMain.UpdateSortHeader;
 var I: Integer; Header: HWND; Value: THDItem;
 begin
   Header := ListView_GetHeader(ListViewTorrents.Handle);
+  // Native and VCL-styled headers both center this image before the caption.
+  SendMessage(Header,HDM_SETIMAGELIST,0,LPARAM(ImageListMain.Handle));
   for I := 0 to ListViewTorrents.Columns.Count-1 do
   begin
     Value := Default(THDItem); Value.Mask := HDI_FORMAT;
     if Header_GetItem(Header,I,Value) then
     begin
-      Value.fmt := Value.fmt and not (HDF_SORTUP or HDF_SORTDOWN);
+      Value.Mask := HDI_FORMAT or HDI_IMAGE;
+      Value.fmt := Value.fmt and not (HDF_SORTUP or HDF_SORTDOWN or HDF_BITMAP_ON_RIGHT or HDF_IMAGE);
+      Value.iImage := -1;
       if I = FSortColumn then
-        if FSortDescending then Value.fmt := Value.fmt or HDF_SORTDOWN
-        else Value.fmt := Value.fmt or HDF_SORTUP;
+      begin
+        Value.fmt := Value.fmt or HDF_IMAGE;
+        if FSortDescending then Value.iImage := 19 else Value.iImage := 18;
+      end;
       Header_SetItem(Header,I,Value);
     end;
   end;
+  InvalidateRect(Header,nil,True);
 end;
 
 procedure TFormMain.TorrentColumnClick(Sender: TObject; Column: TListColumn);
@@ -1254,7 +1264,7 @@ begin
       end
       else if Entry.Snapshot.Progress >= 1000000 then SetSubItem(9, '')
       else SetSubItem(9, '—');
-      ImageIndex := TorrentStatusIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0);
+      if Entry.Snapshot.State in [8,9] then ImageIndex := 3 else ImageIndex := 2;
       if Item.ImageIndex <> ImageIndex then Item.ImageIndex := ImageIndex;
       Key := TaskSortKey(Entry.Metadata.Name,Entry.Snapshot,Entry.UploadedBytes,
         Entry.Stored.Id,FSortColumn,Entry.DeletingId <> 0);

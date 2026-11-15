@@ -57,9 +57,9 @@
         <VerInfo_MajorVer>0</VerInfo_MajorVer>
         <VerInfo_MinorVer>3</VerInfo_MinorVer>
         <VerInfo_Release>3</VerInfo_Release>
-        <VerInfo_Build>21</VerInfo_Build>
+        <VerInfo_Build>22</VerInfo_Build>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.3.3.21;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.3.3.21</VerInfo_Keys>
+        <VerInfo_Keys>CompanyName=Only Torrent contributors;FileDescription=Only Torrent;FileVersion=0.3.3.22;InternalName=otorrent;OriginalFilename=otorrent.exe;ProductName=Only Torrent;ProductVersion=0.3.3.22</VerInfo_Keys>
         <SanitizedProjectName>otorrent</SanitizedProjectName>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
