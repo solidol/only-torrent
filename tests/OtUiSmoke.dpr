@@ -76,7 +76,7 @@ begin
     end;
     DrawTorrentStatus(Bitmap.Canvas, Rect(400,0,440,40), 3, 28, True, False, False);
     DrawTorrentStatus(Bitmap.Canvas, Rect(440,0,480,40), 3, 28, False, True, False);
-    Require(Bitmap.Canvas.Pixels[5*40+20,20] = TColor(RGB(30,177,74)), 'Seeding triangle color');
+    Require(Bitmap.Canvas.Pixels[5*40+20,20] = ThemeColor(clGreen), 'Seeding triangle color');
     Require(Bitmap.Canvas.Pixels[8*40+13,20] <> ThemeColor(clWindow), 'Pause icon remains visible');
     Png.Assign(Bitmap); Png.SaveToFile('..\build\' + Name + '.png');
   finally Png.Free; Bitmap.Free; end;

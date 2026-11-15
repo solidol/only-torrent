@@ -183,66 +183,16 @@ var Bitmap: TBitmap; I: Integer;
 begin
   Bitmap := TBitmap.Create;
   try
-    Bitmap.SetSize(20, 20);
+    Bitmap.SetSize(ImageListMain.Width, ImageListMain.Height);
     ImageListMain.Clear;
-    for I := 0 to 7 do
+    for I := 0 to OtIconCount-1 do
     begin
-      with Bitmap.Canvas do
-      begin
-        Brush.Color := clFuchsia;
-        FillRect(Rect(0, 0, 20, 20));
-        Pen.Width := 2;
-        case I of
-          0: begin
-            Pen.Color := ThemeColor(clGrayText); Brush.Color := ThemeColor(clWindow);
-            Rectangle(3, 2, 14, 18);
-            Pen.Color := ThemeColor(clGreen); Brush.Color := ThemeColor(clGreen);
-            FillRect(Rect(10, 10, 19, 13)); FillRect(Rect(13, 7, 16, 17));
-          end;
-          1: begin
-            Pen.Color := ThemeColor(clMaroon);
-            MoveTo(4, 4); LineTo(16, 16); MoveTo(16, 4); LineTo(4, 16);
-          end;
-          2: begin
-            Pen.Color := ThemeColor(clGreen); Brush.Color := ThemeColor(clGreen);
-            Polygon([Point(5, 3), Point(16, 10), Point(5, 17)]);
-          end;
-          3: begin
-            Brush.Color := ThemeColor(clHotLight);
-            FillRect(Rect(4, 3, 8, 17)); FillRect(Rect(12, 3, 16, 17));
-          end;
-          4: begin
-            Pen.Color := ThemeColor(clGrayText); Brush.Color := ThemeColor(clBtnFace);
-            Ellipse(2, 2, 18, 18); Ellipse(7, 7, 13, 13);
-            MoveTo(10, 0); LineTo(10, 4); MoveTo(10, 16); LineTo(10, 20);
-            MoveTo(0, 10); LineTo(4, 10); MoveTo(16, 10); LineTo(20, 10);
-          end;
-          5: begin
-            Pen.Color := ThemeColor(clGrayText); Brush.Color := ThemeColor(clInfoBk);
-            Rectangle(2, 5, 10, 9); Rectangle(2, 8, 18, 17);
-          end;
-          7: begin
-            Pen.Color := ThemeColor(clWindowText);
-            Brush.Color := ThemeColor(clHighlight);
-            Ellipse(2, 2, 18, 18);
-            Brush.Color := ThemeColor(clBtnFace);
-            Pie(2, 2, 18, 18, 10, 2, 10, 18);
-          end;
-          6: begin
-            Pen.Color := ThemeColor(clMaroon); Brush.Color := ThemeColor(clWindow);
-            Rectangle(4, 5, 16, 18);
-            MoveTo(2, 3); LineTo(18, 3);
-            MoveTo(7, 1); LineTo(13, 1);
-            MoveTo(8, 8); LineTo(8, 15);
-            MoveTo(12, 8); LineTo(12, 15);
-          end;
-        end;
-      end;
-      ImageListMain.AddMasked(Bitmap, clFuchsia);
+      Bitmap.Canvas.Brush.Color := clFuchsia;
+      Bitmap.Canvas.FillRect(Rect(0,0,Bitmap.Width,Bitmap.Height));
+      DrawAppIcon(Bitmap.Canvas,Rect(0,0,Bitmap.Width,Bitmap.Height),I);
+      ImageListMain.AddMasked(Bitmap,clFuchsia);
     end;
-  finally
-    Bitmap.Free;
-  end;
+  finally Bitmap.Free; end;
 end;
 
 procedure TFormMain.FormCreate(Sender: TObject);
@@ -1249,10 +1199,8 @@ begin
       end
       else if Entry.Snapshot.Progress >= 1000000 then SetSubItem(8, '')
       else SetSubItem(8, '—');
-      if Entry.Snapshot.State = 8 then ImageIndex := 3
-      else if Entry.Snapshot.State = 9 then ImageIndex := 1
-      else if Entry.Snapshot.Progress >= 1000000 then ImageIndex := 2
-      else ImageIndex := 0;
+      ImageIndex := TorrentStatusIcon(Entry.Snapshot.State,
+        Entry.Snapshot.UploadRate > 0, Entry.DeletingId <> 0);
       if Item.ImageIndex <> ImageIndex then Item.ImageIndex := ImageIndex;
     end;
   finally
@@ -1425,8 +1373,15 @@ begin
   if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, SubItem, LVIR_BOUNDS, @Bounds) then
   begin
     if SubItem = 3 then
-      DrawTorrentStatus(ListViewTorrents.Canvas, Bounds, Entry.Snapshot.State,
-        MulDiv(20, CurrentPPI, 96), Entry.Snapshot.UploadRate > 0, Entry.DeletingId <> 0, Item.Selected)
+    begin
+      if Item.Selected then ListViewTorrents.Canvas.Brush.Color := ThemeColor(clHighlight)
+      else ListViewTorrents.Canvas.Brush.Color := ThemeColor(clWindow);
+      ListViewTorrents.Canvas.FillRect(Bounds);
+      ImageListMain.Draw(ListViewTorrents.Canvas,
+        Bounds.Left+(Bounds.Width-ImageListMain.Width) div 2,
+        Bounds.Top+(Bounds.Height-ImageListMain.Height) div 2,
+        TorrentStatusIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0));
+    end
     else DrawBlockFence(ListViewTorrents.Canvas, Bounds, Entry.Blocks,
       Item.Selected, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
     DefaultDraw := False;
