@@ -337,7 +337,7 @@
   "update.current": "Встановлено: %s",
   "update.checking": "Перевірка релізів GitHub…",
   "update.downloading": "Завантаження та перевірка пакета…",
-  "update.installing": "Встановлення. Не вимикайте комп’ютер…",
+  "update.installing": "Завершення роботи Only Torrent та встановлення оновлення…",
   "update.cancelling": "Скасування запиту…",
   "update.available": "Останній реліз: %s",
   "update.found": "Доступне оновлення. Натисніть «Оновити».",
@@ -346,9 +346,9 @@
   "update.installed": "Оновлення встановлено. Запустіть Only Torrent вручну.",
   "FormUpdater.LabelCurrent.Caption": "Встановлено:",
   "FormUpdater.LabelAvailable.Caption": "Останній реліз:",
-  "FormUpdater.LabelNotice.Caption": "Після відкриття перевіряється наявність нової версії. Закрийте Only Torrent і натисніть «Оновити» — пакет буде завантажено та встановлено.",
+  "FormUpdater.LabelNotice.Caption": "Натисніть «Оновити» для завантаження й встановлення. Перед заміною файлів Only Torrent буде закрито автоматично зі збереженням задач.",
   "FormUpdater.LabelStatus.Caption": "Перевірка оновлень…",
-  "FormMain.MenuItemUpdate.Caption": "Перевірити оновлення...",
+  "FormMain.MenuItemUpdate.Caption": "Оновити",
   "FormUpdater.FormUpdater.Caption": "Оновлення — Only Torrent",
   "update.pending": "Попереднє встановлення перервано. Відновіть файли з резервної папки та приберіть .ot-update.pending перед продовженням.",
   "update.busy": "Програма зараз оновлюється. Дочекайтеся завершення встановлення.",
@@ -357,5 +357,8 @@
   "theme.switchLight": "Увімкнути світлу тему",
   "theme.switchDark": "Увімкнути темну тему",
   "FormUpdater.ButtonUpdate.Caption": "Оновити",
-  "update.waitCheck": "Перевірка розпочнеться після відкриття вікна."
+  "update.waitCheck": "Перевірка розпочнеться після відкриття вікна.",
+  "FormPreferences.CheckBoxAutoStart.Caption": "Запускати Only Torrent разом із Windows",
+  "startup.failed": "Не вдалося змінити автозавантаження. Перевірте доступ до налаштувань Windows.",
+  "update.closeBlocked": "Не вдалося автоматично закрити Only Torrent. Закрийте програму та її діалогові вікна вручну й натисніть «Оновити» ще раз. Файли програми не змінено."
 }

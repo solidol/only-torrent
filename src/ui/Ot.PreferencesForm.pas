@@ -34,6 +34,7 @@ type
     GroupBoxAdd: TGroupBox;
     CheckBoxShowDialog: TCheckBox;
     CheckBoxStart: TCheckBox;
+    CheckBoxAutoStart: TCheckBox;
     LabelLanguage: TLabel;
     ComboBoxLanguage: TComboBox;
     GroupBoxTorrentStorage: TGroupBox;
@@ -80,7 +81,7 @@ type
 implementation
 
 uses System.SysUtils, System.UITypes, Vcl.Dialogs, Vcl.FileCtrl, Ot.Appearance,
-  Ot.Localization, Ot.FormLocalization, Ot.ShellIntegration;
+  Ot.Localization, Ot.FormLocalization, Ot.ShellIntegration, Ot.AutoStart;
 
 {$R *.dfm}
 
@@ -107,6 +108,7 @@ begin
   CheckBoxProgress.Checked := Value.ShowProgressBars;
   CheckBoxShowDialog.Checked := Value.ShowAddDialog;
   CheckBoxStart.Checked := Value.StartImmediately;
+  CheckBoxAutoStart.Checked := Value.AutoStart;
   EditFolder.Text := Value.DownloadFolder;
   EditTorrentFolder.Text := Value.TorrentFolder;
   CheckBoxWatch.Checked := Value.WatchEnabled;
@@ -148,7 +150,7 @@ begin
 end;
 
 function TFormPreferences.ApplyChanges: Boolean;
-var NewValue: TOtSettings; I: Integer;
+var NewValue: TOtSettings; I: Integer; PreviousAutoStart: Boolean;
 begin
   Result := False;
   try
@@ -182,7 +184,14 @@ begin
     NewValue.ShowAddDialog := CheckBoxShowDialog.Checked;
     NewValue.StartImmediately := CheckBoxStart.Checked;
     NewValue.EnableDHT := CheckBoxDHT.Checked;
-    NewValue.Save;
+    NewValue.AutoStart := CheckBoxAutoStart.Checked;
+    PreviousAutoStart := AutoStartEnabled;
+    SetAutoStartEnabled(NewValue.AutoStart);
+    try NewValue.Save;
+    except
+      SetAutoStartEnabled(PreviousAutoStart);
+      raise;
+    end;
     Value := NewValue;
     LoadLanguage(Value.Language);
     TranslateForm(Self);

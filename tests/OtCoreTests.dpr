@@ -11,6 +11,8 @@ uses
   Ot.ImportTests in 'Ot.ImportTests.pas',
   Ot.SourceModelTests in 'Ot.SourceModelTests.pas',
   Ot.UpdateTests in 'Ot.UpdateTests.pas',
+  Ot.UpdateShutdown in '..\src\core\Ot.UpdateShutdown.pas',
+  Ot.ShutdownFixture in 'Ot.ShutdownFixture.pas',
   Ot.ShellIntegrationTests in 'Ot.ShellIntegrationTests.pas',
   Ot.Localization in '..\src\core\Ot.Localization.pas',
   System.SysUtils, System.Classes, System.IOUtils, System.Diagnostics, Winapi.Windows,
@@ -279,6 +281,16 @@ begin
   Results := TStringList.Create;
   try
     try
+      if (ParamCount = 2) and (ParamStr(1) = '--shutdown-fixture') then
+      begin
+        RunShutdownFixture(ParamStr(2) = 'accept');
+        Exit;
+      end;
+      if (ParamCount = 3) and (ParamStr(1) = '--close-client') then
+      begin
+        if not CloseClientForUpdate(ExpandFileName(ParamStr(2)), StrToInt(ParamStr(3))) then ExitCode := 2;
+        Exit;
+      end;
       if (ParamCount > 0) and (ParamStr(1) = '--update-download-live') then
       begin
         UpdateNetworkLegacyFixture;

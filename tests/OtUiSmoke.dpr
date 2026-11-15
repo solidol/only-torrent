@@ -92,8 +92,8 @@ begin
       Application.Initialize;
       Application.ShowMainForm := False;
       Application.CreateForm(TFormMain, FormMain);
-      Require(FormMain.MenuItemUpdate.Parent = FormMain.MainMenuMain.Items,
-        'Check for updates is directly available in the main menu');
+      Require(FormMain.MenuItemUpdate.Parent = FormMain.MenuItemOptions,
+        'Update command is in the Settings menu');
       if ParamStr(1) = '--source-test' then
       begin
         try RunSourceUi(FormMain, ParamStr(2), ParamStr(3), ParamStr(4));
@@ -211,6 +211,7 @@ begin
         FormPreferences := TFormPreferences.Create(nil);
         try
           FormPreferences.LoadValue(Settings);
+          Require(FormPreferences.CheckBoxAutoStart.Checked = Settings.AutoStart, 'Startup checkbox matches settings');
           Require(not FormPreferences.CheckBoxSystemTheme.Enabled,
             'Classic Windows controls option is disabled in dark theme');
           Capture(FormPreferences, 'ui-preferences-dark');

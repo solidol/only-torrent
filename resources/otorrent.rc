@@ -1,8 +1,8 @@
 1 24 "resources\\otorrent.manifest"
 MAINICON ICON "resources\\otorrent.ico"
 1 VERSIONINFO
-FILEVERSION 0,2,6,12
-PRODUCTVERSION 0,2,6,12
+FILEVERSION 0,2,7,14
+PRODUCTVERSION 0,2,7,14
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS 0x40004L
@@ -15,11 +15,11 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Only Torrent contributors\0"
       VALUE "FileDescription", "Only Torrent\0"
-      VALUE "FileVersion", "0.2.6.12\0"
+      VALUE "FileVersion", "0.2.7.14\0"
       VALUE "InternalName", "otorrent\0"
       VALUE "OriginalFilename", "otorrent.exe\0"
       VALUE "ProductName", "Only Torrent\0"
-      VALUE "ProductVersion", "0.2.6.12\0"
+      VALUE "ProductVersion", "0.2.7.14\0"
     END
   END
   BLOCK "VarFileInfo"

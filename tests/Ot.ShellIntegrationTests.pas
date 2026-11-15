@@ -6,7 +6,7 @@ procedure ShellRegistrationModels;
 
 implementation
 
-uses Winapi.Windows, System.SysUtils, System.Win.Registry, Ot.ShellIntegration;
+uses Winapi.Windows, System.SysUtils, System.Win.Registry, Ot.ShellIntegration, Ot.AutoStart;
 
 function DeleteTree(Key: HKEY; Name: PChar): Longint; stdcall; external 'advapi32.dll' name 'RegDeleteTreeW';
 
@@ -41,6 +41,16 @@ begin
       Require(RegOverridePredefKey(HKEY_CLASSES_ROOT, Classes.CurrentKey) = ERROR_SUCCESS, 'Redirect HKCR');
       try
         Registry.RootKey := HKEY_CURRENT_USER;
+        Require(not AutoStartEnabled, 'Startup defaults to disabled');
+        SetAutoStartEnabled(True);
+        Require(AutoStartEnabled, 'Startup enabled');
+        Require(Read('Software\Microsoft\Windows\CurrentVersion\Run', 'Only Torrent') =
+          '"' + ExpandFileName(ParamStr(0)) + '"', 'Startup command quotes executable path');
+        Require(Registry.OpenKey('Software\Microsoft\Windows\CurrentVersion\Run', True), 'Startup fixture');
+        Registry.WriteString('OtherApp', 'preserve'); Registry.CloseKey;
+        SetAutoStartEnabled(False);
+        Require(not AutoStartEnabled, 'Startup disabled');
+        Require(Read('Software\Microsoft\Windows\CurrentVersion\Run', 'OtherApp') = 'preserve', 'Other startup entries preserved');
         RegisterAssociations(True, True);
         Expected := '"' + ExpandFileName(ParamStr(0)) + '" --open "%1"';
         Require(Read('Software\Classes\OnlyTorrent.Torrent\shell\open\command', '') = Expected, 'Quoted torrent command');

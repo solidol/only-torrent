@@ -60,6 +60,14 @@
     TabOrder = 1
     object TabSheetInterface: TTabSheet
       Caption = 'Інтерфейс'
+      object CheckBoxAutoStart: TCheckBox
+        Left = 28
+        Top = 345
+        Width = 460
+        Height = 21
+        Caption = 'Запускати Only Torrent разом із Windows'
+        TabOrder = 3
+      end
       object LabelLanguage: TLabel
         Left = 28
         Top = 312

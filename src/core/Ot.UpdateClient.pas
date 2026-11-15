@@ -27,6 +27,7 @@ type
     Action: TOtUpdateAction;
     TargetFolder, WorkFolder, StageFolder, Error: string;
     Release: TOtUpdateRelease;
+    CloseBlocked: Boolean;
     Done: TEvent;
     constructor Create(UpdateAction: TOtUpdateAction);
     destructor Destroy; override;
@@ -42,7 +43,7 @@ procedure InstallUpdate(const StageFolder, TargetFolder, Version: string);
 implementation
 
 uses Winapi.Windows, System.JSON, System.IOUtils, System.StrUtils,
-  System.Hash, System.Zip, System.Generics.Collections, Ot.Localization;
+  System.Hash, System.Zip, System.Generics.Collections, Ot.Localization, Ot.UpdateShutdown;
 
 const RepositoryUrl = 'https://github.com/solidol/only-torrent/releases/download/';
   MaxArchive = 128 * 1024 * 1024;
@@ -512,7 +513,15 @@ begin
       case Action of
         uaCheck: CheckRelease;
         uaDownload: Download;
-        uaInstall: InstallUpdate(StageFolder, TargetFolder, Release.Version);
+        uaInstall: begin
+          VerifyUpdateStage(StageFolder, Release.Version);
+          if not CloseClientForUpdate(TargetFolder) then
+          begin
+            CloseBlocked := True;
+            raise EAbort.Create(L('update.closeBlocked', 'Не вдалося автоматично закрити Only Torrent. Закрийте програму та її діалогові вікна вручну й натисніть «Оновити» ще раз. Файли програми не змінено.'));
+          end;
+          InstallUpdate(StageFolder, TargetFolder, Release.Version);
+        end;
       end;
       if Terminated and (Action <> uaInstall) then raise EAbort.Create(L('update.cancelled', 'Оновлення скасовано.'));
     except on E: Exception do Error := E.Message; end;

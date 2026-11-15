@@ -4,7 +4,7 @@ interface
 
 type
   TOtSettings = record
-    DarkTheme, SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
+    AutoStart, DarkTheme, SystemTheme, StartImmediately, ShowAddDialog, ShowProgressBars: Boolean;
     DownloadFolder, TorrentFolder, Language: string;
     RecentDownloadFolders: TArray<string>;
     WatchEnabled: Boolean;
@@ -18,7 +18,7 @@ type
 
 implementation
 
-uses Ot.Localization, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, Ot.Profile;
+uses Ot.Localization, System.SysUtils, System.Classes, System.IOUtils, System.IniFiles, Ot.Profile, Ot.AutoStart;
 
 function SettingsFile: string;
 begin
@@ -51,6 +51,7 @@ var Ini: TMemIniFile; I, Count: Integer; SelectedFolder, DefaultFolder: string;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
+    AutoStart := AutoStartEnabled;
     DarkTheme := Ini.ReadBool('Interface', 'DarkTheme', False);
     SystemTheme := Ini.ReadBool('Interface', 'SystemTheme', True);
     Language := Ini.ReadString('Interface', 'Language', 'uk-UA');
@@ -97,6 +98,7 @@ var Ini: TMemIniFile; Lines: TStringList; I: Integer;
 begin
   Ini := TMemIniFile.Create(SettingsFile, TEncoding.UTF8);
   try
+    Ini.WriteBool('Interface', 'AutoStart', AutoStart);
     Ini.WriteBool('Interface', 'DarkTheme', DarkTheme);
     Ini.WriteBool('Interface', 'SystemTheme', SystemTheme);
     Ini.WriteString('Interface', 'Language', Language);

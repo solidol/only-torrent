@@ -77,7 +77,7 @@ begin
       FStage := '';
       LabelStatus.Caption := L('update.downloading', 'Завантаження та перевірка пакета…');
     end;
-    uaInstall: LabelStatus.Caption := L('update.installing', 'Встановлення. Не вимикайте комп’ютер…');
+    uaInstall: LabelStatus.Caption := L('update.installing', 'Завершення роботи Only Torrent та встановлення оновлення…');
   end;
   try
     FWorker.BeginWork;
@@ -97,7 +97,7 @@ begin
 end;
 
 procedure TFormUpdater.UpdateTimer(Sender: TObject);
-var Error: string; Action: TOtUpdateAction; Percent: Integer;
+var Error: string; Action: TOtUpdateAction; Percent: Integer; CloseBlocked: Boolean;
 begin
   if FWorker = nil then Exit;
   Percent := FWorker.Percent;
@@ -109,6 +109,7 @@ begin
   if FWorker.Done.WaitFor(0) <> wrSignaled then Exit;
   Error := FWorker.Error;
   Action := FWorker.Action;
+  CloseBlocked := FWorker.CloseBlocked;
   if Error = '' then
     case Action of
       uaCheck: begin
@@ -136,7 +137,9 @@ begin
   if Error <> '' then
   begin
     LabelStatus.Caption := Error;
-    if not FClosing then MessageDlg(Error, mtError, [mbOK], 0);
+    if not FClosing then
+      if CloseBlocked then MessageDlg(Error, mtInformation, [mbOK], 0)
+      else MessageDlg(Error, mtError, [mbOK], 0);
   end;
   UpdateButtons;
   if FClosing then Close
