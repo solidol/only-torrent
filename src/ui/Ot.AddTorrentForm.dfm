@@ -480,7 +480,7 @@
         Height = 461
         Anchors = [akLeft, akTop, akRight, akBottom]
         Columns = <
-        item Caption = 'Черга' Width = 55 end
+        item Caption = '№' Width = 55 end
         item Caption = 'Ім’я' Width = 490 end
         item Caption = 'Розмір' Width = 120 end
         item Caption = 'Пріоритет' Width = 120 end

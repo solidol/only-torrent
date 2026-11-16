@@ -100,11 +100,8 @@ def bencode(value):
 
 
 def main():
-    archive = ROOT / 'build/Only-Torrent-0.1.10.1-Win64.zip'
-    assert archive.is_file(), 'Need the previous release archive as an older-version fixture'
-    old_exe = RUN / 'old-otorrent.exe'
-    with zipfile.ZipFile(archive) as package:
-        old_exe.write_bytes(package.read('otorrent.exe'))
+    old_exe = ROOT / 'build/update-old-fixture/otorrent.exe'
+    assert old_exe.is_file(), 'Need an older executable in build/update-old-fixture/otorrent.exe'
     completed = subprocess.run([str(ROOT / 'bin/Win64/OtCoreTests.exe'), '--updates', str(old_exe)],
                                cwd=ROOT / 'tests', timeout=120)
     assert completed.returncode == 0, (ROOT / 'build/core-tests.txt').read_text(encoding='utf-8-sig')
@@ -150,17 +147,16 @@ def main():
         updater, updater_pid = wait_for(lambda: next(((h, p) for h, p, cls in enumerate_windows()
             if cls == 'TFormUpdater' and h not in previous), None), 'Menu did not launch updater')
         time.sleep(1)
-        assert user.IsWindowEnabled(button(updater, 'Check'))
-        assert not user.IsWindowEnabled(button(updater, 'Download'))
-        assert not user.IsWindowEnabled(button(updater, 'Install'))
-        assert not user.IsWindowEnabled(button(updater, 'Cancel request'))
-        click(updater, 'Check')
-        wait_for(lambda: not user.IsWindowEnabled(button(updater, 'Check')), 'Manual check did not start')
-        wait_for(lambda: user.IsWindowEnabled(button(updater, 'Check')), 'Manual GitHub check failed', seconds=45)
-        assert not user.IsWindowEnabled(button(updater, 'Install')), 'Check enabled installation without download'
-        click(updater, 'Close')
+        assert button(updater, 'Update'), 'Single Update button is missing'
+        assert len([h for h, _, cls in enumerate_windows(updater) if cls == 'TButton']) == 1
+        progress = next(h for h, _, cls in enumerate_windows(updater) if cls == 'TProgressBar')
+        user.GetWindowLongW.argtypes = [w.HWND, c.c_int]
+        wait_for(lambda: not user.GetWindowLongW(progress, -16) & 8,
+                 'Updater check did not finish', seconds=45)
+        # Do not install the real public package in an integration test.
+        user.PostMessageW(updater, 0x10, 0, 0)
         wait_for(lambda: form(updater_pid, 'TFormUpdater') is None, 'Updater did not close')
-        print('PASS: menu launches standalone updater; no automatic check; explicit live GitHub check; installation requires verified download')
+        print('PASS: Settings menu launches standalone updater; one Update button; initial check completes; close without installation')
         user.PostMessageW(window, 0x10, 0, 0)
         assert client.wait(25) == 0
         assert len(task_rows(profile, "id")) == 0

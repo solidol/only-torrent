@@ -60,6 +60,7 @@
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
+        <DCCReference Include="Ot.InterfaceAudit.pas"/>
         <DCCReference Include="Ot.UpdaterUiTests.pas"/>
         <DCCReference Include="Ot.IconPreview.pas"/>
         <DCCReference Include="Ot.TableUiTests.pas"/>

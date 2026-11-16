@@ -1,6 +1,7 @@
 import json
 import re
 from pathlib import Path
+from dfm_catalog import entries
 
 root = Path(__file__).resolve().parents[1]
 catalogs = {code: json.loads((root / 'Languages' / (code + '.json')).read_text(encoding='utf-8'))
@@ -16,4 +17,9 @@ for file in (root / 'src').rglob('*.pas'):
     for key in re.findall(r"(?:L|LF)\('([^']+)'\s*,", source):
         assert key in uk, (file, key)
 assert not any(re.search('[\u0400-\u04ff]', value) for value in en.values()), 'Untranslated English entries'
+for file in (root / 'src/ui').glob('*.dfm'):
+    for key, value in entries(file):
+        if value:
+            assert key in uk and key in en, (file, 'Missing DFM translation', key)
+assert not any('.Columns.-1' in key for key in uk), 'Invalid column translation index'
 print('PASS: both UTF-8 language catalogs, stable keys, source lookups, matching format placeholders')

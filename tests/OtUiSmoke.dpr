@@ -1,6 +1,7 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.InterfaceAudit in 'Ot.InterfaceAudit.pas',
   Ot.UpdaterUiTests in 'Ot.UpdaterUiTests.pas',
   Ot.IconPreview in 'Ot.IconPreview.pas',
   Ot.TableUiTests in 'Ot.TableUiTests.pas',
@@ -109,18 +110,24 @@ var FormMain: TFormMain; FormAddTorrent: TFormAddTorrent; FormPreferences: TForm
   I: Integer; Output: TStringList; CanClose, DefaultDraw: Boolean; Deadline: UInt64;
   StatusTip: string;
   FormUninstall: TFormUninstall;
+  ProfileToken: TGUID;
 begin
   Output := TStringList.Create;
   try
     try
       if (ParamStr(1) <> '--restore-test') and (ParamStr(1) <> '--restore-unavailable') and
         (ParamStr(1) <> '--bitcomet-import') and (ParamStr(1) <> '--batch-test') and
-        (ParamStr(1) <> '--source-test') and (ParamStr(1) <> '--watch-test') then
-        SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
+        (ParamStr(1) <> '--source-test') and (ParamStr(1) <> '--watch-test') and
+        (ParamStr(1) <> '--interface-audit') then
+      begin
+        CreateGUID(ProfileToken);
+        SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile-'+GUIDToString(ProfileToken))));
+      end;
       Application.Initialize;
       Application.ShowMainForm := False;
       if ParamStr(1)='--update-fixture' then
       begin RunUpdaterUiFixture(ParamStr(2),ParamStr(3),ParamStr(4)); Exit; end;
+      if ParamStr(1)='--interface-audit' then begin RunInterfaceAudit; Exit; end;
       if ParamCount=0 then TableUiModels;
       Application.CreateForm(TFormMain, FormMain);
       Require(FormMain.MenuItemUpdate.Parent = FormMain.MenuItemOptions,
@@ -261,6 +268,7 @@ begin
           Capture(FormPreferences, 'ui-preferences-dark');
         finally FormPreferences.Free; end;
         FormMain.ThemeClick(FormMain.ToolButtonTheme);
+        Application.ProcessMessages;
         Require(not FormMain.MenuItemTheme.Checked and not FormMain.ToolButtonTheme.Down,
           'Light theme menu and toolbar are synchronized');
         Settings.Load;

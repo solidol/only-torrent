@@ -128,10 +128,14 @@ def main():
         user.PostMessageW(window, 0x112, 0xF020, 0)
         wait_for(lambda: tray_handle(process.pid), 'Restored-task tray icon missing')
         user.PostMessageW(window, 0x112, 0xF060, 0)
-        assert process.wait(timeout=25) == 0, 'Close from tray must finish resume saving and terminate'
+        # ContinueClosing has two separate 15-second resume deadlines. Wait for
+        # that documented budget plus disk/thread cleanup, not less than it.
+        closing_started = time.monotonic()
+        assert process.wait(timeout=45) == 0, 'Close from tray must finish resume saving and terminate'
         row = task_rows(stored_profile, 'running', 'length(resume)')[0]
         assert row[0] == 0 and row[1] > 0, row
         report['close_with_task_saves_resume'] = True
+        report['shutdown_with_task_seconds'] = round(time.monotonic()-closing_started, 2)
         (ROOT / 'build/tray-window-summary.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
         print('PASS: close while in tray with a restored task saves resume and terminates completely')
     finally:

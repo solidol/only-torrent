@@ -7,7 +7,7 @@ uses
   System.Generics.Collections, Vcl.Forms, Vcl.Controls, Vcl.ComCtrls,
   Vcl.StdCtrls, Vcl.ExtCtrls, Vcl.Dialogs, Vcl.Menus, Vcl.ImgList, Vcl.ImageCollection, Vcl.VirtualImageList,
   Ot.Engine, Ot.Settings, System.ImageList, Vcl.ToolWin, Ot.TaskStore, Ot.TaskImport,
-  Ot.WatchFolder, Ot.TaskSort;
+  Ot.WatchFolder, Ot.TaskSort, Vcl.BaseImageCollection;
 
 type
   TTorrentEntry = class
@@ -136,12 +136,14 @@ type
     FClosing, FAllowClose, FFinalResume: Boolean;
     FAddingTorrent: Boolean;
     FInTray: Boolean;
+    FThemePending: Boolean;
     FWatcher: TOtWatchFolder;
     procedure UpdateSortHeader;
     procedure OpenLink(const Link: string);
     procedure ProcessActivation;
     procedure WMSysCommand(var Message: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMSize(var Message: TWMSize); message WM_SIZE;
+    procedure WMApplyTheme(var Message: TMessage); message WM_APP + 72;
     function AddTorrentFile(const FileName: string; ShowDialog, ReportErrors: Boolean;
       const MagnetLink: string = ''): Boolean;
     procedure RestoreTasks;
@@ -189,15 +191,22 @@ begin
 end;
 
 procedure TFormMain.BuildImages;
-var I, Offset: Integer;
+var I, Offset: Integer; ImageName: string;
 begin
   Offset := 0;
   if FSettings.DarkTheme then Offset := OtIconCount;
   VirtualImageListMain.BeginUpdate;
   try
     for I := 0 to OtIconCount-1 do
+    begin
+      // CollectionIndex also renames the virtual item in Delphi 13. Controls
+      // bind by ImageName, so keep that identity stable across both palettes.
+      ImageName := VirtualImageListMain.Images[I].Name;
       VirtualImageListMain.Images[I].CollectionIndex := Offset+I;
+      VirtualImageListMain.Images[I].Name := ImageName;
+    end;
   finally VirtualImageListMain.EndUpdate; end;
+  ToolBarMain.Invalidate;
   UpdateSortHeader;
 end;
 
@@ -1052,6 +1061,7 @@ begin
   ApplyAppearance(Self, FSettings.SystemTheme);
   UpdateSortHeader;
   ListViewTorrents.Invalidate;
+  UpdateDetails(True);
   RefreshTimerTimer(nil);
   Log(L('text.590da7f80c60', 'Налаштування застосовано.'));
 end;
@@ -1070,6 +1080,17 @@ end;
 procedure TFormMain.ThemeClick(Sender: TObject);
 var NewSettings: TOtSettings;
 begin
+  if Sender = ToolButtonTheme then
+  begin
+    // Finish the native toolbar's mouse/capture notification before switching
+    // styles: SetStyle destroys the very handles processing that notification.
+    if not FThemePending then
+    begin
+      FThemePending := True;
+      PostMessage(Handle, WM_APP + 72, 0, 0);
+    end;
+    Exit;
+  end;
   NewSettings := FSettings;
   NewSettings.DarkTheme := not FSettings.DarkTheme;
   try
@@ -1089,6 +1110,12 @@ begin
   ListViewTorrents.Invalidate;
   PaintBoxBlocks.Invalidate;
   PaintBoxSpeed.Invalidate;
+end;
+
+procedure TFormMain.WMApplyTheme(var Message: TMessage);
+begin
+  FThemePending := False;
+  if not FClosing then ThemeClick(nil);
 end;
 
 procedure TFormMain.ViewClick(Sender: TObject);
@@ -1286,7 +1313,7 @@ begin
 end;
 
 procedure TFormMain.UpdateDetails(RefreshFiles: Boolean);
-var Entry: TTorrentEntry; I: Integer; Item: TListItem; Text: string;
+var Entry: TTorrentEntry; I: Integer; Item: TListItem; Text, ErrorText: string;
 begin
   Entry := SelectedEntry;
   if Entry = nil then
@@ -1302,11 +1329,13 @@ begin
   end;
   LabelProgress.Caption := Format('%s  ·  %.1f %%',
     [StateText(Entry.Snapshot.State), Entry.Snapshot.Progress / 10000]);
+  ErrorText := UTF8ToString(PAnsiChar(@Entry.Snapshot.Error[0]));
+  if (ErrorText = '') and (Entry.Snapshot.State = 9) then ErrorText := Entry.LastError;
   Text := Entry.Metadata.Name + sLineBreak +
     L('text.491361bc906c', 'Завантажено: ') + SizeText(Entry.Snapshot.DoneBytes) + ' / ' + SizeText(Entry.Snapshot.TotalBytes) +
     L('text.93f8985b2e48', '     Сіди: ') + IntToStr(Entry.Snapshot.Seeds) + L('text.e2750335eedd', '     Піри: ') + IntToStr(Entry.Snapshot.Peers) + sLineBreak +
     L('text.5c7051dc859a', 'Папка: ') + Entry.Folder + sLineBreak +
-    UTF8ToString(PAnsiChar(@Entry.Snapshot.Error[0]));
+    ErrorText;
   if MemoInfo.Text <> Text then MemoInfo.Text := Text;
   if not RefreshFiles then Exit;
   ListViewFiles.Items.BeginUpdate;

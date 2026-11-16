@@ -200,7 +200,11 @@ begin
     PageControlSettings.ActivePageIndex := TreeViewCategories.Selected.Index;
     Result := True;
   except
-    on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0);
+    on E: Exception do
+    begin
+      TreeViewCategories.Selected := TreeViewCategories.Items[PageControlSettings.ActivePageIndex];
+      MessageDlg(E.Message, mtError, [mbOK], 0);
+    end;
   end;
 end;
 

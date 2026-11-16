@@ -14,8 +14,8 @@
   Font.Style = []
   Menu = MainMenuMain
   Position = poScreenCenter
-  OnCreate = FormCreate
   OnCloseQuery = FormCloseQuery
+  OnCreate = FormCreate
   OnDestroy = FormDestroy
   TextHeight = 15
   object SplitterLeft: TSplitter
@@ -44,22 +44,25 @@
       Hint = #1044#1086#1076#1072#1090#1080' .torrent-'#1092#1072#1081#1083' (Ctrl+O)'
       Caption = #1044#1086#1076#1072#1090#1080' '#1090#1086#1088#1088#1077#1085#1090
       ImageIndex = 0
+      ImageName = 'Icon0'
       OnClick = AddClick
     end
     object ToolButtonRemove: TToolButton
       Left = 34
       Top = 0
-      Hint = 'Видалити задачу; файли залишити'
-      Caption = 'Видалити задачу'
+      Hint = #1042#1080#1076#1072#1083#1080#1090#1080' '#1079#1072#1076#1072#1095#1091'; '#1092#1072#1081#1083#1080' '#1079#1072#1083#1080#1096#1080#1090#1080
+      Caption = #1042#1080#1076#1072#1083#1080#1090#1080' '#1079#1072#1076#1072#1095#1091
       ImageIndex = 1
+      ImageName = 'Icon1'
       OnClick = RemoveClick
     end
     object ToolButtonRemoveFiles: TToolButton
       Left = 68
       Top = 0
-      Hint = 'Видалити задачу та файли з диска'
-      Caption = 'Видалити задачу та файли з диска'
+      Hint = #1042#1080#1076#1072#1083#1080#1090#1080' '#1079#1072#1076#1072#1095#1091' '#1090#1072' '#1092#1072#1081#1083#1080' '#1079' '#1076#1080#1089#1082#1072
+      Caption = #1042#1080#1076#1072#1083#1080#1090#1080' '#1079#1072#1076#1072#1095#1091' '#1090#1072' '#1092#1072#1081#1083#1080' '#1079' '#1076#1080#1089#1082#1072
       ImageIndex = 6
+      ImageName = 'Icon6'
       OnClick = RemoveFilesClick
     end
     object ToolButtonSeparatorFirst: TToolButton
@@ -74,6 +77,7 @@
       Hint = #1055#1086#1095#1072#1090#1080' / '#1087#1088#1086#1076#1086#1074#1078#1080#1090#1080
       Caption = #1055#1091#1089#1082
       ImageIndex = 2
+      ImageName = 'Icon2'
       OnClick = StartClick
     end
     object ToolButtonPause: TToolButton
@@ -82,6 +86,7 @@
       Hint = #1055#1088#1080#1079#1091#1087#1080#1085#1080#1090#1080
       Caption = #1055#1072#1091#1079#1072
       ImageIndex = 3
+      ImageName = 'Icon3'
       OnClick = PauseClick
     end
     object ToolButtonSeparatorSecond: TToolButton
@@ -93,9 +98,10 @@
     object ToolButtonTheme: TToolButton
       Left = 190
       Top = 0
-      Caption = 'Темна тема'
-      Hint = 'Увімкнути темну тему'
+      Hint = #1059#1074#1110#1084#1082#1085#1091#1090#1080' '#1090#1077#1084#1085#1091' '#1090#1077#1084#1091
+      Caption = #1058#1077#1084#1085#1072' '#1090#1077#1084#1072
       ImageIndex = 7
+      ImageName = 'Icon7'
       Style = tbsCheck
       OnClick = ThemeClick
     end
@@ -105,6 +111,7 @@
       Hint = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103' (Ctrl+P)'
       Caption = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103
       ImageIndex = 4
+      ImageName = 'Icon4'
       OnClick = PreferencesClick
     end
   end
@@ -174,6 +181,7 @@
       ExplicitWidth = 932
       object TabSheetGeneral: TTabSheet
         Caption = #1047#1072#1075#1072#1083#1100#1085#1110
+        ImageName = 'Icon0'
         object PanelGeneral: TPanel
           Left = 0
           Top = 0
@@ -214,14 +222,14 @@
           end
           object MemoInfo: TMemo
             Left = 12
-            Top = 64
+            Top = 86
             Width = 900
-            Height = 119
+            Height = 97
             Anchors = [akLeft, akTop, akRight, akBottom]
             BorderStyle = bsNone
             ReadOnly = True
             ScrollBars = ssVertical
-            TabOrder = 1
+            TabOrder = 0
             ExplicitWidth = 898
           end
         end
@@ -229,6 +237,7 @@
       object TabSheetFiles: TTabSheet
         Caption = #1060#1072#1081#1083#1080
         ImageIndex = 5
+        ImageName = 'Icon5'
         object ListViewFiles: TListView
           Left = 0
           Top = 0
@@ -257,6 +266,7 @@
       object TabSheetTrackers: TTabSheet
         Caption = #1058#1088#1077#1082#1077#1088#1080
         ImageIndex = 4
+        ImageName = 'Icon4'
         object ListViewTrackers: TListView
           Left = 0
           Top = 0
@@ -281,6 +291,7 @@
       object TabSheetSpeed: TTabSheet
         Caption = #1064#1074#1080#1076#1082#1110#1089#1090#1100
         ImageIndex = 2
+        ImageName = 'Icon2'
         object PaintBoxSpeed: TPaintBox
           Left = 0
           Top = 0
@@ -292,6 +303,7 @@
       end
       object TabSheetLog: TTabSheet
         Caption = #1046#1091#1088#1085#1072#1083
+        ImageName = 'Icon0'
         object MemoLog: TMemo
           Left = 0
           Top = 0
@@ -312,7 +324,6 @@
       Align = alClient
       Columns = <
         item
-          Caption = ''
           Width = 32
         end
         item
@@ -360,17 +371,17 @@
           Width = 105
         end>
       HideSelection = False
+      MultiSelect = True
       ReadOnly = True
       RowSelect = True
       PopupMenu = PopupMenuTorrent
       SmallImages = VirtualImageListMain
       TabOrder = 0
       ViewStyle = vsReport
-      MultiSelect = True
+      OnAdvancedCustomDrawSubItem = DrawSubItem
       OnColumnClick = TorrentColumnClick
       OnCompare = TorrentCompare
       OnDblClick = TorrentDblClick
-      OnAdvancedCustomDrawSubItem = DrawSubItem
       OnInfoTip = TorrentInfoTip
       OnSelectItem = TorrentSelect
     end
@@ -386,12 +397,12 @@
         OnClick = AddClick
       end
       object MenuItemAddLink: TMenuItem
-        Caption = 'Додати HTTP / magnet-посилання...'
+        Caption = #1044#1086#1076#1072#1090#1080' HTTP / magnet-'#1087#1086#1089#1080#1083#1072#1085#1085#1103'...'
         ShortCut = 16469
         OnClick = AddLinkClick
       end
       object MenuItemImport: TMenuItem
-        Caption = 'Імпорт задач з BitComet / µTorrent...'
+        Caption = #1030#1084#1087#1086#1088#1090' '#1079#1072#1076#1072#1095' '#1079' BitComet / '#181'Torrent...'
         OnClick = ImportClick
       end
       object MenuItemExit: TMenuItem
@@ -407,14 +418,14 @@
         OnClick = PreferencesClick
       end
       object MenuItemUpdate: TMenuItem
-        Caption = 'Оновити'
+        Caption = #1054#1085#1086#1074#1080#1090#1080
         OnClick = UpdateClick
       end
     end
     object MenuItemView: TMenuItem
       Caption = #1042#1080#1075#1083#1103#1076
       object MenuItemTheme: TMenuItem
-        Caption = 'Темна тема'
+        Caption = #1058#1077#1084#1085#1072' '#1090#1077#1084#1072
         OnClick = ThemeClick
       end
       object MenuItemToolbar: TMenuItem
@@ -451,20 +462,17 @@
   end
   object TrayIconMain: TTrayIcon
     Hint = 'Only Torrent'
-    Visible = False
     OnClick = TrayClick
     Left = 624
     Top = 128
   end
   object TimerWatch: TTimer
     Enabled = False
-    Interval = 1000
     OnTimer = WatchTimer
     Left = 576
     Top = 128
   end
   object ImageCollectionMain: TImageCollection
-    InterpolationMode = icIMFant
     Images = <
       item
         Name = 'light-0'
@@ -5851,6 +5859,7 @@
               0049454E44AE426082}
           end>
       end>
+    InterpolationMode = icIMFant
     Left = 528
     Top = 128
   end
@@ -5974,15 +5983,15 @@
       OnClick = PauseClick
     end
     object MenuItemRecheck: TMenuItem
-      Caption = 'Примусово перевірити дані'
+      Caption = #1055#1088#1080#1084#1091#1089#1086#1074#1086' '#1087#1077#1088#1077#1074#1110#1088#1080#1090#1080' '#1076#1072#1085#1110
       OnClick = RecheckClick
     end
     object MenuItemRemove: TMenuItem
-      Caption = 'Видалити задачу'
+      Caption = #1042#1080#1076#1072#1083#1080#1090#1080' '#1079#1072#1076#1072#1095#1091
       OnClick = RemoveClick
     end
     object MenuItemRemoveFiles: TMenuItem
-      Caption = 'Видалити задачу та файли з диска'
+      Caption = #1042#1080#1076#1072#1083#1080#1090#1080' '#1079#1072#1076#1072#1095#1091' '#1090#1072' '#1092#1072#1081#1083#1080' '#1079' '#1076#1080#1089#1082#1072
       OnClick = RemoveFilesClick
     end
     object MenuItemFolder: TMenuItem
