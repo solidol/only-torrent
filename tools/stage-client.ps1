@@ -1,4 +1,4 @@
-param([string]$Folder = 'bin/Win64', [string]$Executable = 'build/persistence-candidate/otorrent.exe')
+param([string]$Folder = 'bin/Win64', [string]$Executable = 'bin/Win64/otorrent.exe')
 $ErrorActionPreference = 'Stop'
 $workspacePath = Split-Path $PSScriptRoot -Parent
 Set-Location $workspacePath

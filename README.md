@@ -114,6 +114,8 @@ python tests/persistence_restart.py
 Код: src/ui — форми, оформлення й налаштування; src/core — моделі й обчислення; src/engine — Delphi-адаптер і C ABI; native — тонкий міст і конфігурація залежностей; tests — перевірки; docs — план і дослідження. Перед поширенням див. THIRD_PARTY.md.
 # Збирання релізу
 
+Склад робочої папки та правила очищення: [docs/WORKSPACE.md](docs/WORKSPACE.md).
+
 Пакування для GitHub і правила версій: [docs/RELEASE.md](docs/RELEASE.md).
 Окремий ручний апдейтер `otupdater.exe`: [docs/UPDATER.md](docs/UPDATER.md).
 Виклик із меню налаштувань; перевірка, завантаження та встановлення — окремими
