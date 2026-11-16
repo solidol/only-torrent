@@ -26,6 +26,9 @@ type
     FAvailable, FInstalled, FClosing, FCheckStarted: Boolean;
     procedure StartAction(Action: TOtUpdateAction);
     procedure UpdateButtons;
+  protected
+    function CreateWorker(Action: TOtUpdateAction): TOtUpdateWorker; virtual;
+    procedure LaunchClient; virtual;
   public
     procedure Prepare(const Folder: string);
   end;
@@ -35,7 +38,7 @@ var FormUpdater: TFormUpdater;
 implementation
 
 uses System.SysUtils, System.IOUtils, System.SyncObjs, System.UITypes,
-  Vcl.Dialogs, Ot.Localization, Ot.FormLocalization;
+  Vcl.Dialogs, Ot.Localization, Ot.FormLocalization, Ot.UpdateLaunch;
 
 {$R *.dfm}
 
@@ -63,10 +66,16 @@ begin
   StartAction(uaCheck);
 end;
 
+function TFormUpdater.CreateWorker(Action: TOtUpdateAction): TOtUpdateWorker;
+begin Result := TOtUpdateWorker.Create(Action); end;
+
+procedure TFormUpdater.LaunchClient;
+begin LaunchUpdatedClient(FTarget); end;
+
 procedure TFormUpdater.StartAction(Action: TOtUpdateAction);
 begin
   if FWorker <> nil then Exit;
-  FWorker := TOtUpdateWorker.Create(Action);
+  FWorker := CreateWorker(Action);
   FWorker.TargetFolder := FTarget;
   FWorker.Release := FRelease;
   FWorker.StageFolder := FStage;
@@ -121,13 +130,13 @@ begin
       end;
       uaDownload: begin
         FStage := FWorker.StageFolder;
-        LabelStatus.Caption := L('update.ready', 'Пакет завантажено й перевірено. Для встановлення закрийте Only Torrent.');
+        LabelStatus.Caption := L('update.ready', 'Пакет перевірено. Починається встановлення…');
       end;
       uaInstall: begin
         FInstalled := True;
         FCurrent := FRelease.Version;
         LabelCurrent.Caption := LF('update.current', 'Встановлено: %s', [FCurrent]);
-        LabelStatus.Caption := L('update.installed', 'Оновлення встановлено. Запустіть Only Torrent вручну.');
+        LabelStatus.Caption := L('update.installed', 'Оновлення встановлено. Запуск Only Torrent…');
       end;
     end;
   FreeAndNil(FWorker);
@@ -142,6 +151,20 @@ begin
       else MessageDlg(Error, mtError, [mbOK], 0);
   end;
   UpdateButtons;
+  if (Error='') and (Action=uaInstall) then
+  begin
+    try
+      LaunchClient;
+      Close;
+    except
+      on E: Exception do
+      begin
+        LabelStatus.Caption := L('update.restartFailed','Оновлення встановлено, але програму не вдалося запустити. Запустіть Only Torrent вручну.')+sLineBreak+E.Message;
+        MessageDlg(LabelStatus.Caption,mtError,[mbOK],0);
+      end;
+    end;
+    Exit;
+  end;
   if FClosing then Close
   else if (Error = '') and (Action = uaDownload) then StartAction(uaInstall);
 end;

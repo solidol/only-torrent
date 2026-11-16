@@ -330,11 +330,11 @@
   "update.available": "Останній реліз: %s",
   "update.found": "Доступне оновлення. Натисніть «Оновити».",
   "update.currentLatest": "Новішої версії немає.",
-  "update.ready": "Пакет завантажено й перевірено. Для встановлення закрийте Only Torrent.",
-  "update.installed": "Оновлення встановлено. Запустіть Only Torrent вручну.",
+  "update.ready": "Пакет перевірено. Починається встановлення…",
+  "update.installed": "Оновлення встановлено. Запуск Only Torrent…",
   "FormUpdater.LabelCurrent.Caption": "Встановлено:",
   "FormUpdater.LabelAvailable.Caption": "Останній реліз:",
-  "FormUpdater.LabelNotice.Caption": "Натисніть «Оновити» для завантаження й встановлення. Перед заміною файлів Only Torrent буде закрито автоматично зі збереженням задач.",
+  "FormUpdater.LabelNotice.Caption": "Оновлює програму й апдейтер. Only Torrent буде закрито зі збереженням задач, а після успішного оновлення — запущено знову.",
   "FormUpdater.LabelStatus.Caption": "Перевірка оновлень…",
   "FormMain.MenuItemUpdate.Caption": "Оновити",
   "FormUpdater.FormUpdater.Caption": "Оновлення — Only Torrent",
@@ -376,5 +376,7 @@
   "FormMain.ListViewTorrents.Columns.8": "Віддача",
   "FormMain.ListViewTorrents.Columns.9": "Завантажено",
   "FormMain.ListViewTorrents.Columns.10": "Залишилось",
-  "FormMain.ListViewTorrents.Columns.11": "Віддано"
+  "FormMain.ListViewTorrents.Columns.11": "Віддано",
+  "update.restartMissing": "Не вдалося запустити оновлену програму: файл відсутній або оновлення не завершено.",
+  "update.restartFailed": "Оновлення встановлено, але програму не вдалося запустити. Запустіть Only Torrent вручну."
 }

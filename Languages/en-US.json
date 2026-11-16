@@ -330,11 +330,11 @@
   "update.available": "Latest release: %s",
   "update.found": "An update is available. Click Update.",
   "update.currentLatest": "No newer version is available.",
-  "update.ready": "The package has been downloaded and verified. Close Only Torrent before installing.",
-  "update.installed": "Update installed. Start Only Torrent manually.",
+  "update.ready": "Package verified. Starting installation…",
+  "update.installed": "Update installed. Starting Only Torrent…",
   "FormUpdater.LabelCurrent.Caption": "Installed:",
   "FormUpdater.LabelAvailable.Caption": "Latest release:",
-  "FormUpdater.LabelNotice.Caption": "Click Update to download and install. Only Torrent will close automatically, saving its tasks before files are replaced.",
+  "FormUpdater.LabelNotice.Caption": "Updates the application and updater. Only Torrent closes after saving tasks and starts again after a successful update.",
   "FormUpdater.LabelStatus.Caption": "Checking for updates…",
   "FormMain.MenuItemUpdate.Caption": "Update",
   "FormUpdater.FormUpdater.Caption": "Updates - Only Torrent",
@@ -376,5 +376,7 @@
   "FormMain.ListViewTorrents.Columns.8": "Upload",
   "FormMain.ListViewTorrents.Columns.9": "Downloaded",
   "FormMain.ListViewTorrents.Columns.10": "Remaining",
-  "FormMain.ListViewTorrents.Columns.11": "Uploaded"
+  "FormMain.ListViewTorrents.Columns.11": "Uploaded",
+  "update.restartMissing": "Cannot start the updated application: its executable is missing or the update is incomplete.",
+  "update.restartFailed": "The update is installed, but the application could not be started. Start Only Torrent manually."
 }

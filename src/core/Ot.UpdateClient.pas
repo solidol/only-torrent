@@ -130,7 +130,8 @@ begin
     Result := ((Parts[0] = 'Languages') and ((Parts[1] = 'uk-UA.json') or (Parts[1] = 'en-US.json'))) or
       ((Parts[0] = 'licenses') and ((Parts[1] = 'libtorrent-LICENSE.txt') or
         (Parts[1] = 'boost-LICENSE.txt') or (Parts[1] = 'THIRD_PARTY.md') or
-        (Parts[1] = 'libtorrent-COPYING.txt') or (Parts[1] = 'LICENSE')));
+        (Parts[1] = 'libtorrent-COPYING.txt') or (Parts[1] = 'LICENSE') or
+        (Parts[1] = 'Fluent-System-Icons-LICENSE.txt')));
 end;
 
 function SafePath(const Root, Name: string): string;

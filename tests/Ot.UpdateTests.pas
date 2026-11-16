@@ -8,7 +8,7 @@ procedure UpdateNetworkLegacyFixture;
 implementation
 
 uses Winapi.Windows, System.SysUtils, System.Classes, System.IOUtils, System.JSON,
-  System.Hash, System.Zip, System.SyncObjs, Ot.UpdateClient;
+  System.Hash, System.Zip, System.SyncObjs, Ot.UpdateClient, Ot.UpdateLaunch;
 
 type
   TFixtureUpdateWorker = class(TOtUpdateWorker)
@@ -54,7 +54,7 @@ end;
 
 procedure UpdateModels(const OldExecutable: string);
 var Root, Stage, Target, Version, Archive, ArchiveName, Downloaded, BadArchive, OldHash: string;
-  Token: TGUID; Manifest, Files: TJSONObject; Zip: TZipFile; Name, OldBackup: string;
+  Token: TGUID; Manifest, Files: TJSONObject; Zip: TZipFile; Name, OldBackup, CopyName, OldUpdaterHash: string;
   Names: TArray<string>; Worker: TFixtureUpdateWorker; Failed: Boolean; Lock: THandle;
   procedure DownloadFixture(const ZipName, Hash: string; ExpectSuccess: Boolean);
   begin
@@ -81,6 +81,7 @@ var Root, Stage, Target, Version, Archive, ArchiveName, Downloaded, BadArchive, 
   begin
     ForceDirectories(Folder);
     TFile.Copy(OldExecutable, TPath.Combine(Folder, 'otorrent.exe'), True);
+    TFile.Copy(OldExecutable,TPath.Combine(Folder,'otupdater.exe'),True);
   end;
 begin
   Require(CompareVersions('0.2.1.1', '0.1.10.999') > 0, 'Minor rollover comparison');
@@ -92,8 +93,11 @@ begin
   CreateGUID(Token);
   Root := ExpandFileName('..\build\update-test-' + GUIDToString(Token));
   Stage := TPath.Combine(Root, 'fixture'); ForceDirectories(Stage);
+  Failed:=False;
+  try LaunchUpdatedClient(TPath.Combine(Root,'missing-client')); except on E: Exception do Failed:=True; end;
+  Require(Failed,'Missing updated executable must produce a recoverable launch error');
   Names := TArray<string>.Create('otorrent.exe', 'otupdater.exe', 'ltbridge.dll',
-    'torrent-rasterbar.dll',  'Languages/uk-UA.json', 'Languages/en-US.json', 'runtime.json', 'version.json');
+    'torrent-rasterbar.dll',  'Languages/uk-UA.json', 'Languages/en-US.json', 'runtime.json', 'version.json', 'licenses/Fluent-System-Icons-LICENSE.txt');
   Version := InstalledVersion('..\bin\Win64\otorrent.exe');
   Require(InstalledVersion('..\bin\Win64\otupdater.exe') = Version, 'Rebuild updater after main version changes');
   Require(CompareVersions(Version, InstalledVersion(OldExecutable)) > 0, 'Need an older fixture executable');
@@ -130,6 +134,10 @@ begin
   Require(not FileExists(TPath.Combine(Root, 'escape.txt')), 'Archive escaped staging');
   Target := TPath.Combine(Root, 'locked'); PrepareTarget(Target);
   OldHash := THashSHA2.GetHashStringFromFile(TPath.Combine(Target, 'otorrent.exe'));
+  OldUpdaterHash:=THashSHA2.GetHashStringFromFile(TPath.Combine(Target,'otupdater.exe'));
+  CopyName:=CreateUpdaterCopy(Target);
+  Require(not SameFileName(CopyName,TPath.Combine(Target,'otupdater.exe')),'Updater runs from a detached path');
+  Require(THashSHA2.GetHashStringFromFile(CopyName)=OldUpdaterHash,'Temporary updater is byte-exact');
   Lock := CreateFile(PChar(TPath.Combine(Target, 'otorrent.exe')), GENERIC_READ, 0, nil, OPEN_EXISTING, 0, 0);
   Require(Lock <> INVALID_HANDLE_VALUE, 'Fixture lock');
   try
@@ -144,7 +152,7 @@ begin
   try InstallUpdate(Downloaded, Target, Version); except on E: Exception do Failed := True; end;
   Require(Failed, 'Expected mid-install failure');
   Require(THashSHA2.GetHashStringFromFile(TPath.Combine(Target, 'otorrent.exe')) = OldHash, 'Rollback did not restore old executable');
-  Require(not FileExists(TPath.Combine(Target, 'otupdater.exe')), 'Rollback retained a newly added file');
+  Require(THashSHA2.GetHashStringFromFile(TPath.Combine(Target,'otupdater.exe'))=OldUpdaterHash,'Rollback restores the old updater too');
   Require(not FileExists(TPath.Combine(Target, '.ot-update.pending')), 'Successful rollback left pending marker');
   Require(Length(TDirectory.GetDirectories(Target, '.ot-update-backup-*')) > 0,
     'Failed update must preserve backups');
@@ -157,6 +165,8 @@ begin
   TFile.WriteAllText(TPath.Combine(OldBackup, 'otorrent.exe'), 'old backup', TEncoding.UTF8);
   InstallUpdate(Downloaded, Target, Version);
   VerifyUpdateStage(Target, Version);
+  Require(InstalledVersion(TPath.Combine(Target,'otupdater.exe'))=Version,'Updater itself is upgraded');
+  Require(THashSHA2.GetHashStringFromFile(TPath.Combine(Target,'otupdater.exe'))=THashSHA2.GetHashStringFromFile(TPath.Combine(Stage,'otupdater.exe')),'Installed updater matches package');
   Require(TFile.ReadAllText(TPath.Combine(Target, 'user-data.txt'), TEncoding.UTF8) = 'keep', 'Unrelated data changed');
   Require(not FileExists(TPath.Combine(Target, '.ot-update.pending')), 'Successful update left pending marker');
   Require(Length(TDirectory.GetDirectories(Target, '.ot-update-backup-*')) = 0,

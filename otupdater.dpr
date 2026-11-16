@@ -28,6 +28,9 @@ begin
     Language := ParamStr(4);
     if not FileExists(TPath.Combine(Folder, 'otorrent.exe')) then
       raise EFileNotFoundException.Create('otorrent.exe not found in the target folder');
+    // Direct launch with --target must detach too, or its own EXE remains locked.
+    if SameFileName(ExpandFileName(ParamStr(0)),TPath.Combine(Folder,'otupdater.exe')) then
+    begin LaunchUpdater(0,Folder,Language); Exit; end;
     LoadLanguage(Language, TPath.Combine(Folder, 'Languages'));
     Application.Initialize;
     Application.MainFormOnTaskbar := True;

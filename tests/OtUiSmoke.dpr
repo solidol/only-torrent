@@ -1,6 +1,7 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.UpdaterUiTests in 'Ot.UpdaterUiTests.pas',
   Ot.IconPreview in 'Ot.IconPreview.pas',
   Ot.TableUiTests in 'Ot.TableUiTests.pas',
   Ot.TaskSort in '..\src\core\Ot.TaskSort.pas',
@@ -118,6 +119,8 @@ begin
         SetEnvironmentVariable('OT_PROFILE_DIR', PChar(ExpandFileName('..\build\ui-profile')));
       Application.Initialize;
       Application.ShowMainForm := False;
+      if ParamStr(1)='--update-fixture' then
+      begin RunUpdaterUiFixture(ParamStr(2),ParamStr(3),ParamStr(4)); Exit; end;
       if ParamCount=0 then TableUiModels;
       Application.CreateForm(TFormMain, FormMain);
       Require(FormMain.MenuItemUpdate.Parent = FormMain.MenuItemOptions,

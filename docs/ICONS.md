@@ -8,4 +8,4 @@ ImageCollectionMain містить PNG для світлої/темної тем
 
 Збережені play/pause першої колонки та бордове завантаження в колонці стану. Візуальний огляд готових ресурсів — resources/icons/fluent/preview.png. Новий build зібрано без запуску застосунку й тестів; фактичне відображення форм у цьому білді не перевірялося. Windows 7 не перевірялася.
 
-MIT-повідомлення включено в licenses/Fluent-System-Icons-LICENSE.txt runtime-пакета.
+MIT-повідомлення включено в licenses/THIRD_PARTY.md runtime-пакета.
