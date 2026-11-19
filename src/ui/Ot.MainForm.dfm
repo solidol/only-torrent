@@ -387,64 +387,85 @@
     end
   end
   object MainMenuMain: TMainMenu
+    AutoHotkeys = maManual
     Left = 384
     Top = 80
     object MenuItemFile: TMenuItem
-      Caption = #1060#1072#1081#1083
+      Caption = 'Файл (&F)'
       object MenuItemAdd: TMenuItem
-        Caption = #1044#1086#1076#1072#1090#1080' '#1090#1086#1088#1088#1077#1085#1090'...'
+        Caption = 'Додати торрент... (&T)'
         ShortCut = 16463
         OnClick = AddClick
       end
       object MenuItemAddLink: TMenuItem
-        Caption = #1044#1086#1076#1072#1090#1080' HTTP / magnet-'#1087#1086#1089#1080#1083#1072#1085#1085#1103'...'
+        Caption = 'Додати HTTP / magnet-посилання... (&L)'
         ShortCut = 16469
         OnClick = AddLinkClick
       end
       object MenuItemImport: TMenuItem
-        Caption = #1030#1084#1087#1086#1088#1090' '#1079#1072#1076#1072#1095' '#1079' BitComet / '#181'Torrent...'
+        Caption = 'Імпорт задач... (&I)'
+        ShortCut = 24649
         OnClick = ImportClick
       end
       object MenuItemExit: TMenuItem
-        Caption = #1042#1080#1093#1110#1076
+        Caption = 'Вихід (&X)'
+        ShortCut = 32883
         OnClick = ExitClick
       end
     end
     object MenuItemOptions: TMenuItem
-      Caption = #1053#1072#1083#1072#1096#1090#1091#1074#1072#1085#1085#1103
+      Caption = 'Налаштування (&S)'
       object MenuItemPreferences: TMenuItem
-        Caption = #1055#1072#1088#1072#1084#1077#1090#1088#1080'...'
+        Caption = 'Параметри... (&P)'
         ShortCut = 16464
         OnClick = PreferencesClick
       end
       object MenuItemUpdate: TMenuItem
-        Caption = #1054#1085#1086#1074#1080#1090#1080
+        Caption = 'Оновити (&U)'
+        ShortCut = 24661
         OnClick = UpdateClick
       end
     end
     object MenuItemView: TMenuItem
-      Caption = #1042#1080#1075#1083#1103#1076
+      Caption = 'Вигляд (&V)'
       object MenuItemTheme: TMenuItem
-        Caption = #1058#1077#1084#1085#1072' '#1090#1077#1084#1072
+        Caption = 'Темна тема (&D)'
+        ShortCut = 24644
         OnClick = ThemeClick
       end
       object MenuItemToolbar: TMenuItem
+        Caption = 'Панель інструментів (&T)'
+        ShortCut = 24660
         AutoCheck = True
-        Caption = #1055#1072#1085#1077#1083#1100' '#1110#1085#1089#1090#1088#1091#1084#1077#1085#1090#1110#1074
         Checked = True
         OnClick = ViewClick
       end
       object MenuItemSidebar: TMenuItem
+        Caption = 'Бічна панель (&S)'
+        ShortCut = 16450
         AutoCheck = True
-        Caption = #1041#1110#1095#1085#1072' '#1087#1072#1085#1077#1083#1100
         Checked = True
         OnClick = ViewClick
       end
       object MenuItemDetails: TMenuItem
+        Caption = 'Панель відомостей (&I)'
+        ShortCut = 16452
         AutoCheck = True
-        Caption = #1055#1072#1085#1077#1083#1100' '#1074#1110#1076#1086#1084#1086#1089#1090#1077#1081
         Checked = True
         OnClick = ViewClick
+      end
+    end
+    object MenuItemHelp: TMenuItem
+      Caption = 'Довідка (&H)'
+      object MenuItemAbout: TMenuItem
+        Caption = 'Про програму... (&A)'
+        ShortCut = 8304
+        OnClick = AboutClick
+      end
+      object MenuItemHelpContents: TMenuItem
+        Caption = 'Довідка (&H)'
+        ShortCut = 112
+        Enabled = False
       end
     end
   end

@@ -1,6 +1,10 @@
 ﻿program OtUiSmoke;
 
 uses
+  Ot.MenuFeatureTests in 'Ot.MenuFeatureTests.pas',
+  Ot.TrackerMerge in '..\src\core\Ot.TrackerMerge.pas',
+  Ot.AboutText in '..\src\core\Ot.AboutText.pas',
+  Ot.AboutForm in '..\src\ui\Ot.AboutForm.pas' {FormAbout},
   Ot.InterfaceAudit in 'Ot.InterfaceAudit.pas',
   Ot.UpdaterUiTests in 'Ot.UpdaterUiTests.pas',
   Ot.IconPreview in 'Ot.IconPreview.pas',
@@ -128,7 +132,11 @@ begin
       if ParamStr(1)='--update-fixture' then
       begin RunUpdaterUiFixture(ParamStr(2),ParamStr(3),ParamStr(4)); Exit; end;
       if ParamStr(1)='--interface-audit' then begin RunInterfaceAudit; Exit; end;
-      if ParamCount=0 then TableUiModels;
+      if ParamCount=0 then
+      begin
+        MenuFeatureModels; TableUiModels;
+        Output.Add('PASS: ordered tracker union, bounded bridge requests, stable English menu keys, disabled Help and bilingual file-backed About');
+      end;
       Application.CreateForm(TFormMain, FormMain);
       Require(FormMain.MenuItemUpdate.Parent = FormMain.MenuItemOptions,
         'Update command is in the Settings menu');

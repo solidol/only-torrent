@@ -45,6 +45,9 @@ type
     MenuItemToolbar: TMenuItem;
     MenuItemSidebar: TMenuItem;
     MenuItemDetails: TMenuItem;
+    MenuItemHelp: TMenuItem;
+    MenuItemAbout: TMenuItem;
+    MenuItemHelpContents: TMenuItem;
     ToolBarMain: TToolBar;
     ToolButtonAdd: TToolButton;
     ToolButtonRemove: TToolButton;
@@ -108,6 +111,7 @@ type
     procedure TorrentSelect(Sender: TObject; Item: TListItem; Selected: Boolean);
     procedure PreferencesClick(Sender: TObject);
     procedure UpdateClick(Sender: TObject);
+    procedure AboutClick(Sender: TObject);
     procedure CategoryChange(Sender: TObject; Node: TTreeNode);
     procedure ThemeClick(Sender: TObject);
     procedure ViewClick(Sender: TObject);
@@ -140,6 +144,8 @@ type
     FWatcher: TOtWatchFolder;
     procedure UpdateSortHeader;
     procedure OpenLink(const Link: string);
+    procedure DuplicateTorrent(Entry: TTorrentEntry; Metadata: TOtMetadata; Notify: Boolean);
+    procedure SelectEntry(Entry: TTorrentEntry);
     procedure ProcessActivation;
     procedure WMSysCommand(var Message: TWMSysCommand); message WM_SYSCOMMAND;
     procedure WMSize(var Message: TWMSize); message WM_SIZE;
@@ -172,6 +178,8 @@ type
       out Added: Boolean): string;
   protected
     procedure OpenTaskFolder(const Folder: string); virtual;
+  public
+    function IsShortCut(var Message: TWMKey): Boolean; override;
   end;
 
 var FormMain: TFormMain;
@@ -180,7 +188,7 @@ implementation
 
 uses Ot.StatusIcons, System.IOUtils, System.Math, System.StrUtils, Winapi.CommCtrl, Winapi.ShellAPI,
   Vcl.Graphics, Ot.Appearance, Ot.AddTorrentForm, Ot.PreferencesForm, Ot.TransferMath, Ot.BlockMap, Ot.Profile, Ot.Localization, Ot.FormLocalization,
-  Ot.ImportTasksForm, Ot.AddLinkForm, Ot.Activation, Ot.UpdateLaunch;
+  Ot.ImportTasksForm, Ot.AddLinkForm, Ot.Activation, Ot.UpdateLaunch, Ot.AboutForm, Ot.TrackerMerge;
 
 {$R *.dfm}
 
@@ -535,6 +543,32 @@ begin
   except on E: Exception do MessageDlg(E.Message, mtError, [mbOK], 0); end;
 end;
 
+procedure TFormMain.AboutClick(Sender: TObject);
+var FormDialog: TFormAbout;
+begin
+  if FClosing then Exit;
+  FormDialog := TFormAbout.Create(Self);
+  try FormDialog.Prepare(FSettings.SystemTheme); FormDialog.ShowModal;
+  finally FormDialog.Free; end;
+end;
+
+function TFormMain.IsShortCut(var Message: TWMKey): Boolean;
+begin
+  if not FClosing and (Application.ModalLevel=0) and not MenuItemHelpContents.Enabled and
+    (Message.CharCode=VK_F1) and ((Message.KeyData and $20000000)=0) and
+    (GetKeyState(VK_SHIFT)>=0) and (GetKeyState(VK_CONTROL)>=0) then Exit(True);
+  // Use virtual Latin keys, not translated WM_SYSCHAR characters. This also
+  // works when the keyboard layout is Ukrainian rather than English.
+  if not FClosing and (Application.ModalLevel=0) and
+    ((Message.KeyData and $20000000)<>0) and (GetKeyState(VK_CONTROL)>=0) and
+    (Message.CharCode in [Ord('F'),Ord('S'),Ord('V'),Ord('H')]) then
+  begin
+    PostMessage(Handle,WM_SYSCOMMAND,SC_KEYMENU,Message.CharCode);
+    Exit(True);
+  end;
+  Result := inherited IsShortCut(Message);
+end;
+
 procedure TFormMain.AddLinkClick(Sender: TObject);
 begin
   OpenLink('');
@@ -629,7 +663,7 @@ begin
       for Existing in FEntries do
         if SameText(Existing.Stored.InfoHash, Metadata.InfoHash) then
         begin
-          Log(L('source.duplicate', 'Торрент уже є у списку: ') + Metadata.Name);
+          DuplicateTorrent(Existing,Metadata,ReportErrors);
           Exit;
         end;
       Folder := FSettings.DownloadFolder;
@@ -723,6 +757,68 @@ begin
     Metadata.Free;
     FAddingTorrent := False;
   end;
+end;
+
+procedure TFormMain.SelectEntry(Entry: TTorrentEntry);
+var Item: TListItem;
+begin
+  TreeViewSidebar.Selected := TreeViewSidebar.Items[0];
+  FNeedsRebuild := True; UpdateRows;
+  for Item in ListViewTorrents.Items do
+  begin
+    Item.Selected := Item.Data=Entry;
+    if Item.Selected then begin Item.Focused := True; Item.MakeVisible(False); end;
+  end;
+  UpdateButtons; UpdateDetails(True);
+end;
+
+procedure TFormMain.DuplicateTorrent(Entry: TTorrentEntry; Metadata: TOtMetadata; Notify: Boolean);
+var Merge: TOtTrackerMerge; Previous: TArray<string>; Task: TOtStoredTask;
+begin
+  Log(L('source.duplicate','Торрент уже є у списку: ')+Metadata.Name);
+  // Background watching must remain non-modal and must not modify an existing
+  // task without the user's confirmation.
+  if not Notify then Exit;
+  SelectEntry(Entry);
+  if Entry.DeletingId<>0 then
+  begin
+    MessageDlg(L('duplicate.deleting','Цей торрент уже є у списку, але його файли зараз видаляються.'),mtInformation,[mbOK],0);
+    Exit;
+  end;
+  Merge := MergeTrackers(Entry.Metadata.Trackers,Metadata.Trackers);
+  if Length(Merge.Added)=0 then
+  begin
+    MessageDlg(LF('duplicate.noNew','Торрент «%s» уже є у списку. Нових трекерів немає.',[Entry.Metadata.Name]),mtInformation,[mbOK],0);
+    Exit;
+  end;
+  if MessageDlg(LF('duplicate.prompt','Торрент «%s» уже є у списку. Додати нові трекери з відкритого файлу (%d)?',
+    [Entry.Metadata.Name,Length(Merge.Added)]),mtConfirmation,[mbYes,mbNo],0,mbNo)<>mrYes then Exit;
+  // Validate all bounded requests before committing any changes.
+  if Length(TrackerRequests(Entry.Stored.InfoHash,Merge.Added))=0 then Exit;
+  Task := Entry.Stored;
+  Previous := Entry.Metadata.Trackers;
+  Entry.Metadata.Trackers := Merge.All;
+  try Task.Details := TaskDetails(Entry.Metadata,Entry.Priorities,Entry.Options);
+  finally Entry.Metadata.Trackers := Previous; end;
+  FStore.Save(Task);
+  Entry.Stored := Task;
+  Entry.Metadata.Trackers := Merge.All;
+  Entry.Options.Trackers := string.Join(sLineBreak,Merge.All);
+  if Entry.Id>0 then
+    try
+      FEngine.AddTrackers(Entry.Id,Entry.Stored.InfoHash,Merge.Added);
+      if not Entry.ResumePending then
+      begin FEngine.RequestResume(Entry.Id,True); Entry.ResumePending := True; end;
+    except
+      on E: Exception do
+      begin
+        Log(E.Message);
+        MessageDlg(L('duplicate.savedOnly','Трекери збережено, але застосувати їх до поточної сесії не вдалося. Вони будуть використані після повторного відкриття програми.')+
+          sLineBreak+E.Message,mtWarning,[mbOK],0);
+      end;
+    end;
+  UpdateDetails(True);
+  Log(LF('duplicate.added','Додано нових трекерів: %d.',[Length(Merge.Added)]));
 end;
 
 function TFormMain.SelectedEntry: TTorrentEntry;
@@ -1068,10 +1164,10 @@ end;
 
 procedure TFormMain.UpdateThemeControls;
 begin
-  MenuItemTheme.Caption := L('theme.dark', 'Темна тема');
+  MenuItemTheme.Caption := L('FormMain.MenuItemTheme.Caption', 'Темна тема (&D)');
   MenuItemTheme.Checked := FSettings.DarkTheme;
   ToolButtonTheme.Down := FSettings.DarkTheme;
-  ToolButtonTheme.Caption := MenuItemTheme.Caption;
+  ToolButtonTheme.Caption := L('theme.dark', 'Темна тема');
   if FSettings.DarkTheme then
     ToolButtonTheme.Hint := L('theme.switchLight', 'Увімкнути світлу тему')
   else ToolButtonTheme.Hint := L('theme.switchDark', 'Увімкнути темну тему');

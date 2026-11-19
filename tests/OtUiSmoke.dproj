@@ -60,6 +60,10 @@
         <DCC_Define>DEBUG;$(DCC_Define)</DCC_Define>
     </PropertyGroup>
     <ItemGroup>
+        <DCCReference Include="Ot.MenuFeatureTests.pas"/>
+        <DCCReference Include="..\src\core\Ot.TrackerMerge.pas"/>
+        <DCCReference Include="..\src\core\Ot.AboutText.pas"/>
+        <DCCReference Include="..\src\ui\Ot.AboutForm.pas"><Form>FormAbout</Form><FormType>dfm</FormType></DCCReference>
         <DCCReference Include="Ot.InterfaceAudit.pas"/>
         <DCCReference Include="Ot.UpdaterUiTests.pas"/>
         <DCCReference Include="Ot.IconPreview.pas"/>

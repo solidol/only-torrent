@@ -16,7 +16,7 @@ def python(name,*extra):
 for name in ('project_structure','languages','separation','upstream_integrity'):python(name)
 cases.append(('Core',[str(ROOT/'bin/Win64/OtCoreTests.exe')],ROOT/'tests','core-tests.txt'))
 cases.append(('UI',[str(ROOT/'bin/Win64/OtUiSmoke.exe')],ROOT/'tests','ui-smoke.txt'))
-for name in ('interface_audit','interface_native','engine_smoke','network_transfer','add_options','block_map','upload_total',
+for name in ('interface_audit','interface_native','duplicate_menus','engine_smoke','network_transfer','add_options','block_map','upload_total',
              'batch_tasks','torrent_sources','persistence_restart','tray_window','bitcomet_import',
              'release_integration','update_shutdown','updater_detach','update_restart'):python(name)
 cases.append(('network_transfer_udp',[sys.executable,str(ROOT/'tests/network_transfer.py'),'--udp'],ROOT,None))
@@ -26,7 +26,8 @@ results=[]
 for name,command,cwd,report in cases:
  start=time.monotonic();print('RUN:',name,flush=True)
  try:
-  result=subprocess.run(command,cwd=cwd,env=env,capture_output=True,timeout=180)
+  result=subprocess.run(command,cwd=cwd,env=env,capture_output=True,
+                        timeout=300 if name=='duplicate_menus' else 180)
   output=result.stdout.decode('utf-8','replace')+result.stderr.decode('utf-8','replace')
   if report:output+='\n'+(ROOT/'build'/report).read_text(encoding='utf-8-sig')
   code=result.returncode

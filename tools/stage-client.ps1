@@ -17,7 +17,7 @@ $manifest = @{ bridgeAbi = 2; storageSchema = 1; storage = 'json'; files = @{} }
 if (Test-Path -LiteralPath (Join-Path $destinationPath 'otupdater.exe')) {
   $manifest.files['otupdater.exe'] = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $destinationPath 'otupdater.exe')).Hash.ToLowerInvariant()
 }
-foreach ($fileName in @('otorrent.exe','ltbridge.dll','torrent-rasterbar.dll','Languages/uk-UA.json','Languages/en-US.json')) {
+foreach ($fileName in @('otorrent.exe','ltbridge.dll','torrent-rasterbar.dll','Languages/uk-UA.json','Languages/en-US.json','README.md')) {
   $manifest.files[$fileName] = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $destinationPath $fileName)).Hash.ToLowerInvariant()
 }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -Encoding UTF8 (Join-Path $destinationPath 'client-build.json')

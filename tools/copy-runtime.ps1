@@ -29,4 +29,7 @@ Copy-Item -LiteralPath $manifestPath -Destination (Join-Path $targetPath 'runtim
 $languageFolder = Join-Path $targetPath 'Languages'
 New-Item -ItemType Directory -Force $languageFolder | Out-Null
 Get-ChildItem -LiteralPath (Join-Path $workspacePath 'Languages') -Filter '*.json' -File | Copy-Item -Destination $languageFolder
+# Keep the existing runtime filename so previously released updaters can still
+# install this package. The editable source is the separate bilingual ABOUT.md.
+Copy-Item -LiteralPath (Join-Path $workspacePath 'ABOUT.md') -Destination (Join-Path $targetPath 'README.md')
 Write-Output "Runtime ready: $targetPath"

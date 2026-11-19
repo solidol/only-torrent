@@ -19,7 +19,7 @@ try {
   if ([Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $root "$package/otupdater.exe")).FileVersion -ne $number) { throw 'Updater version differs from version.json' }
   & "$PSScriptRoot/stage-client.ps1" -Folder $package -Executable $exe
   Copy-Item version.json (Join-Path $package 'version.json')
-  foreach ($name in @('README.md','LICENSE')) {
+  foreach ($name in @('LICENSE')) {
     if (Test-Path -LiteralPath $name) { Copy-Item -LiteralPath $name -Destination $package }
   }
   $commit = & git -c "safe.directory=$root" rev-parse HEAD

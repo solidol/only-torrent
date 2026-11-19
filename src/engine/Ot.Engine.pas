@@ -82,11 +82,24 @@ type
     function CanRemoveFiles: Boolean;
     function PollRemoval(out Id: Integer; out ErrorText: string): Boolean;
     procedure Command(Id, Value: Integer); // 0 pause, 1 resume, 2 remove, 3 remove with data
+    procedure AddTrackers(Id: Integer; const InfoHash: string; const Trackers: TArray<string>);
   end;
 
 implementation
 
-uses Ot.Localization, System.Classes, Ot.BlockMap, Ot.TaskOptions;
+uses Ot.Localization, System.Classes, Ot.BlockMap, Ot.TaskOptions, Ot.TrackerMerge;
+
+procedure TOtEngine.AddTrackers(Id: Integer; const InfoHash: string; const Trackers: TArray<string>);
+var Request: string; Uri: UTF8String; Requests: TArray<string>;
+begin
+  if not Assigned(FApplyMagnet) then raise Exception.Create(L('source.magnetDll', 'Потрібна ltbridge.dll з підтримкою magnet-посилань.'));
+  Requests := TrackerRequests(InfoHash,Trackers);
+  for Request in Requests do
+  begin
+    Uri := UTF8String(Request);
+    Check(FApplyMagnet(FSession,Id,PAnsiChar(Uri)));
+  end;
+end;
 
 function TOtEngine.Resolve(const Name: AnsiString): Pointer;
 begin

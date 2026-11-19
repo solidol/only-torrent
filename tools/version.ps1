@@ -1,4 +1,4 @@
-param([switch]$NextRelease, [switch]$NextBuild)
+﻿param([switch]$NextRelease, [switch]$NextBuild)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $mutex = [Threading.Mutex]::new($false, 'Local\OnlyTorrent.Version')
@@ -32,6 +32,12 @@ try {
   $rc = [regex]::Replace($rc, '(?m)^(FILEVERSION|PRODUCTVERSION) .+$', '${1} ' + $number.Replace('.',','))
   $rc = [regex]::Replace($rc, '(VALUE "(?:FileVersion|ProductVersion)", ")[^"\\]+', '${1}' + $number)
   [IO.File]::WriteAllText($rcPath, $rc, $utf8)
+  $aboutPath = Join-Path $root 'ABOUT.md'
+  if (Test-Path -LiteralPath $aboutPath) {
+    $about = [IO.File]::ReadAllText($aboutPath)
+    $about = [regex]::Replace($about, '(?m)^(Версія|Version): [^\r\n]*', '${1}: ' + $number)
+    [IO.File]::WriteAllText($aboutPath, $about, $utf8)
+  }
   Write-Output $number
 } finally {
   if ($owned) { $mutex.ReleaseMutex() }

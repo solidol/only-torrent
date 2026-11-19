@@ -61,6 +61,10 @@ begin
   Require(Pos('1.2.3.4',ReadAboutText(TPath.Combine(Folder,'missing'),'en-US','1.2.3.4'))>0,'Missing file remains a readable version notice');
   TFile.WriteAllText(TPath.Combine(Folder,'plain.md'),'Editable description',TEncoding.UTF8);
   Require(ReadAboutText(TPath.Combine(Folder,'plain.md'),'en-US','1.2.3.4')='Editable description','Plain custom text is supported');
+  TFile.WriteAllText(TPath.Combine(Folder,'plain.md'),'Version: 1.2.3.4'+sLineBreak+'English'+sLineBreak+
+    'Версія: 1.2.3.4'+sLineBreak+'Українська',TEncoding.UTF8);
+  Require(Pos('English',ReadAboutText(TPath.Combine(Folder,'plain.md'),'en-US','1.2.3.4'))>0,'Version markers select English without headings');
+  Require(Pos('English',ReadAboutText(TPath.Combine(Folder,'plain.md'),'uk-UA','1.2.3.4'))=0,'Version markers separate Ukrainian text');
   FormProbe := TFormMenuProbe.Create(nil);
   try
     FormProbe.TimerRefresh.Enabled := False;
@@ -83,6 +87,12 @@ begin
       end;
       Require(FormProbe.MenuItemAbout.ShortCut=ShortCut(VK_F1,[ssShift]),'About shortcut');
       Require(not FormProbe.MenuItemHelpContents.Enabled,'Help contents remain unavailable');
+      Message := Default(TWMKey); Message.Msg := WM_KEYDOWN; Message.CharCode := VK_F1;
+      Require(FormProbe.IsShortCut(Message),'Disabled Help does not invoke an unconfigured help provider');
+      FormProbe.MenuItemSidebar.Click;
+      Require(not FormProbe.TreeViewSidebar.Visible,'Sidebar menu command hides the sidebar');
+      FormProbe.MenuItemSidebar.Click;
+      Require(FormProbe.TreeViewSidebar.Visible,'Sidebar menu command restores the sidebar');
       Require(FormProbe.MainMenuMain.AutoHotkeys=maManual,'No translated auto-mnemonics');
       FormAbout := TFormAbout.Create(nil);
       try

@@ -1,6 +1,9 @@
 ﻿program otorrent;
 
 uses
+  Ot.TrackerMerge in 'src\core\Ot.TrackerMerge.pas',
+  Ot.AboutText in 'src\core\Ot.AboutText.pas',
+  Ot.AboutForm in 'src\ui\Ot.AboutForm.pas' {FormAbout},
   Ot.TaskSort in 'src\core\Ot.TaskSort.pas',
   Winapi.Windows, Winapi.Messages, System.SysUtils,
   Ot.Activation in 'src\core\Ot.Activation.pas',
