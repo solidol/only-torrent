@@ -2,10 +2,11 @@
 
 interface
 procedure TableUiModels;
+procedure TableSelection;
 
 implementation
 
-uses System.SysUtils, System.Classes, Vcl.ComCtrls, Vcl.Controls,
+uses System.SysUtils, System.Classes, Winapi.Windows, Winapi.CommCtrl, Vcl.Forms, Vcl.ComCtrls, Vcl.Controls,
   Ot.MainForm, Ot.Types, Ot.PreferencesForm, Ot.StatusIcons, Ot.Appearance,
   Vcl.Graphics, System.Types, Ot.IconPreview;
 
@@ -113,4 +114,57 @@ begin
   end;
 end;
 
+procedure TableSelection;
+var FormProbe: TFormMainProbe; Entry: TTorrentEntry; Row: TListItem;
+  Bitmap: TBitmap; ThemeIndex, FocusIndex, I, Y: Integer; R, Cell: TRect;
+  Expected, Actual: Longint; LabelName: string;
+  procedure CompareCell(Column: Integer);
+  begin
+    ListView_GetSubItemRect(FormProbe.ListViewTorrents.Handle,0,Column,LVIR_BOUNDS,@Cell);
+    Actual := ColorToRGB(Bitmap.Canvas.Pixels[Cell.Right-5,Y]);
+    Require((Abs(Integer(GetRValue(Actual))-GetRValue(Expected))<=8) and
+      (Abs(Integer(GetGValue(Actual))-GetGValue(Expected))<=8) and
+      (Abs(Integer(GetBValue(Actual))-GetBValue(Expected))<=8),
+      Format('%s: column %d background differs from the native row (%x / %x)',[LabelName,Column,Actual,Expected]));
+  end;
+begin
+  FormProbe := TFormMainProbe.Create(nil); Entry := TTorrentEntry.Create; Bitmap := TBitmap.Create;
+  try
+    FormProbe.TimerRefresh.Enabled := False; FormProbe.TimerWatch.Enabled := False;
+    Entry.Metadata := TOtMetadata.Create; Entry.Metadata.Name := 'Selection display test';
+    Entry.Snapshot.State := 5; Entry.Snapshot.Progress := 1000000;
+    SetLength(Entry.Blocks.Verified,30); SetLength(Entry.Blocks.Received,30); SetLength(Entry.Blocks.Requested,30);
+    for I := 0 to 29 do Entry.Blocks.Verified[I] := 255;
+    Row := FormProbe.ListViewTorrents.Items.Add; Row.Data := Entry;
+    for I := 0 to 10 do Row.SubItems.Add('');
+    Row.SubItems[0] := Entry.Metadata.Name;
+    FormProbe.Show;
+    for ThemeIndex := 0 to 1 do
+    begin
+      SetDarkTheme(ThemeIndex=1);
+      ApplyAppearance(FormProbe,True);
+      for FocusIndex := 0 to 1 do
+      begin
+        Row := FormProbe.ListViewTorrents.Items[0];
+        Row.Selected := True; Row.Focused := True;
+        if FocusIndex=1 then FormProbe.ListViewTorrents.SetFocus
+        else FormProbe.TreeViewSidebar.SetFocus;
+        FormProbe.ListViewTorrents.Invalidate; FormProbe.ListViewTorrents.Update;
+        Application.ProcessMessages;
+        Bitmap.SetSize(FormProbe.ListViewTorrents.ClientWidth,FormProbe.ListViewTorrents.ClientHeight);
+        R := Rect(0,0,Bitmap.Width,Bitmap.Height);
+        Bitmap.Canvas.CopyRect(R,FormProbe.ListViewTorrents.Canvas,R);
+        LabelName := Format('selection-theme%d-focus%d',[ThemeIndex,FocusIndex]);
+        Bitmap.SaveToFile('..\build\'+LabelName+'.bmp');
+        ListView_GetSubItemRect(FormProbe.ListViewTorrents.Handle,0,2,LVIR_BOUNDS,@Cell);
+        Y := Cell.Bottom-5;
+        Expected := ColorToRGB(Bitmap.Canvas.Pixels[Cell.Right-5,Y]);
+        CompareCell(3); CompareCell(4);
+      end;
+    end;
+  finally
+    FormProbe.ListViewTorrents.Items.Clear; FormProbe.Free; Entry.Free; Bitmap.Free;
+    SetDarkTheme(False);
+  end;
+end;
 end.

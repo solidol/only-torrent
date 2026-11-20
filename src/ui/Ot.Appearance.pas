@@ -6,7 +6,7 @@ uses Vcl.Controls, Vcl.Graphics, System.Types, Ot.Types;
 
 procedure ApplyAppearance(Control: TWinControl; SystemTheme: Boolean);
 procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TOtBlockMap;
-  Selected: Boolean; const Caption: string);
+  Selected: Boolean; const Caption: string; PaintBackground: Boolean = True);
 procedure SetDarkTheme(Enabled: Boolean);
 function ThemeColor(Color: TColor): TColor;
 function SizeText(Value: Int64): string;
@@ -64,7 +64,7 @@ begin
 end;
 
 procedure DrawBlockFence(Canvas: TCanvas; const Bounds: TRect; const Map: TOtBlockMap;
-  Selected: Boolean; const Caption: string);
+  Selected: Boolean; const Caption: string; PaintBackground: Boolean);
 var R, Plot, Bar, Fill, TextBounds: TRect; I, Count: Integer;
   DisplayMap: TOtBlockMap; VerifiedColor, ReceivedColor: TColor;
   Color: Longint; OldMode: Integer;
@@ -85,7 +85,7 @@ begin
     Canvas.Brush.Color := ThemeColor(clHighlight);
     Canvas.Font.Color := ThemeColor(clHighlightText);
   end;
-  Canvas.FillRect(R);
+  if PaintBackground then Canvas.FillRect(R);
   Plot := R;
   InflateRect(Plot, -3, -3);
   TextBounds := Plot;

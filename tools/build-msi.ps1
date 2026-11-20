@@ -93,7 +93,7 @@ $wxs = @"
 "@
 $source = Join-Path $work 'OnlyTorrent.wxs'
 [IO.File]::WriteAllText($source, $wxs, [Text.UTF8Encoding]::new($false))
-& $candle -nologo -arch x64 -out "$work\" $source
+& $candle -nologo -arch x64 -out (Join-Path $work 'OnlyTorrent.wixobj') $source
 if ($LASTEXITCODE -ne 0) { throw 'MSI compilation failed' }
 & $light -nologo -ext (Join-Path $WixRoot 'WixUIExtension.dll') -cultures:en-us -out $output (Join-Path $work 'OnlyTorrent.wixobj')
 if ($LASTEXITCODE -ne 0) { throw 'MSI linking/validation failed' }

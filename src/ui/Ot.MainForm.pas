@@ -1573,18 +1573,17 @@ begin
   if Entry = nil then Exit;
   if ListView_GetSubItemRect(ListViewTorrents.Handle, Item.Index, SubItem, LVIR_BOUNDS, @Bounds) then
   begin
+    // The list view already painted the native full-row background.
+    // Draw only our content so selected cells keep that same background.
     if SubItem = 4 then
     begin
-      if Item.Selected then ListViewTorrents.Canvas.Brush.Color := ThemeColor(clHighlight)
-      else ListViewTorrents.Canvas.Brush.Color := ThemeColor(clWindow);
-      ListViewTorrents.Canvas.FillRect(Bounds);
       VirtualImageListMain.Draw(ListViewTorrents.Canvas,
         Bounds.Left+(Bounds.Width-VirtualImageListMain.Width) div 2,
         Bounds.Top+(Bounds.Height-VirtualImageListMain.Height) div 2,
         TorrentStateIcon(Entry.Snapshot.State,Entry.Snapshot.UploadRate > 0,Entry.DeletingId <> 0));
     end
     else DrawBlockFence(ListViewTorrents.Canvas, Bounds, Entry.Blocks,
-      Item.Selected, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]));
+      False, Format('%.1f %%', [Entry.Snapshot.Progress / 10000]), False);
     DefaultDraw := False;
   end;
 end;

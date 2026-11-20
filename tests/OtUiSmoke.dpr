@@ -132,6 +132,9 @@ begin
       if ParamStr(1)='--update-fixture' then
       begin RunUpdaterUiFixture(ParamStr(2),ParamStr(3),ParamStr(4)); Exit; end;
       if ParamStr(1)='--interface-audit' then begin RunInterfaceAudit; Exit; end;
+      if ParamStr(1)='--selection-test' then
+      begin TableSelection; Output.Add('PASS: native row selection matches progress and status cells in light/dark themes, focused/unfocused');
+        Output.SaveToFile('..\build\selection-test.txt',TEncoding.UTF8); Exit; end;
       if ParamCount=0 then
       begin
         MenuFeatureModels; TableUiModels;
